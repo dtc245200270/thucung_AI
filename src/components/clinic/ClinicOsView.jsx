@@ -64,7 +64,9 @@ import {
   Maximize2
 } from 'lucide-react';
 import { sound } from '../../services/soundService';
-import { getActiveAppointments, saveActiveAppointments } from '../../services/storageService';
+import { getActiveAppointments, saveActiveAppointments, getMedicalRecords, addMedicalRecord, updateMedicalRecord, finalizeEhrAndAppointment } from '../../services/storageService';
+import { getTodayVnDate, getVnDateString, addDaysLocal } from '../../utils/dateUtils.js';
+import { VET_FACILITIES } from '../../constants/clinicFacilities.js';
 
 // Chuẩn hóa trạng thái ca khám chuẩn lâm sàng quốc tế
 export const normalizeAppStatus = (status) => {
@@ -98,14 +100,11 @@ export const isEmergencyApp = (app) => {
 // Kiểm tra khớp bộ lọc ngày: 'all' | 'today' | 'tomorrow'
 export const isAppointmentDateMatch = (app, dateFilter) => {
   if (!dateFilter || dateFilter === 'all') return true;
-  const now = new Date();
-  const todayYMD = now.toLocaleDateString('en-CA');
-  const tomorrowObj = new Date(now);
-  tomorrowObj.setDate(tomorrowObj.getDate() + 1);
-  const tomorrowYMD = tomorrowObj.toLocaleDateString('en-CA');
+  const todayYMD = getTodayVnDate();
+  const tomorrowYMD = addDaysLocal(todayYMD, 1);
 
-  const appDate = String(app.date || '').trim();
-  const appCreatedAt = String(app.createdAt || '').slice(0, 10);
+  const appDate = app.date ? getVnDateString(app.date) : '';
+  const appCreatedAt = app.createdAt ? getVnDateString(app.createdAt) : '';
 
   if (dateFilter === 'today') {
     if (appDate === todayYMD || appDate === 'Hôm nay' || appDate === 'today') return true;
@@ -153,7 +152,7 @@ export const ClinicOsView = ({
 
   // 1. Context Switcher State (Multi-tenant & Branch & Role & Tier)
   const [currentTenant, setCurrentTenant] = useState('PetCare Central Hospital Group');
-  const [currentBranch, setCurrentBranch] = useState('branch_1'); // 'branch_1' | 'branch_2' | 'branch_3'
+  const [currentBranch, setCurrentBranch] = useState(VET_FACILITIES[0]?.id || '2vet');
   const [currentRole, setCurrentRole] = useState('HeadVet'); // 'Owner' | 'HeadVet' | 'AssociateVet' | 'Nurse' | 'Receptionist' | 'Cashier'
   const [currentPlan, setCurrentPlan] = useState('Enterprise'); // 'Starter' | 'Growth' | 'Enterprise'
   const [dunningStatus, setDunningStatus] = useState('Active'); // 'Active' | 'GracePeriod' | 'ReadOnly'
@@ -191,7 +190,7 @@ export const ClinicOsView = ({
 
   // BỘ LƯU TRỮ DÙNG CHUNG petcare_active_appointments
   const [activeAppointments, setActiveAppointments] = useState(() => {
-    return getActiveAppointments();
+    return (appointments && appointments.length > 0) ? appointments : getActiveAppointments();
   });
 
   // Dropdown liên kết ca bệnh trong Phòng Lab & X-quang
@@ -199,6 +198,33 @@ export const ClinicOsView = ({
     const list = getActiveAppointments();
     return list[0]?.id || 'BK-1727250001';
   });
+
+  useEffect(() => {
+    if (Array.isArray(appointments) && appointments.length > 0) {
+      setActiveAppointments(appointments);
+      if (!appointments.some(a => a.id === selectedLinkedAppId)) {
+        setSelectedLinkedAppId(appointments[0].id);
+      }
+    }
+  }, [appointments]);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      const apps = getActiveAppointments();
+      setActiveAppointments(apps);
+      if (apps.length > 0 && !apps.some(a => a.id === selectedLinkedAppId)) {
+        setSelectedLinkedAppId(apps[0].id);
+      }
+    };
+    window.addEventListener('petcare_appointments_updated', handleUpdate);
+    window.addEventListener('petcare_data_synced', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('petcare_appointments_updated', handleUpdate);
+      window.removeEventListener('petcare_data_synced', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, [selectedLinkedAppId]);
 
   const totalQueueCount = activeAppointments.length;
   const pendingQueueCount = activeAppointments.filter(a => normalizeAppStatus(a.status) === 'pending').length;
@@ -265,49 +291,45 @@ export const ClinicOsView = ({
     };
   }, [selectedLinkedAppId]);
 
-  const branches = [
-    { id: 'branch_1', name: 'Chi nhánh 1: Cầu Giấy (Hà Nội)', address: '128 Cầu Giấy, Q. Cầu Giấy, Hà Nội', phone: '024.7300.8899', doctorsCount: 6 },
-    { id: 'branch_2', name: 'Chi nhánh 2: Quận 1 (TP.HCM)', address: '45 Nguyễn Thị Minh Khai, P. Bến Nghé, Q.1', phone: '028.7300.9988', doctorsCount: 8 },
-    { id: 'branch_3', name: 'Chi nhánh 3: Thảo Điền (TP. Thủ Đức)', address: '88 Xuân Thủy, P. Thảo Điền, TP. Thủ Đức', phone: '028.7300.6677', doctorsCount: 4 }
-  ];
+  const branches = VET_FACILITIES.map(fac => ({
+    id: fac.id,
+    name: fac.name,
+    address: fac.address,
+    phone: fac.hotline,
+    doctorsCount: 1
+  }));
 
   const activeBranchData = branches.find(b => b.id === currentBranch) || branches[0];
 
   // -------------------------------------------------------------
   // PILLAR 1: BỆNH ÁN SOAP & AI MEDICAL SCRIBE
   // -------------------------------------------------------------
-  const displayPets = (pets && pets.length > 0) ? pets : [
-    { id: 'pet-1', name: 'Mochi', breed: 'Chó Golden Retriever', species: 'dog', weight: 24.5 },
-    { id: 'pet-2', name: 'Luna', breed: 'Mèo Anh Lông Ngắn', species: 'cat', weight: 4.2 },
-    { id: 'pet-3', name: 'Bánh Bao', breed: 'Thỏ Minilop', species: 'rabbit', weight: 1.6 }
-  ];
+  const displayPets = (pets && pets.length > 0) ? pets : [];
 
-  const [selectedPetForExam, setSelectedPetForExam] = useState(pets[0]?.id || 'pet-1');
-  const examPet = displayPets.find(p => p.id === selectedPetForExam) || displayPets[0];
+  const [selectedPetForExam, setSelectedPetForExam] = useState(pets?.[0]?.id || '');
+  const examPet = displayPets.find(p => p.id === selectedPetForExam) || displayPets[0] || null;
 
   // SOAP Inputs
   const [soapData, setSoapData] = useState({
-    subjective: 'Chủ nuôi báo: Mochi nôn dịch vàng 2 lần sáng nay, bỏ ăn bữa trưa, vùng da bụng dưới mẩn đỏ ngứa ngáy dữ dội, gãi nhiều.',
-    allergyAlert: 'Dị ứng nghiêm trọng với kháng sinh nhóm Penicillin / Amoxicillin',
+    subjective: '',
+    objective: '',
+    plan: '',
+    allergyAlert: '',
     vitals: {
-      temp: '39.1',
-      hr: '110',
-      rr: '28',
-      bp: '125/80',
-      crt: '< 2s',
-      mucous: 'Hồng nhạt',
-      bcs: '5/9 (Lý tưởng)'
+      temp: '',
+      hr: '',
+      rr: '',
+      bp: '',
+      crt: '',
+      mucous: '',
+      bcs: ''
     },
-    labSummary: 'CẬN LÂM SÀNG (AI OCR): ALT: 142 U/L [Tăng cao], WBC: 18.4 x10^9/L [Tăng cao], CREA: 1.1 mg/dL [Bình thường], BUN: 18.2 mg/dL [Bình thường], RBC: 6.8 x10^12/L [Bình thường]. Định hướng: Tăng men gan ALT & Viêm da dị ứng.',
-    labSummaryLinkedApp: 'BK-1727250001',
-    assessment: 'Viêm da dị ứng cấp tính (Canine Atopic Dermatitis - CAD) nghi do thức ăn hoặc bọ chét + Rối loạn tiêu hóa nhẹ.',
-    vetIcdCode: 'CAD-0492 / Vet-SNOMED: 238514002',
-    planMedications: [
-      { id: 'med-1', name: 'Apoquel 16mg (Oclacitinib)', dose: '1 viên', freq: '1 lần/ngày (SID)', days: 7, qty: 7, uom: 'Viên', batch: 'Lô AP-2026B', price: 45000 },
-      { id: 'med-2', name: 'Men vi sinh Vet-Entero Pet', dose: '1 gói', freq: '2 lần/ngày (BID)', days: 5, qty: 10, uom: 'Gói', batch: 'Lô ET-9912', price: 18000 },
-      { id: 'med-3', name: 'Sữa tắm bọt trị liệu Dermoscent Bio-Balm', dose: 'Thoa ngoài da', freq: '2 ngày/lần', days: 14, qty: 1, uom: 'Chai 150ml', batch: 'Lô DM-2027A', price: 320000 }
-    ],
-    followUpDate: '2026-10-03 (Sau 7 ngày)'
+    labSummary: '',
+    labSummaryLinkedApp: '',
+    assessment: '',
+    vetIcdCode: '',
+    planMedications: [],
+    followUpDate: ''
   });
 
   // AI Scribe State
@@ -315,8 +337,8 @@ export const ClinicOsView = ({
   const [scribeAudioSeconds, setScribeAudioSeconds] = useState(0);
   const [scribeTranscript, setScribeTranscript] = useState('');
   const [isSignOffLocked, setIsSignOffLocked] = useState(false);
-  const [signOffPin, setSignOffPin] = useState('');
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [isFinalizingEhr, setIsFinalizingEhr] = useState(false);
   const [isAllergyAcknowledged, setIsAllergyAcknowledged] = useState(false);
   const [isDraftSaved, setIsDraftSaved] = useState(false);
   const [previewImageModal, setPreviewImageModal] = useState(null);
@@ -344,32 +366,39 @@ export const ClinicOsView = ({
   ]);
 
   // HÀM TIẾP NHẬN CA KHÁM: CẬP NHẬT TRẠNG THÁI, NẠP THÔNG TIN VÀO SOAP VÀ CHUYỂN TAB
-  const handleStartConsultation = (app) => {
-    try { sound?.playSuccess?.(); } catch {}
-
+  const handleStartConsultation = async (app) => {
     // Bước 1: Cập nhật trạng thái ca khám thành 'in_progress' (Đang trong phòng khám)
     const nextStatus = 'in_progress';
+
+    if (onUpdateAppointment) {
+      try {
+        await onUpdateAppointment(app.id, { status: nextStatus });
+      } catch (err) {
+        alert(err.message || 'Không thể tiếp nhận ca khám do trạng thái hoặc phân quyền không hợp lệ.');
+        return;
+      }
+    }
+
+    try { sound?.playSuccess?.(); } catch {}
 
     const updated = activeAppointments.map(a => 
       a.id === app.id ? { ...a, status: nextStatus } : a
     );
     setActiveAppointments(updated);
     saveActiveAppointments(updated);
-    if (onUpdateAppointment) {
-      onUpdateAppointment(app.id, { status: nextStatus });
-    }
-
-    // Bước 2: Lưu ID bé đang chọn vào state: setSelectedPatientId(item.id) & liên kết Phòng Lab
-    setSelectedPatientId(app.id);
-    setSelectedLinkedAppId(app.id);
 
     const matchedPet = (pets && pets.length > 0)
       ? (pets.find(p => p.id === app.petId || p.name?.toLowerCase() === app.petName?.toLowerCase())
          || pets[0])
       : null;
+
+    // Bước 2: Giữ riêng appointmentId và petId (tránh lưu appointmentId thành petId)
+    const actualPetId = app.petId || matchedPet?.id || null;
+    setSelectedPatientId(actualPetId);
+    setSelectedLinkedAppId(app.id);
     
-    if (matchedPet) {
-      setSelectedPetForExam(matchedPet.id);
+    if (actualPetId) {
+      setSelectedPetForExam(actualPetId);
     }
 
     // Bước 3: Đổi activeTab sang tab Bệnh án: setActiveClinicTab('soap') (tương ứng với tab "Quản lý Bệnh án (SOAP)")
@@ -381,19 +410,38 @@ export const ClinicOsView = ({
       : '';
 
     setIsAllergyAcknowledged(false); // Chưa xác nhận -> hiển thị banner cảnh báo đỏ
-    setIsSignOffLocked(false);
+    const records = getMedicalRecords();
+    const existingRecord = records.find(r => r.appointmentId === app.id);
 
-    setSoapData(prev => ({
-      ...prev,
-      subjective: initialSymptom,
-      allergyAlert: (app.petName?.toLowerCase() === 'mochi' || matchedPet?.name?.toLowerCase() === 'mochi')
-        ? 'Dị ứng Penicillin / Amoxicillin và dị ứng nhẹ thịt bò'
-        : 'Chưa ghi nhận tiền sử dị ứng thuốc nghiêm trọng',
-      vitals: {
-        ...prev.vitals,
-        weight: matchedPet?.weight ? `${matchedPet.weight} kg` : ''
-      }
-    }));
+    if (existingRecord) {
+      setSoapData({
+        planMedications: [],
+        vaccines: [],
+        ...(existingRecord.soap || {
+          subjective: initialSymptom,
+          objective: '', assessment: '', plan: '',
+          labSummary: '', vitals: { weight: matchedPet?.weight ? `${matchedPet.weight} kg` : '', temp: '', hr: '', bp: '' }
+        })
+      });
+      setIsSignOffLocked(!!existingRecord.isFinal);
+    } else {
+      const petAllergyNote = matchedPet?.notes || app.note || '';
+      const hasAllergyMention = petAllergyNote.toLowerCase().includes('dị ứng');
+      setSoapData({
+        subjective: initialSymptom,
+        objective: '', assessment: '', plan: '', labSummary: '',
+        allergyAlert: hasAllergyMention
+          ? petAllergyNote
+          : (petAllergyNote?.trim() ? petAllergyNote : 'Chưa có thông tin dị ứng (Cần kiểm tra trước khi kê đơn)'),
+        planMedications: [],
+        vaccines: [],
+        vitals: {
+          weight: matchedPet?.weight ? `${matchedPet.weight} kg` : '',
+          temp: '', hr: '', bp: ''
+        }
+      });
+      setIsSignOffLocked(false);
+    }
 
     try {
       confetti({ particleCount: 50, spread: 60 });
@@ -424,7 +472,7 @@ export const ClinicOsView = ({
       date: new Date().toLocaleDateString('en-CA'),
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
       facility: activeBranchData?.name || 'Chi nhánh Cầu Giấy (Phòng khám 02)',
-      doctor: 'BS. Hoàng Hải Nam',
+      doctor: currentUser?.name || 'Bác sĩ trực ca',
       note: walkinFormData.note.trim() || (isEmergency ? 'Ca cấp cứu ưu tiên: Nôn dịch vàng, mệt lả' : 'Khám trực tiếp tại quầy'),
       status: 'pending',
       isEmergency,
@@ -464,20 +512,21 @@ export const ClinicOsView = ({
       interval = setInterval(() => {
         setScribeAudioSeconds(s => s + 1);
       }, 1000);
-    } else {
-      clearInterval(interval);
-      setScribeAudioSeconds(0);
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [isScribeRecording]);
 
   const toggleScribeRecording = () => {
     sound.playClick();
     if (!isScribeRecording) {
+      setScribeAudioSeconds(0);
       setIsScribeRecording(true);
       setScribeTranscript('Đang lắng nghe cuộc trao đổi lâm sàng giữa Bác sĩ và Chủ nuôi...');
+      const pName = examPet?.name || 'thú cưng';
       setTimeout(() => {
-        setScribeTranscript('BS: Chào chị Lan, hôm nay bé Mochi có biểu hiện gì bất thường ạ? | Khách: Dạ bé nôn dịch vàng từ sáng, bụng dưới đỏ ửng ngứa ngáy nhiều lắm bác sĩ ơi.');
+        setScribeTranscript(`[Mô phỏng ghi âm hội thoại] BS: Chào bạn, hôm nay bé ${pName} có biểu hiện gì bất thường ạ? | Khách: Dạ bé có biểu hiện mệt mỏi và chán ăn từ sáng, nhờ bác sĩ kiểm tra giúp ạ.`);
       }, 2500);
     } else {
       setIsScribeRecording(false);
@@ -488,92 +537,169 @@ export const ClinicOsView = ({
 
   const handleApplyScribeToSoap = () => {
     sound.playSuccess();
+    const transcribedText = scribeTranscript || 'Ghi âm hội thoại lâm sàng: Ghi nhận triệu chứng từ người nuôi để bác sĩ đối chiếu lâm sàng.';
     setSoapData(prev => ({
       ...prev,
-      subjective: 'AI Scribe tự động trích xuất: Mochi nôn dịch vàng 2 lần, bỏ ăn, ngứa gãi vùng bụng. Tiền sử dị ứng Amoxicillin được kiểm tra an toàn.',
-      vitals: {
-        ...prev.vitals,
-        temp: '39.1',
-        hr: '112'
-      }
+      subjective: prev.subjective ? `${prev.subjective}\n[AI Scribe Tham Khảo]: ${transcribedText}` : `[AI Scribe Tham Khảo]: ${transcribedText}`
     }));
   };
 
   // Nhật ký xuất kho điều trị (FEFO Audit Log)
-  const [inventoryLogs, setInventoryLogs] = useState([
-    {
-      id: 'LOG-1028',
-      timestamp: '2026-09-26 09:15',
-      action: 'Xuất kho điều trị (SOAP)',
-      medicine: 'Apoquel 16mg (Oclacitinib)',
-      batchNumber: 'AP-2026B',
-      quantity: '-7 Viên',
-      remaining: 142,
-      patient: 'Mochi (Golden Retriever)',
-      doctor: 'BS. Hoàng Hải Nam',
-      reason: 'Đơn thuốc ngoại trú - Viêm da dị ứng cấp CAD'
-    },
-    {
-      id: 'LOG-1025',
-      timestamp: '2026-09-25 15:40',
-      action: 'Xuất kho tiêm chủng',
-      medicine: 'Vắc-xin Nobivac DHPPi 7 Bệnh',
-      batchNumber: 'NV-2026C',
-      quantity: '-1 Lọ/Liều',
-      remaining: 18,
-      patient: 'Luna (Mèo Anh Lông Ngắn)',
-      doctor: 'BS. Lê Cẩm Tú',
-      reason: 'Tiêm phòng định kỳ mũi 1'
+  const [inventoryLogs, setInventoryLogs] = useState([]);
+
+  const saveSoapToBackend = async (isFinal) => {
+    if (!selectedLinkedAppId) {
+      alert('Vui lòng chọn một ca khám để ghi bệnh án!');
+      return false;
     }
-  ]);
-
-  const handleSignOffEhr = () => {
-    sound.playSuccess();
-    setIsSignOffLocked(true);
-    setIsPinModalOpen(false);
-
-    // Trừ tồn kho dược FEFO: Lô AP-2026B giảm 7 viên (142 -> 135)
-    let updatedRemaining = 135;
-    setInventoryItems(prev => prev.map(item => {
-      if (item.batchNumber === 'AP-2026B') {
-        const nextStock = Math.max(0, item.stock - 7);
-        updatedRemaining = nextStock;
-        return { ...item, stock: nextStock, reserved: 0 };
+    
+    try {
+      const records = getMedicalRecords();
+      const existing = records.find(r => r.appointmentId === selectedLinkedAppId);
+      
+      const recordData = {
+        appointmentId: selectedLinkedAppId,
+        petId: selectedPatientId,
+        vetId: currentUser?.id,
+        soap: soapData,
+        isFinal: isFinal,
+        updatedAt: new Date().toISOString()
+      };
+      
+      if (isFinal) {
+        recordData.confirmedAt = new Date().toISOString();
+        recordData.confirmedBy = currentUser?.name;
       }
-      return item;
-    }));
 
-    // Ghi nhật ký xuất kho điều trị
-    const now = new Date();
-    const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const newLog = {
-      id: `LOG-${Date.now().toString().slice(-4)}`,
-      timestamp: timeStr,
-      action: 'Xuất kho điều trị (Ký số SOAP)',
-      medicine: 'Apoquel 16mg (Oclacitinib)',
-      batchNumber: 'AP-2026B',
-      quantity: '-7 Viên',
-      remaining: updatedRemaining,
-      patient: `${examPet?.name || 'Mochi'} (${examPet?.breed || 'Golden Retriever'})`,
-      doctor: currentUser?.name || 'BS. Hoàng Hải Nam',
-      reason: 'Ký số đơn thuốc SOAP #EHR-2026-9812: Điều trị Viêm da dị ứng CAD'
-    };
-    setInventoryLogs(prev => [newLog, ...prev]);
+      if (existing) {
+        if (existing.isFinal) {
+          recordData.history = existing.history || [];
+          recordData.history.push({
+            editedAt: new Date().toISOString(),
+            previousData: existing.soap
+          });
+        }
+        await updateMedicalRecord(existing.id, recordData);
+      } else {
+        await addMedicalRecord(recordData);
+      }
+      return true;
+    } catch (e) {
+      console.error('Save SOAP error', e);
+      alert('Lỗi khi lưu bệnh án: ' + e.message);
+      return false;
+    }
+  };
 
-    confetti({ particleCount: 60, spread: 70 });
+  const handleSignOffEhr = async () => {
+    if (isFinalizingEhr) return;
+    if (!selectedLinkedAppId) {
+      alert('Vui lòng chọn một ca khám để chốt bệnh án!');
+      return;
+    }
+
+    const linkedApp = activeAppointments.find(a => a.id === selectedLinkedAppId);
+    const patientId = linkedApp?.petId || selectedPatientId || examPet?.id;
+    if (!patientId) {
+      alert('Vui lòng chọn thú cưng cho ca khám!');
+      return;
+    }
+
+    setIsFinalizingEhr(true);
+    try {
+      // Nghiệp vụ đơn nhất ở backend: Chốt bệnh án & Chuyển lịch khám sang completed
+      const finalizeRes = await finalizeEhrAndAppointment({
+        appointmentId: selectedLinkedAppId,
+        petId: patientId,
+        soap: soapData
+      });
+
+      sound.playSuccess();
+      setIsSignOffLocked(true);
+      setIsPinModalOpen(false);
+
+      // Cập nhật trạng thái ca khám thành completed trong local state
+      setActiveAppointments(prev => prev.map(a => 
+        a.id === selectedLinkedAppId ? { ...a, status: 'completed' } : a
+      ));
+
+      if (finalizeRes?.syncWarning) {
+        alert('Bệnh án và lịch khám đã được lưu thành công trên máy chủ! Tuy nhiên, đồng bộ dữ liệu giao diện gặp sự cố kết nối. Bạn có thể tải lại trang an toàn để cập nhật đầy đủ dữ liệu mới nhất.');
+      }
+
+      // [UI MINH HỌA] Cập nhật minh họa danh mục tồn kho dược trên giao diện (Kho hiện tại là phân hệ minh họa giao diện, hệ thống không báo đã trừ kho thật trên máy chủ)
+      const prescribedMeds = soapData.planMedications || soapData.prescriptions || [];
+      if (Array.isArray(prescribedMeds) && prescribedMeds.length > 0) {
+        const now = new Date();
+        const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        
+        setInventoryItems(prevItems => {
+          let nextItems = [...prevItems];
+          prescribedMeds.forEach(pMed => {
+            const mIdx = nextItems.findIndex(inv => 
+              inv.name.toLowerCase().includes((pMed.name || '').toLowerCase()) ||
+              (pMed.batchNumber && inv.batchNumber === pMed.batchNumber)
+            );
+            if (mIdx !== -1) {
+              const qty = Number(pMed.quantity) || (Number(pMed.days || 1) * Number(pMed.dosePerDay || 1)) || 1;
+              const curStock = nextItems[mIdx].stock;
+              const newStock = Math.max(0, curStock - qty);
+              nextItems[mIdx] = { ...nextItems[mIdx], stock: newStock, reserved: 0 };
+
+              const newLog = {
+                id: `LOG-${Date.now().toString().slice(-4)}`,
+                timestamp: timeStr,
+                action: 'Mô phỏng xuất kho điều trị (Minh họa)',
+                medicine: nextItems[mIdx].name,
+                batchNumber: nextItems[mIdx].batchNumber,
+                quantity: `-${qty} ${nextItems[mIdx].baseUom || 'Đơn vị'}`,
+                remaining: newStock,
+                patient: `${examPet?.name || 'Thú cưng'} (${examPet?.breed || 'Chưa rõ giống'})`,
+                doctor: currentUser?.name || 'Bác sĩ thú y',
+                reason: `Đơn thuốc SOAP: ${pMed.name}`
+              };
+              setInventoryLogs(prevLogs => [newLog, ...prevLogs]);
+            }
+          });
+          return nextItems;
+        });
+      }
+
+      try { confetti({ particleCount: 60, spread: 70 }); } catch {}
+    } catch (err) {
+      console.error('Lỗi khi chốt bệnh án và hoàn thành lịch khám:', err);
+      alert('Không thể chốt bệnh án: ' + (err.message || 'Đã có lỗi xảy ra.'));
+      // Giữ nguyên form nhập, không khóa form, không đóng modal khi thất bại
+    } finally {
+      setIsFinalizingEhr(false);
+    }
   };
 
   // -------------------------------------------------------------
   // PILLAR 2: ĐIỀU PHỐI KHÁM & CHỐNG DOUBLE-BOOKING (DISPATCH)
   // -------------------------------------------------------------
-  const [queueList, setQueueList] = useState([
-    { id: 'Q-01', petName: 'Mochi', owner: 'Nguyễn Thị Lan', service: 'Khám da liễu & Tiêu hóa', doctor: 'BS. Dr. Nam', triage: 'Cấp 3 (Bán khẩn)', room: 'Phòng khám 01', status: 'Đang khám', waitTime: '0 phút' },
-    { id: 'Q-02', petName: 'Rocky', owner: 'Trần Văn Mạnh', service: 'Cấp cứu nuốt xương gà', doctor: 'BS. Nguyễn Văn A', triage: 'Cấp 1 (Nguy kịch)', room: 'Phòng Cấp cứu', status: 'Chờ vào', waitTime: 'Khẩn cấp!' },
-    { id: 'Q-03', petName: 'Luna', owner: 'Phạm Minh Khoa', service: 'Tiêm phòng vắc-xin 4 bệnh', doctor: 'BS. Trần Thị B', triage: 'Cấp 4 (Định kỳ)', room: 'Phòng khám 02', status: 'Đang chờ', waitTime: '15 phút' },
-    { id: 'Q-04', petName: 'Bánh Bao', owner: 'Lê Hoàng Anh', service: 'Cắt móng & Khám tai thỏ', doctor: 'BS. Lê Minh Hoàng', triage: 'Cấp 4 (Định kỳ)', room: 'Phòng Spa/Khám 03', status: 'Đang chờ', waitTime: '25 phút' }
-  ]);
+  // Hàng đợi phòng khám tính toán thời gian thực từ activeAppointments
+  const dynamicQueueList = useMemo(() => {
+    if (!activeAppointments || activeAppointments.length === 0) return [];
+    return activeAppointments
+      .filter(a => a.status === 'in_progress' || a.status === 'pending' || a.status === 'confirmed')
+      .map((a, idx) => ({
+        id: a.id || `Q-0${idx + 1}`,
+        petName: a.petName || 'Thú cưng',
+        owner: a.ownerName || 'Chủ nuôi',
+        service: a.service || 'Khám lâm sàng',
+        doctor: a.doctor || currentUser?.name || 'Bác sĩ phụ trách',
+        triage: a.isEmergency ? 'Cấp 1 (Nguy kịch)' : 'Cấp 3 (Tiêu chuẩn)',
+        room: a.facility || 'Phòng khám 01',
+        status: a.status === 'in_progress' ? 'Đang khám' : 'Đang chờ',
+        waitTime: a.time ? `${a.time}` : 'Theo lịch',
+        rawApp: a
+      }));
+  }, [activeAppointments, currentUser?.name]);
 
-  const [activeQueueId, setActiveQueueId] = useState('Q-01');
+  const queueList = dynamicQueueList;
+
+  const [activeQueueId, setActiveQueueId] = useState(() => dynamicQueueList[0]?.id || '');
   const [isCallingNext, setIsCallingNext] = useState(false);
 
   const handleCallNextPatient = () => {
@@ -612,13 +738,13 @@ export const ClinicOsView = ({
     const testLog = {
       id: `LOG-${Date.now().toString().slice(-4)}`,
       timestamp: timeStr,
-      action: 'Xuất kho điều trị (Mô phỏng)',
+      action: 'Mô phỏng xuất kho điều trị (Minh họa)',
       medicine: 'Apoquel 16mg (Oclacitinib)',
       batchNumber: 'AP-2026B',
       quantity: '-7 Viên',
       remaining: updatedRemaining,
-      patient: 'Mochi (Golden Retriever)',
-      doctor: currentUser?.name || 'BS. Hoàng Hải Nam',
+      patient: 'Bệnh nhân khám lâm sàng',
+      doctor: currentUser?.name || 'Bác sĩ phụ trách',
       reason: 'Xuất kho FEFO theo đơn Apoquel 16mg (Lô AP-2026B)'
     };
     setInventoryLogs(prev => [testLog, ...prev]);
@@ -661,12 +787,13 @@ export const ClinicOsView = ({
   // Đồng bộ cảnh báo dịch tễ học 2 chiều sang Cổng Chủ Nuôi
   const handleSyncEpidemicToOwner = () => {
     try { sound?.playAlert?.(); } catch {}
+    const pName = examPet?.name || 'thú cưng';
     const epidemicData = {
       disease: 'Parvovirus',
-      area: 'Quận Cầu Giấy',
+      area: 'Khu vực phòng khám',
       risk: 'high',
       title: 'CẢNH BÁO DỊCH TỄ KHU VỰC',
-      message: 'Đang có ổ dịch Parvovirus tại Cầu Giấy. Bé Mochi chưa tiêm mũi nhắc lại năm 2026!',
+      message: `Khuyến nghị kiểm tra lịch tiêm vắc-xin phòng bệnh truyền nhiễm cho bé ${pName} và các thú cưng trong khu vực.`,
       active: true,
       updatedAt: new Date().toISOString()
     };
@@ -682,7 +809,7 @@ export const ClinicOsView = ({
     setTimeout(() => setSyncEpidemicSuccess(false), 3500);
   };
 
-  // Quét radar AI Vision OCR trong 1.2s & Tự động đẩy kết quả vào mục O của Bệnh án SOAP
+  // Quét radar AI Vision OCR trong 1.2s & Hiển thị kết quả mẫu phòng lab (Mô phỏng thử nghiệm)
   const handleRunAiOcr = () => {
     try { sound?.playClick?.(); } catch {}
     setIsOcrProcessing(true);
@@ -708,26 +835,28 @@ export const ClinicOsView = ({
       // Lấy thông tin ca khám được chọn liên kết
       const linkedApp = activeAppointments.find(a => a.id === selectedLinkedAppId) 
         || activeAppointments[0] 
-        || { id: 'BK-1727250001', petName: 'Mochi', breed: 'Golden Retriever' };
-      const petLabel = `${linkedApp.petName || 'Mochi'} (${linkedApp.breed || 'Golden Retriever'})`;
+        || null;
+      const petLabel = linkedApp 
+        ? `${linkedApp.petName || 'Thú cưng'} (${linkedApp.breed || 'Chưa cập nhật'})`
+        : (examPet ? `${examPet.name} (${examPet.breed || 'Chưa cập nhật'})` : 'Chưa có thông tin ca khám');
 
       let calculatedIndicators = [];
       let calculatedConclusion = '';
       let summaryForSoap = '';
 
       if (selectedLabPreset === 'blood_alt') {
-        // Nút 1: Mẫu máu Chó - Tăng men gan ALT & Viêm da
+        // Mẫu xét nghiệm máu sinh hóa IDEXX
         calculatedIndicators = [
           { name: 'ALT (Alanine Aminotransferase)', value: '142', unit: 'U/L', ref: '10 - 100', status: 'high', label: 'Tăng cao [Cảnh báo gan]' },
           { name: 'CREA (Creatinine)', value: '1.1', unit: 'mg/dL', ref: '0.5 - 1.4', status: 'normal', label: 'Bình thường' },
           { name: 'BUN (Blood Urea Nitrogen)', value: '18.2', unit: 'mg/dL', ref: '7 - 27', status: 'normal', label: 'Bình thường' },
-          { name: 'WBC (Bạch cầu)', value: '18.4', unit: 'x10^9/L', ref: '6.0 - 17.0', status: 'high', label: 'Tăng cao [Viêm da cấp CAD]' },
+          { name: 'WBC (Bạch cầu)', value: '18.4', unit: 'x10^9/L', ref: '6.0 - 17.0', status: 'high', label: 'Tăng cao [Phản ứng viêm]' },
           { name: 'RBC (Hồng cầu)', value: '6.8', unit: 'x10^12/L', ref: '5.5 - 8.5', status: 'normal', label: 'Bình thường' }
         ];
-        calculatedConclusion = 'Tăng men gan ALT (142 U/L) và phản ứng viêm bạch cầu WBC tăng nhẹ (18.4 x10^9/L) phù hợp với đợt Viêm da dị ứng cấp tính CAD. Chức năng lọc thận (CREA, BUN) và hồng cầu RBC hoàn toàn bình thường.';
-        summaryForSoap = `CẬN LÂM SÀNG (AI OCR [${linkedApp.id} - ${petLabel}]): ALT: 142 U/L [Tăng cao], WBC: 18.4 x10^9/L [Tăng cao], CREA: 1.1 mg/dL [Bình thường], BUN: 18.2 mg/dL [Bình thường], RBC: 6.8 x10^12/L [Bình thường]. Định hướng: Tăng men gan ALT & Viêm da dị ứng.`;
+        calculatedConclusion = 'Tăng men gan ALT (142 U/L) và phản ứng viêm bạch cầu WBC tăng nhẹ (18.4 x10^9/L). Chức năng lọc thận (CREA, BUN) và hồng cầu RBC trong giới hạn chuẩn.';
+        summaryForSoap = `CẬN LÂM SÀNG (AI OCR [${linkedApp?.id || 'MẪU'}]): ALT: 142 U/L, WBC: 18.4 x10^9/L, CREA: 1.1 mg/dL, BUN: 18.2 mg/dL.`;
       } else {
-        // Nút 2: Mẫu X-quang Chó - Ổ bụng bình thường
+        // Mẫu X-quang kỹ thuật số DR
         calculatedIndicators = [
           { name: 'ALT (Alanine Aminotransferase)', value: '45', unit: 'U/L', ref: '10 - 100', status: 'normal', label: 'Bình thường' },
           { name: 'CREA (Creatinine)', value: '0.9', unit: 'mg/dL', ref: '0.5 - 1.4', status: 'normal', label: 'Bình thường' },
@@ -735,40 +864,22 @@ export const ClinicOsView = ({
           { name: 'WBC (Bạch cầu)', value: '9.2', unit: 'x10^9/L', ref: '6.0 - 17.0', status: 'normal', label: 'Bình thường' },
           { name: 'RBC (Hồng cầu)', value: '6.5', unit: 'x10^12/L', ref: '5.5 - 8.5', status: 'normal', label: 'Bình thường' }
         ];
-        calculatedConclusion = 'Hình ảnh X-quang ổ bụng (tư thế VD/Lateral): Ổ bụng bình thường, các quai ruột phân bố đều, không có bóng khí bất thường, không phát hiện dị vật cản quang. Cả 5 chỉ số sinh hóa máu đều trong giới hạn chuẩn.';
-        summaryForSoap = `CẬN LÂM SÀNG (AI OCR [${linkedApp.id} - ${petLabel}]): X-quang ổ bụng bình thường, không phát hiện dị vật cản quang. ALT: 45 U/L [Bình thường], CREA: 0.9 mg/dL [Bình thường], BUN: 14.5 mg/dL [Bình thường], WBC: 9.2 x10^9/L [Bình thường], RBC: 6.5 x10^12/L [Bình thường].`;
+        calculatedConclusion = 'Hình ảnh X-quang ổ bụng: Các quai ruột phân bố đều, không phát hiện dị vật cản quang. Các chỉ số máu trong giới hạn bình thường.';
+        summaryForSoap = `CẬN LÂM SÀNG (AI OCR [${linkedApp?.id || 'MẪU'}]): X-quang ổ bụng bình thường, không phát hiện dị vật cản quang.`;
       }
 
       setOcrResult({
         samplePreset: selectedLabPreset,
-        linkedAppId: linkedApp.id,
+        linkedAppId: linkedApp?.id || 'N/A',
         petLabel,
-        analyzer: selectedLabPreset === 'blood_alt' ? 'IDEXX Catalyst One Bio-Analyzer' : 'Direct Digital Radiography (DR X-Ray System)',
+        analyzer: selectedLabPreset === 'blood_alt' ? 'IDEXX Catalyst One Bio-Analyzer (Mô phỏng mẫu)' : 'Direct Digital Radiography DR (Mô phỏng mẫu)',
         indicators: calculatedIndicators,
-        aiConclusion: calculatedConclusion,
+        aiConclusion: `[Mô phỏng thử nghiệm] ${calculatedConclusion}`,
+        isSimulated: true,
         summaryForSoap
       });
 
-      // TỰ ĐỘNG LƯU CHUỖI TÓM TẮT CẬN LÂM SÀNG VÀO MỤC O (OBJECTIVE) CỦA BỆNH ÁN SOAP
-      setSoapData(prev => ({
-        ...prev,
-        labSummary: summaryForSoap,
-        labSummaryLinkedApp: linkedApp.id,
-        labSummaryPet: petLabel
-      }));
-
-      // Bổ sung tài liệu vào danh sách đính kèm mục O
-      const newAtt = {
-        id: `att-ocr-${Date.now()}`,
-        name: selectedLabPreset === 'blood_alt' ? `Phiếu Sinh Hóa Máu (ALT & Viêm da) - ${linkedApp.id}.pdf` : `X-Quang Ổ Bụng (Bình thường) - ${linkedApp.id}.jpg`,
-        type: selectedLabPreset === 'blood_alt' ? 'pdf' : 'image',
-        size: selectedLabPreset === 'blood_alt' ? '1.5 MB' : '2.8 MB',
-        date: 'Vừa quét AI Vision OCR (1.2s)',
-        url: selectedLabPreset === 'blood_alt' ? '#' : 'https://images.unsplash.com/photo-1579154204601-01588f351e67?w=600&q=80',
-        findings: summaryForSoap
-      };
-      setObjectiveAttachments(prev => [newAtt, ...prev.filter(a => !a.id.startsWith('att-ocr-'))]);
-
+      // Lab/OCR chưa triển khai thật có nhãn mô phỏng rõ ràng, không tự ý chèn dữ liệu mẫu vào bệnh án thật
       setSyncSoapSuccess(true);
       try { confetti({ particleCount: 50, spread: 60 }); } catch {}
     }, 1200);
@@ -806,11 +917,11 @@ export const ClinicOsView = ({
               </div>
               <div className="flex items-center gap-2 text-xs text-white/60 mt-0.5 flex-wrap">
                 <Building2 className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                <span className="text-white/90 font-semibold">Cơ sở: Chi nhánh Cầu Giấy (Phòng khám 02)</span>
+                <span className="text-white/90 font-semibold">Cơ sở: {activeBranchData?.name || VET_FACILITIES[0]?.name}</span>
                 <span className="text-white/30 hidden sm:inline">•</span>
-                <span className="hidden sm:inline">128 Cầu Giấy, Hà Nội</span>
+                <span className="hidden sm:inline">{activeBranchData?.address || VET_FACILITIES[0]?.address}</span>
                 <span className="text-white/30 hidden md:inline">•</span>
-                <span className="text-cyan-300 hidden md:inline">Hotline cấp cứu: 024.7300.8899</span>
+                <span className="text-cyan-300 hidden md:inline">Hotline: {activeBranchData?.phone || VET_FACILITIES[0]?.hotline}</span>
               </div>
             </div>
           </div>
@@ -869,7 +980,7 @@ export const ClinicOsView = ({
                 </div>
                 <div className="text-left hidden sm:block">
                   <div className="text-xs font-black text-white flex items-center gap-1.5">
-                    <span>{currentUser?.name || 'BS. Hoàng Hải Nam'}</span>
+                    <span>{currentUser?.name || 'Bác sĩ Thú y'}</span>
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                   </div>
                   <div className="text-[10px] text-cyan-300 font-bold">Bác sĩ Admin Phòng Khám</div>
@@ -887,7 +998,7 @@ export const ClinicOsView = ({
                   <div className="absolute right-0 top-12 w-64 rounded-2xl bg-slate-900/95 backdrop-blur-2xl border border-white/20 shadow-2xl p-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                     <div className="px-3 py-2">
                       <p className="text-xs font-bold text-white">
-                        {currentUser?.name || 'BS. Hoàng Hải Nam'}
+                        {currentUser?.name || 'Bác sĩ Thú y'}
                       </p>
                       <p className="text-[11px] text-cyan-300 font-medium">Bác sĩ Quản Trị Hệ Thống</p>
                       <p className="text-[10px] text-white/50 truncate font-mono mt-0.5">
@@ -960,7 +1071,7 @@ export const ClinicOsView = ({
           { id: 'reception-queue', label: `📋 Hàng đợi khám (${pendingQueueCount})`, desc: 'Hiển thị các ca do chủ nuôi đặt từ Owner Portal' },
           { id: 'soap', label: '🩺 Quản lý Bệnh án (SOAP)', desc: 'Hồ sơ S-O-A-P, cảnh báo dị ứng thuốc, AI Medical Scribe' },
           { id: 'ai-lab', label: '🔬 Phòng Lab & X-quang', desc: 'So sánh chuẩn loài & OCR xét nghiệm' },
-          { id: 'inventory', label: '💊 Kho Dược FEFO', desc: 'Trừ kho tự động & Hạn dùng' },
+          { id: 'inventory', label: '💊 Kho Dược FEFO (Minh họa)', desc: 'Minh họa — chưa quản lý tồn kho thực tế' },
           { id: 'billing', label: '💳 POS & Viện phí', desc: 'VietQR động & VAT' },
           { id: 'saas-admin', label: '⚙️ Cấu hình', desc: 'Đa chi nhánh & Phân quyền' }
         ].map(tab => {
@@ -1439,7 +1550,7 @@ export const ClinicOsView = ({
                           <span className="text-white/50 flex items-center gap-1.5">
                             <Building2 className="w-3.5 h-3.5 text-amber-400" /> Cơ sở:
                           </span>
-                          <span className="text-right truncate max-w-[220px] text-white/90 font-medium">Chi nhánh Cầu Giấy (Phòng khám 02)</span>
+                          <span className="text-right truncate max-w-[220px] text-white/90 font-medium">{app.facility || activeBranchData?.name || 'Bệnh viện Thú y 2Vet Hospital'}</span>
                         </div>
                       </div>
 
@@ -1520,7 +1631,7 @@ export const ClinicOsView = ({
                       <span>Bệnh Án Điện Tử Chuẩn Hóa SOAP</span>
                       {isSignOffLocked ? (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
-                          <Lock className="w-3 h-3" /> ĐÃ KÝ SỐ (LOCKED)
+                          <Lock className="w-3 h-3" /> ĐÃ KÝ XÁC NHẬN (LOCKED)
                         </span>
                       ) : (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
@@ -1800,27 +1911,89 @@ export const ClinicOsView = ({
                     <span className="text-[10px] text-slate-400 font-mono">Tính theo cân nặng {examPet.weight}kg</span>
                   </div>
 
-                  <div className="space-y-2">
-                    {soapData.planMedications.map((med, idx) => (
-                      <div key={med.id} className="p-2.5 rounded-xl bg-black/40 border border-white/5 flex items-center justify-between gap-3 text-xs">
-                        <div className="min-w-0">
-                          <p className="font-bold text-white truncate">{med.name}</p>
-                          <p className="text-[11px] text-slate-400 mt-0.5">
-                            Liều: <strong className="text-cyan-300">{med.dose}</strong> ({med.freq}) • {med.days} ngày • Xuất {med.qty} {med.uom} • <span className="font-mono text-amber-300">{med.batch}</span>
-                          </p>
+                  <div className="space-y-3">
+                    {(soapData.planMedications || []).map((med, idx) => (
+                      <div key={idx} className="p-2.5 rounded-xl bg-black/40 border border-white/5 flex flex-col gap-2 text-xs">
+                        <input type="text" placeholder="Tên thuốc" className="w-full bg-slate-900/50 border border-slate-700 rounded px-2 py-1 text-white" value={med.name || ''} onChange={e => {
+                          const newMeds = [...soapData.planMedications]; newMeds[idx].name = e.target.value; setSoapData({...soapData, planMedications: newMeds});
+                        }} />
+                        <div className="grid grid-cols-2 gap-2">
+                          <input type="text" placeholder="Liều dùng" className="w-full bg-slate-900/50 border border-slate-700 rounded px-2 py-1 text-white" value={med.dose || ''} onChange={e => {
+                            const newMeds = [...soapData.planMedications]; newMeds[idx].dose = e.target.value; setSoapData({...soapData, planMedications: newMeds});
+                          }} />
+                          <input type="text" placeholder="Đường dùng" className="w-full bg-slate-900/50 border border-slate-700 rounded px-2 py-1 text-white" value={med.route || ''} onChange={e => {
+                            const newMeds = [...soapData.planMedications]; newMeds[idx].route = e.target.value; setSoapData({...soapData, planMedications: newMeds});
+                          }} />
                         </div>
-                        <span className="text-xs font-mono font-bold text-cyan-300 shrink-0">
-                          {(med.price * med.qty).toLocaleString()}đ
-                        </span>
+                        <div className="grid grid-cols-3 gap-2">
+                          <input type="text" placeholder="Tần suất" className="w-full bg-slate-900/50 border border-slate-700 rounded px-2 py-1 text-white" value={med.freq || ''} onChange={e => {
+                            const newMeds = [...soapData.planMedications]; newMeds[idx].freq = e.target.value; setSoapData({...soapData, planMedications: newMeds});
+                          }} />
+                          <input type="date" placeholder="Bắt đầu" className="w-full bg-slate-900/50 border border-slate-700 rounded px-2 py-1 text-white" value={med.startDate || ''} onChange={e => {
+                            const newMeds = [...soapData.planMedications]; newMeds[idx].startDate = e.target.value; setSoapData({...soapData, planMedications: newMeds});
+                          }} />
+                          <input type="number" placeholder="Số ngày" className="w-full bg-slate-900/50 border border-slate-700 rounded px-2 py-1 text-white" value={med.days || ''} onChange={e => {
+                            const newMeds = [...soapData.planMedications]; newMeds[idx].days = e.target.value; setSoapData({...soapData, planMedications: newMeds});
+                          }} />
+                        </div>
+                        <input type="text" placeholder="Hướng dẫn thêm" className="w-full bg-slate-900/50 border border-slate-700 rounded px-2 py-1 text-white" value={med.instructions || ''} onChange={e => {
+                          const newMeds = [...soapData.planMedications]; newMeds[idx].instructions = e.target.value; setSoapData({...soapData, planMedications: newMeds});
+                        }} />
+                        <button type="button" onClick={() => {
+                          const newMeds = [...soapData.planMedications]; newMeds.splice(idx, 1); setSoapData({...soapData, planMedications: newMeds});
+                        }} className="text-red-400 text-right mt-1">Xóa thuốc</button>
                       </div>
                     ))}
+                    <button type="button" onClick={() => {
+                      setSoapData({...soapData, planMedications: [...soapData.planMedications, { name: '', dose: '', route: '', freq: '', startDate: '', days: '', instructions: '' }]});
+                    }} className="w-full py-2 bg-slate-800 rounded-lg text-cyan-300 font-bold border border-slate-700 border-dashed hover:bg-slate-700 transition-colors">
+                      + Thêm thuốc
+                    </button>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-white/[0.04] border border-[#4b5563] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black uppercase text-emerald-300 tracking-wider">Tiêm chủng & Tẩy giun</span>
+                    </div>
+                    <div className="space-y-3">
+                      {(soapData.vaccines || []).map((vax, idx) => (
+                        <div key={idx} className="p-2.5 rounded-xl bg-black/40 border border-white/5 flex flex-col gap-2 text-xs">
+                          <select className="w-full bg-slate-900/50 border border-slate-700 rounded px-2 py-1 text-white" value={vax.type || ''} onChange={e => {
+                            const newVax = [...(soapData.vaccines || [])]; newVax[idx].type = e.target.value; setSoapData({...soapData, vaccines: newVax});
+                          }}>
+                            <option value="">Chọn loại</option>
+                            <option value="vaccine">Tiêm vắc-xin</option>
+                            <option value="deworm">Tẩy giun</option>
+                          </select>
+                          <input type="text" placeholder="Tên sản phẩm" className="w-full bg-slate-900/50 border border-slate-700 rounded px-2 py-1 text-white" value={vax.product || ''} onChange={e => {
+                            const newVax = [...(soapData.vaccines || [])]; newVax[idx].product = e.target.value; setSoapData({...soapData, vaccines: newVax});
+                          }} />
+                          <div className="grid grid-cols-2 gap-2">
+                            <input type="text" placeholder="Số lô" className="w-full bg-slate-900/50 border border-slate-700 rounded px-2 py-1 text-white" value={vax.batch || ''} onChange={e => {
+                              const newVax = [...(soapData.vaccines || [])]; newVax[idx].batch = e.target.value; setSoapData({...soapData, vaccines: newVax});
+                            }} />
+                            <input type="date" placeholder="Ngày nhắc lại" className="w-full bg-slate-900/50 border border-slate-700 rounded px-2 py-1 text-white" value={vax.nextDue || ''} onChange={e => {
+                              const newVax = [...(soapData.vaccines || [])]; newVax[idx].nextDue = e.target.value; setSoapData({...soapData, vaccines: newVax});
+                            }} />
+                          </div>
+                          <button type="button" onClick={() => {
+                            const newVax = [...(soapData.vaccines || [])]; newVax.splice(idx, 1); setSoapData({...soapData, vaccines: newVax});
+                          }} className="text-red-400 text-right mt-1">Xóa tiêm chủng</button>
+                        </div>
+                      ))}
+                      <button type="button" onClick={() => {
+                        setSoapData({...soapData, vaccines: [...(soapData.vaccines || []), { type: 'vaccine', product: '', batch: '', nextDue: '' }]});
+                      }} className="w-full py-2 bg-slate-800 rounded-lg text-emerald-300 font-bold border border-slate-700 border-dashed hover:bg-slate-700 transition-colors">
+                        + Thêm tiêm chủng / tẩy giun
+                      </button>
+                    </div>
                   </div>
 
                   {/* Safety Check Badge */}
                   <div className="p-2.5 rounded-xl bg-emerald-950/30 border border-emerald-500/30 flex items-center justify-between text-xs text-emerald-300">
                     <span className="flex items-center gap-1.5 font-semibold">
                       <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                      AI Guardrail: 0 xung đột thuốc • Không chứa dị ứng Penicillin
+                      AI Guardrail: 0 xung đột thuốc
                     </span>
                     <span className="text-[10px] font-mono text-slate-300">WSAVA Safe</span>
                   </div>
@@ -1831,7 +2004,7 @@ export const ClinicOsView = ({
               {/* Action Buttons: Sign-off & Draft */}
               <div className="mt-6 pt-5 border-t border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
                 <span className="text-xs text-slate-400">
-                  {isSignOffLocked ? '✓ Bệnh án đã khóa an toàn vào Cơ sở dữ liệu và tự động trừ kho FEFO' : 'Yêu cầu Bác sĩ Ký số để tự động trừ kho FEFO và kích hoạt POS'}
+                  {isSignOffLocked ? '✓ Bệnh án đã chốt và hoàn tất ca khám vào Cơ sở dữ liệu' : 'Bác sĩ xác nhận chốt bệnh án để hoàn tất ca khám và kích hoạt POS'}
                 </span>
 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -1840,10 +2013,13 @@ export const ClinicOsView = ({
                       {/* Nút 1: Lưu nháp (Nút phụ, viền xám) */}
                       <button
                         type="button"
-                        onClick={() => {
-                          sound.playSuccess();
-                          setIsDraftSaved(true);
-                          setTimeout(() => setIsDraftSaved(false), 2500);
+                        onClick={async () => {
+                          const success = await saveSoapToBackend(false);
+                          if (success) {
+                            sound.playSuccess();
+                            setIsDraftSaved(true);
+                            setTimeout(() => setIsDraftSaved(false), 2500);
+                          }
                         }}
                         className="px-6 py-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-600 hover:border-slate-400 font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 shadow-sm"
                         style={{ border: '1px solid #4b5563' }}
@@ -1852,7 +2028,7 @@ export const ClinicOsView = ({
                         <span>{isDraftSaved ? 'Đã lưu nháp ✓' : 'Lưu nháp'}</span>
                       </button>
 
-                      {/* Nút 2: Ký số & Cập nhật kho FEFO (Nút chính, background màu xanh lá #10B981, chữ trắng, width dài) */}
+                      {/* Nút 2: Xác nhận chốt bệnh án (Nút chính, background màu xanh lá #10B981, chữ trắng, width dài) */}
                       <button
                         type="button"
                         onClick={() => setIsPinModalOpen(true)}
@@ -1860,7 +2036,7 @@ export const ClinicOsView = ({
                         style={{ backgroundColor: '#10B981', color: '#ffffff' }}
                       >
                         <Lock className="w-4 h-4 text-white" />
-                        <span>Ký số & Cập nhật kho FEFO</span>
+                        <span>Xác nhận chốt bệnh án</span>
                       </button>
                     </>
                   ) : (
@@ -1986,7 +2162,7 @@ export const ClinicOsView = ({
               {/* AI Scribe Safety Principles */}
               <div className="mt-4 pt-3 border-t border-white/10 text-[11px] text-white/40 space-y-1">
                 <p>• Zero Hallucination: Chỉ trích xuất thông tin có thực trong audio.</p>
-                <p>• Bác sĩ chịu trách nhiệm pháp lý cao nhất sau khi Ký số.</p>
+                <p>• Bác sĩ chịu trách nhiệm chuyên môn cao nhất sau khi xác nhận chốt bệnh án.</p>
               </div>
 
             </div>
@@ -2101,10 +2277,10 @@ export const ClinicOsView = ({
               
               <div className="space-y-2.5 text-xs">
                 {[
-                  { name: 'Phòng khám 01 (Khám chung)', status: 'Đang bận', pet: 'Mochi (Dr. Nam)', color: 'text-amber-400' },
+                  { name: 'Phòng khám 01 (Khám chung)', status: 'Sẵn sàng', pet: 'Trống', color: 'text-emerald-400' },
                   { name: 'Phòng khám 02 (Chuyên khoa Mèo)', status: 'Sẵn sàng', pet: 'Trống', color: 'text-emerald-400' },
-                  { name: 'Phòng Phẫu thuật vô trùng', status: 'Khử trùng (còn 8p)', pet: 'Buffer time', color: 'text-cyan-400' },
-                  { name: 'Phòng Cấp cứu & Hồi sức', status: 'Tiếp nhận ca nuốt dị vật', pet: 'Rocky (Dr. Mạnh)', color: 'text-rose-400' },
+                  { name: 'Phòng Phẫu thuật vô trùng', status: 'Sẵn sàng', pet: 'Trống', color: 'text-emerald-400' },
+                  { name: 'Phòng Cấp cứu & Hồi sức', status: 'Sẵn sàng', pet: 'Trống', color: 'text-emerald-400' },
                   { name: 'Bàn Siêu âm Doppler màu', status: 'Sẵn sàng', pet: 'Trống', color: 'text-emerald-400' }
                 ].map((r, i) => (
                   <div key={i} className="p-3 rounded-2xl bg-black/30 border border-white/5 flex items-center justify-between">
@@ -2132,11 +2308,14 @@ export const ClinicOsView = ({
           <div className="p-6 rounded-3xl bg-white/[0.06] backdrop-blur-2xl border border-white/15 shadow-xl">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-white/10">
               <div>
-                <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                <h3 className="text-base font-extrabold text-white flex flex-wrap items-center gap-2">
                   <Package className="w-5 h-5 text-cyan-400" />
                   <span>Quản lý Kho Dược & Vật tư tiêu hao (FEFO Engine)</span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    Minh họa — chưa quản lý tồn kho thực tế
+                  </span>
                 </h3>
-                <p className="text-xs text-white/60">Nguyên tắc First-Expired, First-Out • Đa đơn vị tính (UOM) • Trừ kho tự động theo SOAP</p>
+                <p className="text-xs text-white/60">Nguyên tắc First-Expired, First-Out • Đa đơn vị tính (UOM) • Minh họa giao diện (Chưa quản lý tồn kho thực tế)</p>
               </div>
 
               <div className="flex items-center gap-3">
@@ -2144,7 +2323,7 @@ export const ClinicOsView = ({
                   onClick={handleTestFefoDispatch}
                   className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs shadow-lg shadow-cyan-500/30 cursor-pointer transition-transform active:scale-95"
                 >
-                  {fefoTestSuccess ? '✓ Đã trừ 7 viên từ lô AP-2026B!' : 'Mô phỏng xuất đơn thuốc FEFO'}
+                  {fefoTestSuccess ? '✓ Mô phỏng trừ 7 viên từ lô AP-2026B (Minh họa)' : 'Mô phỏng xuất đơn thuốc FEFO (Minh họa)'}
                 </button>
               </div>
             </div>
@@ -2213,13 +2392,16 @@ export const ClinicOsView = ({
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <FileText className="w-4 h-4 text-cyan-400" />
-                  <h4 className="text-sm font-extrabold text-white">Nhật Ký Xuất Kho Điều Trị (FEFO Clinical Audit Log)</h4>
+                  <h4 className="text-sm font-extrabold text-white flex items-center gap-2">
+                    <span>Nhật Ký Xuất Kho Điều Trị (FEFO Clinical Audit Log)</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">Minh họa</span>
+                  </h4>
                 </div>
                 <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 font-bold">
                   {inventoryLogs.length} Phiếu xuất đã ghi vết
                 </span>
               </div>
-              <p className="text-[11px] text-white/50 mb-3">Tự động ghi nhận khi Bác sĩ Ký số đơn thuốc SOAP hoặc thực hiện xuất kho điều trị</p>
+              <p className="text-[11px] text-white/50 mb-3">Mô phỏng ghi nhận trên giao diện khi Bác sĩ xác nhận chốt đơn thuốc SOAP (Minh họa — chưa quản lý tồn kho thực tế)</p>
 
               <div className="overflow-x-auto no-scrollbar rounded-2xl border border-white/10 bg-black/30">
                 <table className="w-full text-left text-xs">
@@ -2288,7 +2470,7 @@ export const ClinicOsView = ({
               <div className="flex items-center justify-between mb-5 pb-4 border-b border-white/10">
                 <div>
                   <h3 className="text-base font-extrabold text-white">Sổ Tạm Ứng Viện Phí Nội Trú (Deposit Ledger)</h3>
-                  <p className="text-xs text-white/50">Bệnh nhân: Mochi • Chủ nuôi: Chị Lan • Mã hóa đơn: #INV-8819</p>
+                  <p className="text-xs text-white/50">{examPet ? `Bệnh nhân: ${examPet.name} (${examPet.breed || 'Chưa cập nhật'}) • Mã hồ sơ: #${selectedLinkedAppId || 'INV-TEMP'}` : 'Chưa có thông tin bệnh nhân nội trú'}</p>
                 </div>
 
                 <span className="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">
@@ -2561,8 +2743,8 @@ export const ClinicOsView = ({
                     </p>
                     <p className="text-[11px] text-white/50 mt-0.5">
                       {selectedLabPreset === 'blood_alt'
-                        ? 'Đang nạp mẫu kiểm tra: Chó Mochi - Tăng men gan ALT & Viêm da'
-                        : 'Đang nạp mẫu kiểm tra: Chó Mochi - Ổ bụng bình thường (Không dị vật)'}
+                        ? 'Mẫu cận lâm sàng: Xét nghiệm sinh hóa máu'
+                        : 'Mẫu cận lâm sàng: Chẩn đoán hình ảnh X-Quang'}
                     </p>
 
                     <button
@@ -2920,7 +3102,7 @@ export const ClinicOsView = ({
                 <div className="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center">
                   <Lock className="w-4 h-4" />
                 </div>
-                <h4 className="font-extrabold text-white text-sm">Bác Sĩ Ký Số Bệnh Án</h4>
+                <h4 className="font-extrabold text-white text-sm">Xác nhận chốt bệnh án</h4>
               </div>
               <button
                 onClick={() => setIsPinModalOpen(false)}
@@ -2931,23 +3113,19 @@ export const ClinicOsView = ({
             </div>
 
             <p className="text-xs text-white/70">
-              Nhập mã PIN xác thực (Demo: <strong className="text-cyan-300">1234</strong>) để khóa bệnh án vĩnh viễn, kích hoạt xuất kho FEFO và đẩy dữ liệu sang viện phí POS.
+              Xác nhận chốt hồ sơ bệnh án SOAP và chuyển lịch khám sang trạng thái hoàn thành. Bệnh án sau khi chốt sẽ được bảo vệ và khóa sửa đổi trực tiếp.
             </p>
-
-            <input
-              type="password"
-              maxLength={4}
-              value={signOffPin}
-              onChange={(e) => setSignOffPin(e.target.value)}
-              placeholder="Nhập 4 số PIN..."
-              className="w-full bg-black/50 border border-white/20 rounded-xl py-3 text-center text-lg font-mono tracking-widest text-cyan-300 outline-none focus:border-cyan-400"
-            />
 
             <button
               onClick={handleSignOffEhr}
-              className="w-full py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs shadow-lg shadow-cyan-500/30 cursor-pointer"
+              disabled={isFinalizingEhr}
+              className={`w-full py-2.5 rounded-xl font-black text-xs shadow-lg transition-all ${
+                isFinalizingEhr
+                  ? 'bg-cyan-500/50 text-slate-900 cursor-not-allowed opacity-70'
+                  : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-cyan-500/30 cursor-pointer active:scale-95'
+              }`}
             >
-              Xác nhận Ký số & Khóa Bệnh án
+              {isFinalizingEhr ? 'Đang chốt bệnh án & hoàn tất...' : 'Xác nhận chốt bệnh án & Hoàn tất ca khám'}
             </button>
           </div>
         </div>
@@ -3259,16 +3437,16 @@ export const ClinicOsView = ({
                 {/* Active Call Announcement Box */}
                 <div className="p-6 rounded-2xl bg-gradient-to-r from-cyan-950/70 via-blue-950/60 to-purple-950/60 border border-cyan-400/50 shadow-xl text-center relative overflow-hidden">
                   <div className="absolute top-2.5 right-3 text-[10px] font-mono text-cyan-300/80 bg-black/40 px-2 py-0.5 rounded-md border border-white/10">
-                    BUỒNG KHÁM 01 • BÁC SĨ HOÀNG HẢI NAM
+                    BUỒNG KHÁM 01 • {currentUser?.name ? currentUser.name.toUpperCase() : 'BÁC SĨ TRỰC CA'}
                   </div>
                   <p className="text-xs uppercase font-extrabold text-cyan-300 tracking-widest mb-1">
                     {isCallingNext ? '🔊 ĐANG PHÁT LOA GỌI SỐ BỆNH NHÂN...' : 'BỆNH NHÂN ĐANG TRONG PHÒNG KHÁM'}
                   </p>
                   <div className="text-4xl sm:text-5xl font-black text-white font-mono my-2 tracking-tight">
-                    #{activeQueueId} • {queueList.find(q => q.id === activeQueueId)?.petName || 'Mochi'}
+                    {queueList.find(q => q.id === activeQueueId) ? `#${activeQueueId} • ${queueList.find(q => q.id === activeQueueId)?.petName}` : 'Chưa có ca khám trong hàng đợi'}
                   </div>
                   <p className="text-sm text-cyan-200 font-bold">
-                    Chủ nuôi: {queueList.find(q => q.id === activeQueueId)?.owner || 'Chị Lan'} • {queueList.find(q => q.id === activeQueueId)?.service || 'Khám lâm sàng'}
+                    {queueList.find(q => q.id === activeQueueId) ? `Chủ nuôi: ${queueList.find(q => q.id === activeQueueId)?.owner} • Dịch vụ: ${queueList.find(q => q.id === activeQueueId)?.service}` : 'Hàng đợi phòng khám hiện đang trống'}
                   </p>
                 </div>
 
@@ -3338,10 +3516,10 @@ export const ClinicOsView = ({
                   </h4>
                   <div className="space-y-2 text-xs">
                     {[
-                      { name: 'Phòng khám 01 (Khám chung)', status: 'Đang bận', pet: 'Mochi (Dr. Nam)', color: 'text-amber-400' },
+                      { name: 'Phòng khám 01 (Khám chung)', status: 'Sẵn sàng', pet: 'Trống', color: 'text-emerald-400' },
                       { name: 'Phòng khám 02 (Chuyên khoa Mèo)', status: 'Sẵn sàng', pet: 'Trống', color: 'text-emerald-400' },
-                      { name: 'Phòng Phẫu thuật vô trùng', status: 'Khử trùng (còn 8p)', pet: 'Buffer time', color: 'text-cyan-400' },
-                      { name: 'Phòng Cấp cứu & Hồi sức', status: 'Tiếp nhận ca khẩn', pet: 'Bánh Bao (Dr. Hải)', color: 'text-rose-400' },
+                      { name: 'Phòng Phẫu thuật vô trùng', status: 'Sẵn sàng', pet: 'Trống', color: 'text-emerald-400' },
+                      { name: 'Phòng Cấp cứu & Hồi sức', status: 'Sẵn sàng', pet: 'Trống', color: 'text-emerald-400' },
                       { name: 'Bàn Siêu âm Doppler màu', status: 'Sẵn sàng', pet: 'Trống', color: 'text-emerald-400' }
                     ].map((r, i) => (
                       <div key={i} className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-between">

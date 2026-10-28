@@ -1,4 +1,4 @@
-import { apiCreate, apiUpdate, apiDelete, syncAllDataToCache } from './apiService.js';
+import { apiFetch, apiCreate, apiUpdate, apiDelete, syncAllDataToCache, archiveAppointment as apiArchiveAppointment, unarchiveAppointment as apiUnarchiveAppointment } from './apiService.js';
 // Mock data removed as per requirements
 import { generateAiCarePlan } from './aiService.js';
 
@@ -13,7 +13,8 @@ const STORAGE_KEYS = {
   DAILY_HABITS: 'petcare_daily_habits_v1',
   LOST_MODES: 'petcare_lost_modes_v1',
   THEME: 'petcare_theme_v1',
-  APPOINTMENTS: 'petcare_appointments_v1'
+  APPOINTMENTS: 'petcare_appointments_v1',
+  BUDGETS: 'petcare_budgets_v1'
 };
 
 const getStored = (key, fallback) => {
@@ -35,44 +36,32 @@ const setStored = (key, value) => {
   }
 };
 
-// Helper xử lý ngày địa phương (Local Date) chuẩn xác, tránh lệch ngày do múi giờ UTC
-export const getLocalDateString = (d = new Date()) => {
-  const dateObj = typeof d === 'string' ? new Date(d) : d;
-  if (!dateObj || isNaN(dateObj.getTime())) return new Date().toISOString().split('T')[0];
-  const year = dateObj.getFullYear();
-  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-  const day = String(dateObj.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+// Re-export toàn bộ helper ngày giờ chuẩn hóa theo múi giờ Asia/Ho_Chi_Minh (MỤC 6)
+export {
+  VN_TIMEZONE,
+  getTodayVnDate,
+  getVnDateString,
+  getLocalDateString,
+  isValidCalendarDate,
+  formatDateVi,
+  formatDateKey,
+  addDaysLocal,
+  addMonthsClamped,
+  addYearsClamped,
+  getScheduleStatus,
+  generateIcsCalendar
+} from '../utils/dateUtils.js';
 
-export const addDaysLocal = (dateStr, daysToAdd) => {
-  const clean = String(dateStr).split('T')[0];
-  const [y, m, d] = clean.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  date.setDate(date.getDate() + daysToAdd);
-  return getLocalDateString(date);
-};
-
-// Xử lý cộng tháng an toàn ngày cuối tháng và năm nhuận (Clamping)
-export const addMonthsClamped = (dateStr, monthsToAdd) => {
-  const clean = String(dateStr).split('T')[0];
-  const [y, m, d] = clean.split('-').map(Number);
-  const targetYear = y + Math.floor((m - 1 + monthsToAdd) / 12);
-  const targetMonth = ((m - 1 + monthsToAdd) % 12 + 12) % 12; // 0-indexed
-  const daysInTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
-  const clampedDay = Math.min(d, daysInTargetMonth);
-  return `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-${String(clampedDay).padStart(2, '0')}`;
-};
-
-// Xử lý cộng năm an toàn (Ví dụ 29/02 năm nhuận -> 28/02)
-export const addYearsClamped = (dateStr, yearsToAdd) => {
-  const clean = String(dateStr).split('T')[0];
-  const [y, m, d] = clean.split('-').map(Number);
-  const targetYear = y + yearsToAdd;
-  const daysInTargetMonth = new Date(targetYear, m, 0).getDate();
-  const clampedDay = Math.min(d, daysInTargetMonth);
-  return `${targetYear}-${String(m).padStart(2, '0')}-${String(clampedDay).padStart(2, '0')}`;
-};
+import {
+  getTodayVnDate,
+  getVnDateString,
+  getLocalDateString,
+  isValidCalendarDate,
+  addDaysLocal,
+  addMonthsClamped,
+  addYearsClamped,
+  generateIcsCalendar
+} from '../utils/dateUtils.js';
 
 // Tính toán chuỗi ngày streak liên tục thực tế từ mảng lịch sử completedDates
 export const calculateStreak = (completedDates = []) => {
@@ -128,7 +117,7 @@ export const getPets = (userId = null, userRole = null) => {
     const rawAppointments = getStored(STORAGE_KEYS.APPOINTMENTS, []) || [];
     const assignedPetIds = new Set(
       rawAppointments
-        .filter(a => a.assignedVetId === userId || (a.assignedVet && (a.assignedVet.includes('Nam') || a.assignedVet.includes('Dr. Paw'))))
+        .filter(a => a.assignedVetId === userId || a.vetId === userId)
         .map(a => a.petId)
         .filter(Boolean)
     );
@@ -393,8 +382,7 @@ export const auditOrphanedPets = () => {
     const isOwnerNotActive = !allActiveUserIds.has(rawOwnerId);
 
     if (isExplicitlyMarked || isKnownDeletedId || isKnownDeletedEmail || isOwnerNotActive) {
-      const isSample = pet.id === 'pet-1' || pet.id === 'pet-2' || pet.id === 'pet-3' || 
-                       ['mochi', 'luna', 'bánh bao', 'banh bao'].includes((pet.name || '').toLowerCase().trim());
+      const isSample = Boolean(pet.isSample);
 
       confirmedDeletedOwnerPets.push({
         ...pet,
@@ -579,11 +567,26 @@ export const deletePet = async (petId, userId = null, userRole = null) => {
 
 // ----------------- SCHEDULES -----------------
 export const getSchedules = (userId = null, userRole = null) => {
-  const data = getStored(STORAGE_KEYS.SCHEDULES, null);
-  let allSchedules = data;
+  let allSchedules = getStored(STORAGE_KEYS.SCHEDULES, null);
 
   if (!Array.isArray(allSchedules)) {
     allSchedules = [];
+    setStored(STORAGE_KEYS.SCHEDULES, allSchedules);
+  }
+
+  // Dọn đúng các bản ghi do test script của agent tạo dựa trên tiền tố ID xác định (không xóa theo từ khóa tên)
+  const isAgentTestId = (id) => {
+    if (!id || typeof id !== 'string') return false;
+    return id.startsWith('sch-type-test-') ||
+           id.startsWith('sch-invalid-type-') ||
+           id.startsWith('sch-missing-type-') ||
+           id.startsWith('sch-repeat-test-') ||
+           id === 'sch-rollback-test';
+  };
+
+  const hasAgentArtifacts = allSchedules.some(s => isAgentTestId(s.id));
+  if (hasAgentArtifacts) {
+    allSchedules = allSchedules.filter(s => !isAgentTestId(s.id));
     setStored(STORAGE_KEYS.SCHEDULES, allSchedules);
   }
 
@@ -608,7 +611,7 @@ export const addSchedule = async (schedule, userId = null) => {
   return res;
 };
 
-export const addBatchSchedules = (newSchedulesList, userId = null) => {
+export const addBatchSchedules = async (newSchedulesList, userId = null) => {
   const schedules = getStored(STORAGE_KEYS.SCHEDULES, []);
   let targetOwnerId = userId;
   if (!targetOwnerId) {
@@ -633,19 +636,20 @@ export const addBatchSchedules = (newSchedulesList, userId = null) => {
       !s.completed
     );
     if (!isDuplicate) {
-      prepared.push({
+      const newSch = {
         ...item,
         id: item.id || `sch-${Date.now()}-${i}`,
         ownerId: item.ownerId || targetOwnerId,
         completed: false,
         createdAt: new Date().toISOString()
-      });
+      };
+      prepared.push(newSch);
+      await apiCreate('schedules', newSch);
     }
   }
 
-  const updated = [...prepared, ...schedules];
-  saveSchedules(updated);
-  return updated;
+  await syncAllDataToCache();
+  return getSchedules(targetOwnerId);
 };
 
 export const updateSchedule = async (updatedSchedule, userId = null, userRole = null) => {
@@ -654,83 +658,54 @@ export const updateSchedule = async (updatedSchedule, userId = null, userRole = 
   return res;
 };
 
-export const toggleScheduleComplete = (scheduleId, userId = null, userRole = null) => {
+export const toggleScheduleComplete = async (scheduleId, userId = null, userRole = null) => {
   const schedules = getStored(STORAGE_KEYS.SCHEDULES, []);
-  const index = schedules.findIndex(s => s.id === scheduleId);
-  if (index === -1) return null;
-
-  const currentSchedule = schedules[index];
-  if (userRole !== 'system_admin' && userId && currentSchedule.ownerId && currentSchedule.ownerId !== userId) {
+  const currentSchedule = schedules.find(s => s.id === scheduleId);
+  if (currentSchedule && userRole !== 'system_admin' && userId && currentSchedule.ownerId && currentSchedule.ownerId !== userId) {
     throw new Error('Bạn không có quyền thay đổi trạng thái lịch trình của người dùng khác.');
   }
 
-  const isNowCompleted = !currentSchedule.completed;
-  schedules[index] = {
-    ...currentSchedule,
-    completed: isNowCompleted,
-    completedAt: isNowCompleted ? new Date().toISOString() : null
-  };
-
-  // Xử lý lịch lặp an toàn:
-  // 1. Chỉ sinh lịch lặp mới nếu chưa có bản ghi lặp tiếp theo (tránh trùng khi hoàn thành -> bỏ hoàn thành -> hoàn thành lại)
-  // 2. Tính toán ngày với tháng nhuận và ngày cuối tháng an toàn (clamped)
-  if (isNowCompleted && currentSchedule.repeat && currentSchedule.repeat !== 'none') {
-    const existingNext = currentSchedule.nextRecurrenceId
-      ? schedules.find(s => s.id === currentSchedule.nextRecurrenceId)
-      : schedules.find(s => s.parentScheduleId === currentSchedule.id && !s.completed);
-
-    if (!existingNext) {
-      let nextDateStr = currentSchedule.date;
-      switch (currentSchedule.repeat) {
-        case 'weekly':
-          nextDateStr = addDaysLocal(currentSchedule.date, 7);
-          break;
-        case 'monthly':
-          nextDateStr = addMonthsClamped(currentSchedule.date, 1);
-          break;
-        case 'quarterly':
-          nextDateStr = addMonthsClamped(currentSchedule.date, 3);
-          break;
-        case 'yearly':
-          nextDateStr = addYearsClamped(currentSchedule.date, 1);
-          break;
-        default:
-          break;
-      }
-
-      const nextId = `sch-${Date.now()}-next`;
-      schedules[index].nextRecurrenceId = nextId;
-
-      const nextSchedule = {
-        ...currentSchedule,
-        id: nextId,
-        parentScheduleId: currentSchedule.id,
-        nextRecurrenceId: null,
-        date: nextDateStr,
-        completed: false,
-        completedAt: null,
-        createdAt: new Date().toISOString()
-      };
-      schedules.unshift(nextSchedule);
-    }
-  }
-
-  saveSchedules(schedules);
-  return schedules[index];
+  // Toàn bộ nghiệp vụ (cập nhật trạng thái + tạo lịch tiếp theo) được thực hiện trong 1 giao dịch duy nhất ở backend
+  const res = await apiFetch(`/schedules/${scheduleId}/toggle-complete`, 'POST');
+  await syncAllDataToCache();
+  return res?.updatedSchedule || res;
 };
 
-export const deleteSchedule = (scheduleId, userId = null, userRole = null) => {
+
+export const deleteSchedule = async (scheduleId, userId = null, userRole = null) => {
   const schedules = getStored(STORAGE_KEYS.SCHEDULES, []);
   const target = schedules.find(s => s.id === scheduleId);
   if (!target) return schedules;
 
   if (userRole !== 'system_admin' && userId && target.ownerId && target.ownerId !== userId) {
-    throw new Error('Bạn không có quyền xóa lịch trình của người dùng khác.');
+    const permErr = new Error('Bạn không có quyền xóa lịch trình của người dùng khác.');
+    permErr.status = 403;
+    permErr.code = 'FORBIDDEN_NOT_OWNER';
+    throw permErr;
   }
 
-  const filtered = schedules.filter(s => s.id !== scheduleId);
-  saveSchedules(filtered);
-  return filtered;
+  try {
+    await apiDelete('schedules', scheduleId);
+    await syncAllDataToCache();
+    return getSchedules(userId, userRole);
+  } catch (err) {
+    if (err.status === 404 || err.code === 'NOT_FOUND' || (err.message && err.message.includes('không tồn tại'))) {
+      // Backend xác nhận bản ghi không còn tồn tại:
+      // Tải lại nguồn dữ liệu có thẩm quyền và loại bỏ thẻ cũ khỏi cache
+      const cleanList = schedules.filter(s => s.id !== scheduleId);
+      setStored(STORAGE_KEYS.SCHEDULES, cleanList);
+      try {
+        await syncAllDataToCache();
+      } catch {}
+      const notFoundErr = new Error('Lịch này không còn tồn tại, danh sách đã được cập nhật.');
+      notFoundErr.status = 404;
+      notFoundErr.code = 'NOT_FOUND';
+      notFoundErr.isGhostCleaned = true;
+      throw notFoundErr;
+    }
+    // Lỗi mạng, 403 hoặc 500: Ném nguyên vẹn, không dọn dẹp cache và không giả thành công
+    throw err;
+  }
 };
 
 // ----------------- EXPENSES -----------------
@@ -747,7 +722,12 @@ export const getExpenses = (userId = null, userRole = null) => {
   let hasUpdate = false;
   const allPetsForLookup = getStored(STORAGE_KEYS.PETS, []) || [];
   const enriched = allExpenses.map(exp => {
-    if (!exp.petName && exp.petId) {
+    const isShared = !exp.petId || exp.petId === 'shared' || exp.petId === 'all' || exp.petId === 'none';
+    if (isShared && exp.petName !== 'Dùng chung') {
+      hasUpdate = true;
+      return { ...exp, petId: 'shared', petName: 'Dùng chung' };
+    }
+    if (!exp.petName && exp.petId && !isShared) {
       hasUpdate = true;
       const foundPet = allPetsForLookup.find(p => p.id === exp.petId);
       return { ...exp, petName: foundPet?.name || 'Thú cưng' };
@@ -765,7 +745,13 @@ export const getExpenses = (userId = null, userRole = null) => {
   const authorizedPets = getPets(userId, userRole);
   const authorizedPetIds = new Set(authorizedPets.map(p => p.id));
 
-  return allExpenses.filter(e => e.ownerId === userId || (e.petId && authorizedPetIds.has(e.petId)));
+  return allExpenses.filter(e => {
+    const isOwner = String(e.ownerId || '').trim() === String(userId).trim();
+    if (isOwner) return true;
+    const isShared = !e.petId || e.petId === 'shared' || e.petId === 'all' || e.petId === 'none';
+    if (e.petId && !isShared && authorizedPetIds.has(e.petId)) return true;
+    return false;
+  });
 };
 
 export const saveExpenses = (expenses) => {
@@ -773,8 +759,11 @@ export const saveExpenses = (expenses) => {
   return expenses;
 };
 
-export const addExpense = (expense, userId = null) => {
-  const expenses = getStored(STORAGE_KEYS.EXPENSES, []);
+export const isSharedExpense = (petId) => {
+  return !petId || petId === 'shared' || petId === 'all' || petId === 'none';
+};
+
+export const addExpense = async (expense, userId = null) => {
   let targetOwnerId = userId || expense.ownerId || null;
   if (!targetOwnerId) {
     try {
@@ -794,42 +783,157 @@ export const addExpense = (expense, userId = null) => {
     throw new Error('Ngày chi tiêu là bắt buộc.');
   }
 
-  // Nếu gắn với một pet cụ thể, kiểm tra pet đó thuộc quyền sở hữu
-  if (expense.petId && expense.petId !== 'all') {
+  const isShared = isSharedExpense(expense.petId);
+  let finalPetId = 'shared';
+  let defaultPetName = 'Dùng chung';
+
+  if (!isShared) {
+    // Nếu gắn với một pet cụ thể, kiểm tra pet đó thuộc quyền sở hữu của chủ nuôi
     const userPets = getPets(targetOwnerId);
-    if (userPets.length > 0 && !userPets.some(p => p.id === expense.petId)) {
+    const foundPet = userPets.find(p => p.id === expense.petId);
+    if (!foundPet) {
       throw new Error('Thú cưng được chọn không thuộc quyền quản lý của bạn.');
     }
+    finalPetId = expense.petId;
+    defaultPetName = expense.petName || foundPet.name || 'Thú cưng';
   }
 
-  // Tra cứu petName từ danh sách pets thực tế, không dùng tên cố định
-  let defaultPetName = expense.petName;
-  if (!defaultPetName && expense.petId && expense.petId !== 'all') {
-    const petsForLookup = getStored(STORAGE_KEYS.PETS, []) || [];
-    const foundPet = petsForLookup.find(p => p.id === expense.petId);
-    defaultPetName = foundPet?.name || 'Thú cưng';
-  } else if (!defaultPetName) {
-    defaultPetName = 'Tất cả';
-  }
   const newExp = {
     ...expense,
     title: expense.title.trim(),
     id: expense.id || `exp-${Date.now()}`,
     ownerId: targetOwnerId,
+    petId: finalPetId,
     petName: defaultPetName,
     amount: numericAmount,
     date: expense.date || getLocalDateString(),
     createdAt: new Date().toISOString()
   };
-  const updated = [newExp, ...expenses];
-  saveExpenses(updated);
-  return newExp;
+  
+  const res = await apiCreate('expenses', newExp);
+  await syncAllDataToCache();
+  return res || newExp;
+};
+
+export const updateExpense = async (id, updates, userId = null) => {
+  let targetOwnerId = userId || updates?.ownerId || null;
+  if (!targetOwnerId) {
+    try {
+      const activeUser = getStored('petcare_active_user', null) || getStored('petcare_current_user', null);
+      if (activeUser?.id) targetOwnerId = activeUser.id;
+    } catch {}
+  }
+
+  const cleanUpdates = { ...updates };
+
+  if (cleanUpdates.title !== undefined) {
+    if (!cleanUpdates.title || typeof cleanUpdates.title !== 'string' || !cleanUpdates.title.trim()) {
+      throw new Error('Tên khoản chi tiêu không được để trống hoặc chỉ chứa khoảng trắng.');
+    }
+    cleanUpdates.title = cleanUpdates.title.trim();
+  }
+
+  if (cleanUpdates.amount !== undefined) {
+    const amt = Number(cleanUpdates.amount);
+    if (isNaN(amt) || amt <= 0) {
+      throw new Error('Số tiền chi tiêu phải lớn hơn 0.');
+    }
+    cleanUpdates.amount = amt;
+  }
+
+  if (cleanUpdates.petId !== undefined) {
+    const isShared = isSharedExpense(cleanUpdates.petId);
+    if (isShared) {
+      cleanUpdates.petId = 'shared';
+      cleanUpdates.petName = 'Dùng chung';
+    } else {
+      if (targetOwnerId) {
+        const userPets = getPets(targetOwnerId);
+        const foundPet = userPets.find(p => p.id === cleanUpdates.petId);
+        if (!foundPet) {
+          throw new Error('Thú cưng được chọn không thuộc quyền quản lý của bạn.');
+        }
+        cleanUpdates.petName = cleanUpdates.petName || foundPet.name || 'Thú cưng';
+      }
+    }
+  }
+
+  const res = await apiUpdate('expenses', id, cleanUpdates);
+  await syncAllDataToCache();
+  return res;
 };
 
 export const deleteExpense = async (id, userId = null, userRole = null) => {
   await apiDelete('expenses', id);
   await syncAllDataToCache();
-  return getExpenses();
+  return getExpenses(userId, userRole);
+};
+
+// ----------------- BUDGETS (NGÂN SÁCH THÁNG/PHẠM VI) -----------------
+export const getBudgets = (userId = null) => {
+  const data = getStored(STORAGE_KEYS.BUDGETS, []);
+  if (!Array.isArray(data)) return [];
+  if (!userId) return data;
+  return data.filter(b => String(b.ownerId || '').trim() === String(userId).trim());
+};
+
+export const saveBudgets = (budgets) => {
+  setStored(STORAGE_KEYS.BUDGETS, budgets);
+  return budgets;
+};
+
+export const addBudget = async (budget, userId = null) => {
+  let targetOwnerId = userId || budget.ownerId || null;
+  if (!targetOwnerId) {
+    try {
+      const activeUser = getStored('petcare_active_user', null) || getStored('petcare_current_user', null);
+      if (activeUser?.id) targetOwnerId = activeUser.id;
+    } catch {}
+  }
+  const numericAmount = Math.round(Number(budget.amount));
+  if (isNaN(numericAmount) || numericAmount <= 0) {
+    throw new Error('Số tiền ngân sách phải là số nguyên dương lớn hơn 0 VND.');
+  }
+
+  const newBudget = {
+    ...budget,
+    id: budget.id || `bg-${Date.now()}`,
+    ownerId: targetOwnerId,
+    amount: numericAmount,
+    createdAt: new Date().toISOString()
+  };
+
+  const res = await apiCreate('budgets', newBudget);
+  try {
+    await syncAllDataToCache();
+  } catch (syncErr) {
+    console.warn('[Budgets] Đã lưu thành công nhưng sync cache gặp cảnh báo nhẹ:', syncErr);
+  }
+  return res || newBudget;
+};
+
+export const updateBudget = async (id, updates) => {
+  const payload = { ...updates };
+  if (payload.amount !== undefined) {
+    payload.amount = Math.round(Number(payload.amount));
+  }
+  const res = await apiUpdate('budgets', id, payload);
+  try {
+    await syncAllDataToCache();
+  } catch (syncErr) {
+    console.warn('[Budgets] Đã cập nhật thành công nhưng sync cache gặp cảnh báo nhẹ:', syncErr);
+  }
+  return res;
+};
+
+export const deleteBudget = async (id, userId = null) => {
+  await apiDelete('budgets', id);
+  try {
+    await syncAllDataToCache();
+  } catch (syncErr) {
+    console.warn('[Budgets] Đã xóa thành công nhưng sync cache gặp cảnh báo nhẹ:', syncErr);
+  }
+  return getBudgets(userId);
 };
 
 // ----------------- DAILY LOGS -----------------
@@ -856,7 +960,19 @@ export const saveDailyLogs = (logs) => {
 
 export const addDailyLog = async (log, userId = null) => {
   const res = await apiCreate('daily_logs', log);
-  await syncAllDataToCache();
+  try { await syncAllDataToCache(); } catch (_) {}
+  return res;
+};
+
+export const updateDailyLog = async (id, updates, userId = null) => {
+  const res = await apiUpdate('daily_logs', id, updates);
+  try { await syncAllDataToCache(); } catch (_) {}
+  return res;
+};
+
+export const deleteDailyLog = async (id, userId = null) => {
+  const res = await apiDelete('daily_logs', id);
+  try { await syncAllDataToCache(); } catch (_) {}
   return res;
 };
 
@@ -880,7 +996,10 @@ export const getPrescriptions = (userId = null, userRole = null) => {
 
   const authorizedPets = getPets(userId, userRole);
   const authorizedPetIds = new Set(authorizedPets.map(p => p.id));
-  return allPrescriptions.filter(p => p.ownerId === userId || (p.petId && authorizedPetIds.has(p.petId)));
+  return allPrescriptions.filter(p => 
+    (p.ownerId === userId || (p.petId && authorizedPetIds.has(p.petId))) &&
+    (p.isFinal === true && p.status === 'published')
+  );
 };
 
 export const savePrescriptions = (prescriptions) => {
@@ -963,7 +1082,7 @@ export const saveDailyHabits = (habits) => {
   return habits;
 };
 
-export const toggleHabit = (habitId, memberName = 'Bạn', userId = null) => {
+export const toggleHabit = async (habitId, memberName = 'Bạn', userId = null) => {
   const habits = getStored(STORAGE_KEYS.DAILY_HABITS, []);
   const index = habits.findIndex(h => h.id === habitId);
   if (index === -1) return null;
@@ -991,7 +1110,7 @@ export const toggleHabit = (habitId, memberName = 'Bạn', userId = null) => {
 
   const updatedStreak = calculateStreak(completedDates);
 
-  habits[index] = {
+  const updatedHabit = {
     ...currentHabit,
     completed: isNowCompleted,
     lastCompletedDate: isNowCompleted ? todayStr : (completedDates[completedDates.length - 1] || null),
@@ -1001,8 +1120,9 @@ export const toggleHabit = (habitId, memberName = 'Bạn', userId = null) => {
     streak: updatedStreak
   };
 
-  saveDailyHabits(habits);
-  return habits[index];
+  await apiUpdate('daily_habits', habitId, updatedHabit);
+  await syncAllDataToCache();
+  return updatedHabit;
 };
 
 export const addDailyHabit = async (habit, userId = null) => {
@@ -1028,7 +1148,7 @@ export const setLostMode = (petId, isLost, details = {}) => {
   const modes = getLostModes();
   modes[petId] = {
     isLost: Boolean(isLost),
-    lostDate: isLost ? (details.lostDate || new Date().toISOString().split('T')[0]) : null,
+    lostDate: isLost ? (details.lostDate || getTodayVnDate()) : null,
     contactPhone: details.contactPhone || '0912 345 678',
     reward: details.reward || '2.000.000 đ',
     lastSeenLocation: details.lastSeenLocation || 'Khu vực gần nhà',
@@ -1221,40 +1341,8 @@ export const setTheme = (theme) => {
 };
 
 // ----------------- EXPORT iCALENDAR (.ics) -----------------
-export const generateIcsCalendar = (schedules, pets) => {
-  const petMap = {};
-  pets.forEach(p => { petMap[p.id] = p.name; });
+// (Đã được import và re-export chuẩn hóa theo Asia/Ho_Chi_Minh từ dateUtils.js)
 
-  let ics = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//PetCare AI//Smart Pet Schedule//VI',
-    'CALSCALE:GREGORIAN',
-    'METHOD:PUBLISH'
-  ];
-
-  schedules.forEach(sch => {
-    const petName = petMap[sch.petId] || 'Thú cưng';
-    const dateFormatted = sch.date.replace(/-/g, '');
-    const timeFormatted = (sch.time || '09:00').replace(':', '') + '00';
-    const dtStart = `${dateFormatted}T${timeFormatted}`;
-
-    ics.push('BEGIN:VEVENT');
-    ics.push(`UID:${sch.id}@petcare.ai`);
-    ics.push(`DTSTAMP:${dateFormatted}T000000Z`);
-    ics.push(`DTSTART:${dtStart}`);
-    ics.push(`SUMMARY:[PetCare AI] ${sch.title} (${petName})`);
-    ics.push(`DESCRIPTION:${sch.notes || 'Lịch chăm sóc thú cưng định kỳ.'} - Địa điểm: ${sch.location || 'Tại nhà'}`);
-    if (sch.location) {
-      ics.push(`LOCATION:${sch.location}`);
-    }
-    ics.push('STATUS:CONFIRMED');
-    ics.push('END:VEVENT');
-  });
-
-  ics.push('END:VCALENDAR');
-  return ics.join('\r\n');
-};
 
 // ----------------- SETTINGS & BACKUP -----------------
 export const getSettings = () => {
@@ -1424,57 +1512,39 @@ export const resetUserData = (userId) => {
   saveDailyHabits(dailyHabits);
 };
 
-// ----------------- SYSTEM ADMIN BACKUP & RESTORE -----------------
-export const exportSystemData = () => {
-  // Lấy danh sách users nhưng ẩn mật khẩu để bảo mật
-  const rawUsers = getStored('petcare_auth_users_v1', []) || [];
-  const safeUsers = rawUsers.map(u => {
-    const copy = { ...u };
-    delete copy.password;
-    return copy;
+// ----------------- SYSTEM ADMIN BACKUP & RESTORE (BACKEND SYNC) -----------------
+export const exportSystemData = async () => {
+  const token = typeof localStorage !== 'undefined' ? localStorage.getItem('petcare_auth_token') : null;
+  const res = await fetch('/api/backup/export', {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
   });
-
-  return JSON.stringify({
-    format: 'petcare_system_enterprise_backup_v1',
-    exportDate: new Date().toISOString(),
-    users: safeUsers,
-    pets: getStored(STORAGE_KEYS.PETS, []),
-    schedules: getStored(STORAGE_KEYS.SCHEDULES, []),
-    expenses: getStored(STORAGE_KEYS.EXPENSES, []),
-    dailyLogs: getStored(STORAGE_KEYS.DAILY_LOGS, []),
-    prescriptions: getStored(STORAGE_KEYS.PRESCRIPTIONS, []),
-    familyMembers: getStored(STORAGE_KEYS.FAMILY_MEMBERS, []),
-    dailyHabits: getStored(STORAGE_KEYS.DAILY_HABITS, []),
-    appointments: getStored(STORAGE_KEYS.APPOINTMENTS, []),
-    lostModes: getStored(STORAGE_KEYS.LOST_MODES, {}),
-    settings: getSettings()
-  }, null, 2);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Lỗi khi xuất bản sao lưu từ máy chủ.');
+  }
+  const data = await res.json();
+  return JSON.stringify(data.backup, null, 2);
 };
 
-export const importSystemData = (jsonString) => {
+export const importSystemData = async (jsonString) => {
   try {
-    const data = JSON.parse(jsonString);
-    if (!data || typeof data !== 'object') {
-      return { success: false, message: 'File dữ liệu không phải là JSON hợp lệ!' };
+    const backupData = JSON.parse(jsonString);
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('petcare_auth_token') : null;
+    const res = await fetch('/api/backup/restore', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ backupData })
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok || !result.success) {
+      return { success: false, message: result.error || 'Máy chủ từ chối khôi phục dữ liệu.' };
     }
-
-    // Kiểm tra cấu trúc mảng
-    if (data.pets && !Array.isArray(data.pets)) return { success: false, message: 'Trường pets không phải là mảng!' };
-    if (data.schedules && !Array.isArray(data.schedules)) return { success: false, message: 'Trường schedules không phải là mảng!' };
-
-    // Khôi phục dữ liệu
-    if (Array.isArray(data.pets)) savePets(data.pets);
-    if (Array.isArray(data.schedules)) saveSchedules(data.schedules);
-    if (Array.isArray(data.expenses)) saveExpenses(data.expenses);
-    if (Array.isArray(data.dailyLogs)) saveDailyLogs(data.dailyLogs);
-    if (Array.isArray(data.prescriptions)) savePrescriptions(data.prescriptions);
-    if (Array.isArray(data.familyMembers)) saveFamilyMembers(data.familyMembers);
-    if (Array.isArray(data.dailyHabits)) saveDailyHabits(data.dailyHabits);
-    if (Array.isArray(data.appointments)) saveActiveAppointments(data.appointments);
-    if (data.lostModes && typeof data.lostModes === 'object') setStored(STORAGE_KEYS.LOST_MODES, data.lostModes);
-    if (data.settings && typeof data.settings === 'object') saveSettings(data.settings);
-
-    return { success: true, message: 'Khôi phục toàn hệ thống thành công!' };
+    // Sau khi server khôi phục thành công, đồng bộ lại cache trình duyệt
+    await syncAllDataToCache();
+    return { success: true, message: result.message || 'Khôi phục toàn hệ thống thành công!' };
   } catch (error) {
     return { success: false, message: `Lỗi phân tích file hệ thống: ${error.message}` };
   }
@@ -1513,12 +1583,30 @@ export const ACTIVE_APPOINTMENTS_KEY = 'petcare_active_appointments';
 export const getActiveAppointments = () => {
   let appointments = null;
   try {
-    const raw = localStorage.getItem(SHARED_APPOINTMENTS_KEY) || 
-                localStorage.getItem(ACTIVE_APPOINTMENTS_KEY) || 
-                localStorage.getItem('petcare_appointments') || 
-                localStorage.getItem(STORAGE_KEYS.APPOINTMENTS);
-    if (raw) {
-      appointments = JSON.parse(raw);
+    // Luôn ưu tiên khóa chuẩn STORAGE_KEYS.APPOINTMENTS (vừa sync từ backend)
+    const canonicalRaw = localStorage.getItem(STORAGE_KEYS.APPOINTMENTS);
+    if (canonicalRaw !== null && canonicalRaw !== undefined) {
+      appointments = JSON.parse(canonicalRaw);
+      // Dọn dẹp an toàn các khóa legacy để tránh bị lệch cache hoặc danh sách rỗng cũ che khuất
+      try {
+        localStorage.removeItem(SHARED_APPOINTMENTS_KEY);
+        localStorage.removeItem(ACTIVE_APPOINTMENTS_KEY);
+        localStorage.removeItem('petcare_appointments');
+      } catch {}
+    } else {
+      // Nếu chưa có khóa canonical, tìm trong các khóa cũ, migrate sang canonical và dọn dẹp
+      const legacyRaw = localStorage.getItem(SHARED_APPOINTMENTS_KEY) || 
+                        localStorage.getItem(ACTIVE_APPOINTMENTS_KEY) || 
+                        localStorage.getItem('petcare_appointments');
+      if (legacyRaw) {
+        appointments = JSON.parse(legacyRaw);
+        localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(appointments));
+        try {
+          localStorage.removeItem(SHARED_APPOINTMENTS_KEY);
+          localStorage.removeItem(ACTIVE_APPOINTMENTS_KEY);
+          localStorage.removeItem('petcare_appointments');
+        } catch {}
+      }
     }
   } catch (e) {
     console.error('Error reading active appointments:', e);
@@ -1567,9 +1655,10 @@ export const getActiveAppointments = () => {
       if (isDone) {
         updatedItem.status = 'completed';
         updatedItem.completed = true;
-      } else if (aDate && aDate < todayDateStr) {
-        updatedItem.status = 'overdue';
-        updatedItem.completed = false;
+      } else if (s === 'cancelled' || s === 'đã hủy') {
+        updatedItem.status = 'cancelled';
+      } else if (s === 'confirmed' || s === 'đã xác nhận') {
+        updatedItem.status = 'confirmed';
       } else if (s === 'chờ tiếp nhận' || s === 'chờ duyệt' || !a.status || s === 'pending') {
         updatedItem.status = 'pending';
       } else if (s === 'đang khám' || s === 'đã duyệt' || s === 'in_progress') {
@@ -1589,10 +1678,10 @@ export const getActiveAppointments = () => {
 
 export const saveActiveAppointments = (appointments) => {
   try {
+    localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(appointments));
     localStorage.setItem(SHARED_APPOINTMENTS_KEY, JSON.stringify(appointments));
     localStorage.setItem(ACTIVE_APPOINTMENTS_KEY, JSON.stringify(appointments));
     localStorage.setItem('petcare_appointments', JSON.stringify(appointments));
-    localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(appointments));
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('petcare_appointments_updated', { detail: appointments }));
     }
@@ -1606,16 +1695,60 @@ export const getAppointments = (userId = null, userRole = null) => {
   const all = getActiveAppointments();
   if (!userId || userRole === 'system_admin') return all;
   if (userRole === 'vet_doctor') {
-    // Bác sĩ chỉ xem được các ca được phân công qua assignedVetId
-    return all.filter(a => String(a.assignedVetId).trim() === String(userId).trim());
+    // Bác sĩ chỉ xem được các ca được phân công trực tiếp cho mình qua assignedVetId hoặc vetId
+    return all.filter(a => 
+      String(a.assignedVetId || '').trim() === String(userId).trim() ||
+      String(a.vetId || '').trim() === String(userId).trim()
+    );
   }
   // Chủ nuôi chỉ xem lịch hẹn của chính mình, lọc bằng ownerId thực tế
-  return all.filter(a => String(a.ownerId).trim() === String(userId).trim());
+  return all.filter(a => String(a.ownerId || '').trim() === String(userId).trim());
 };
 export const saveAppointments = saveActiveAppointments;
 
-export const addActiveAppointment = (appointmentData, userId = null) => {
-  const current = getActiveAppointments();
+export const assignAppointmentDoctor = async (appointmentId, vetId, vetName = '') => {
+  const res = await apiFetch(`/appointments/${appointmentId}/assign-vet`, 'POST', {
+    vetId,
+    assignedVetId: vetId,
+    assignedVet: vetName
+  });
+  await syncAllDataToCache();
+  return res?.data || res;
+};
+
+export const fetchActiveDoctors = async (facilityId = null) => {
+  try {
+    const q = facilityId ? `?facilityId=${encodeURIComponent(facilityId)}` : '';
+    const res = await apiFetch(`/doctors${q}`);
+    if (res && res.success && Array.isArray(res.data)) {
+      return res.data;
+    }
+    // Fallback gọi trực tiếp /api/doctors nếu apiFetch gặp sự cố
+    const directRes = await fetch(`/api/doctors${q}`);
+    const directData = await directRes.json().catch(() => null);
+    if (directRes.ok && directData?.success && Array.isArray(directData?.data)) {
+      return directData.data;
+    }
+    return [];
+  } catch (err) {
+    console.warn('[Storage] Lỗi tải danh sách bác sĩ từ máy chủ:', err.message);
+    return [];
+  }
+};
+
+export const fetchAvailableAppointmentSlots = async (params = {}) => {
+  const query = new URLSearchParams();
+  if (params.facility) query.append('facility', params.facility);
+  if (params.facilityId) query.append('facilityId', params.facilityId);
+  if (params.doctor) query.append('doctor', params.doctor);
+  if (params.doctorId) query.append('doctorId', params.doctorId);
+  if (params.date) query.append('date', params.date);
+  if (params.petId) query.append('petId', params.petId);
+
+  return await apiFetch(`/appointments/available-slots?${query.toString()}`);
+};
+
+export const addActiveAppointment = async (appointmentData, userId = null) => {
   let targetOwnerId = userId || appointmentData.ownerId || null;
   if (!targetOwnerId) {
     try {
@@ -1631,60 +1764,88 @@ export const addActiveAppointment = (appointmentData, userId = null) => {
     petType: appointmentData.petType || 'Chưa rõ loài',
     ownerName: appointmentData.ownerName || 'Chủ nuôi',
     phone: appointmentData.phone || '',
-    service: appointmentData.service || 'Khám lâm sàng',
-    facility: appointmentData.facility || 'Chi nhánh Cầu Giấy (Phòng khám 02)',
-    date: appointmentData.date || new Date().toISOString().split('T')[0],
-    time: appointmentData.time || '09:00',
+    service: appointmentData.service || 'Khám tổng quát định kỳ',
+    facility: appointmentData.facility || 'Bệnh viện Thú y 2Vet Hospital',
+    facilityId: appointmentData.facilityId || appointmentData.clinicId || '2vet',
+    clinicId: appointmentData.clinicId || appointmentData.facilityId || '2vet',
+    assignedVetId: appointmentData.assignedVetId || null,
+    assignedVet: appointmentData.assignedVet || 'Cơ sở phân công',
+    date: appointmentData.date || getTodayVnDate(),
+    time: appointmentData.time || '08:30',
     note: appointmentData.note || '',
-    status: appointmentData.status || 'pending', // Mặc định 'pending' (Chờ tiếp nhận)
-    assignedVet: appointmentData.assignedVet || 'Đang xếp lịch',
-    adminNote: appointmentData.adminNote || '',
+    status: 'pending', // Luôn ở trạng thái Chờ xác nhận
+    adminNote: '',
     isEmergency: Boolean(appointmentData.isEmergency || (appointmentData.service || '').includes('Cấp cứu')),
     createdAt: new Date().toISOString()
   };
 
-  // Tránh trùng lặp khi bấm nhiều lần liên tiếp cùng nội dung
-  const duplicateIndex = current.findIndex(a => 
-    a.id === newAppointment.id || 
-    (a.petName?.toLowerCase() === newAppointment.petName?.toLowerCase() &&
-     a.service?.toLowerCase() === newAppointment.service?.toLowerCase() &&
-     String(a.date).split('T')[0] === String(newAppointment.date).split('T')[0] &&
-     a.time === newAppointment.time)
-  );
-  if (duplicateIndex !== -1) {
-    current[duplicateIndex] = { ...current[duplicateIndex], ...newAppointment };
-    saveActiveAppointments(current);
-    return current[duplicateIndex];
+  const res = await apiCreate('appointments', newAppointment);
+
+  // Bảo vệ: Nếu backend đã lưu thành công nhưng syncAllDataToCache gặp sự cố nhỏ
+  // KHÔNG được ném lỗi khiến người dùng tưởng lưu thất bại và ấn đặt trùng!
+  try {
+    await syncAllDataToCache();
+  } catch (syncErr) {
+    console.warn('[Appointment] Lưu thành công nhưng sync cache gặp lỗi nhẹ:', syncErr);
+    return { ...(res || newAppointment), _syncWarning: true };
   }
 
-  const filtered = current.filter(a => a.id !== newAppointment.id);
-  const updated = [newAppointment, ...filtered];
-  saveActiveAppointments(updated);
-  return newAppointment;
+  return res || newAppointment;
 };
 
 export const addAppointment = addActiveAppointment;
 
-export const updateAppointment = (appointmentId, updates) => {
-  const current = getAppointments();
-  const updated = current.map(item => {
-    if (item.id === appointmentId) {
-      return {
-        ...item,
-        ...updates,
-        updatedAt: new Date().toISOString()
-      };
+export const updateAppointment = async (appointmentId, updates) => {
+  const res = await apiUpdate('appointments', appointmentId, updates);
+  const updatedRecord = (res && typeof res === 'object') ? res : { id: appointmentId, ...updates };
+
+  // Cập nhật ngay lập tức vào bộ nhớ đệm localStorage để tránh đọc lại dữ liệu cũ khi sync bị throttle
+  try {
+    const currentRaw = localStorage.getItem(STORAGE_KEYS.APPOINTMENTS);
+    let list = currentRaw ? JSON.parse(currentRaw) : [];
+    if (Array.isArray(list)) {
+      const idx = list.findIndex(a => a && (a.id === appointmentId || String(a.id).trim() === String(appointmentId).trim()));
+      if (idx !== -1) {
+        list[idx] = { ...list[idx], ...updatedRecord };
+      } else {
+        list.push(updatedRecord);
+      }
+      saveActiveAppointments(list);
     }
-    return item;
-  });
-  saveAppointments(updated);
-  return updated.find(a => a.id === appointmentId);
+  } catch (cacheErr) {
+    console.warn('Lỗi ghi đè cache cuộc hẹn:', cacheErr);
+  }
+
+  // Đồng bộ lại từ máy chủ với cờ force: true để cập nhật toàn diện
+  try {
+    await syncAllDataToCache({ force: true });
+  } catch (syncErr) {
+    console.warn('[Appointment] Cập nhật thành công nhưng syncAllDataToCache gặp lỗi nhẹ:', syncErr);
+  }
+
+  return updatedRecord;
+};
+
+export const updateAppointmentStatus = async (appointmentId, status, extra = {}) => {
+  return await updateAppointment(appointmentId, { status, ...extra });
 };
 
 export const deleteAppointment = async (appointmentId) => {
   await apiDelete('appointments', appointmentId);
   await syncAllDataToCache();
   return getAppointments();
+};
+
+export const archiveAppointment = async (appointmentId) => {
+  const res = await apiArchiveAppointment(appointmentId);
+  await syncAllDataToCache();
+  return res;
+};
+
+export const unarchiveAppointment = async (appointmentId) => {
+  const res = await apiUnarchiveAppointment(appointmentId);
+  await syncAllDataToCache();
+  return res;
 };
 
 // ----------------- DỊCH TỄ HỌC 2 CHIỀU (EPIDEMIC ALERT) -----------------
@@ -1778,7 +1939,7 @@ export const savePetsHealthData = (data, shouldNotify = true) => {
   return data;
 };
 
-export const updatePetWeight = (petId, newWeight, note = '') => {
+export const updatePetWeight = async (petId, newWeight, note = '') => {
   if (!petId) return getPetsHealthData();
   const key = String(petId).trim();
 
@@ -1795,87 +1956,122 @@ export const updatePetWeight = (petId, newWeight, note = '') => {
     }
   }
 
+  const cleanWeight = String(newWeight || '').trim().replace(',', '.');
+  const numWeight = parseFloat(cleanWeight);
+  if (isNaN(numWeight) || numWeight <= 0) {
+    throw new Error('Cân nặng phải là một số dương lớn hơn 0 kg.');
+  }
+
+  const todayVn = getTodayVnDate();
+  let recordDate = todayVn;
+  if (note && typeof note === 'string') {
+    const trimmedNote = note.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmedNote)) {
+      if (!isValidCalendarDate(trimmedNote)) {
+        throw new Error(`Ngày ghi nhận cân nặng '${trimmedNote}' không hợp lệ hoặc không tồn tại trên lịch thực tế (định dạng YYYY-MM-DD).`);
+      }
+      if (trimmedNote > todayVn) {
+        throw new Error(`Ngày ghi nhận cân nặng (${trimmedNote}) không được vượt quá hôm nay (${todayVn}) theo giờ Việt Nam.`);
+      }
+      recordDate = trimmedNote;
+    }
+  }
+
   const data = getPetsHealthData();
   const petData = data[key] ? { ...data[key] } : { petId: key, weight: null, weightHistory: [] };
-  const numWeight = parseFloat(newWeight);
-
-  if (isNaN(numWeight) || numWeight <= 0) return data;
-
-  petData.weight = numWeight;
 
   const history = Array.isArray(petData.weightHistory) ? [...petData.weightHistory] : [];
-  const now = new Date();
-  const todayFull = now.toISOString();
-  const todayDateStr = now.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
   const idStr = `w-${Date.now()}`;
 
   // Luôn THÊM bản ghi mới có ngày đo đầy đủ
   history.push({
     id: idStr,
     weight: numWeight,
-    date: todayDateStr,
-    fullDate: todayFull,
-    note: note || ''
+    date: recordDate,
+    fullDate: new Date().toISOString(),
+    note: typeof note === 'string' && !isValidCalendarDate(note) ? note : ''
   });
 
-  petData.weightHistory = history;
-  data[key] = petData;
+  // Sắp xếp tăng dần theo ngày ghi nhận
+  history.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
-  savePetsHealthData(data);
+  // Cân nặng hiện tại lấy từ bản ghi hợp lệ mới nhất theo ngày ghi nhận
+  const latestRecord = history[history.length - 1];
+  petData.weight = latestRecord ? latestRecord.weight : numWeight;
+  petData.weightHistory = history;
+
+  const initialToken = typeof localStorage !== 'undefined' ? (localStorage.getItem('petcare_token') || localStorage.getItem('petcare_auth_token')) : null;
+  const initialSessionUser = typeof localStorage !== 'undefined' ? (localStorage.getItem('petcare_active_user') || localStorage.getItem('petcare_current_user')) : null;
+
+  // Lưu lên máy chủ qua endpoint xác thực PUT /api/data/health_data/:petId
+  try {
+    await apiUpdate('health_data', key, petData);
+    await syncAllDataToCache();
+  } catch (err) {
+    console.error('Lỗi khi lưu cân nặng lên máy chủ:', err);
+    throw err;
+  }
+
+  const currentToken = typeof localStorage !== 'undefined' ? (localStorage.getItem('petcare_token') || localStorage.getItem('petcare_auth_token')) : null;
+  const currentSessionUser = typeof localStorage !== 'undefined' ? (localStorage.getItem('petcare_active_user') || localStorage.getItem('petcare_current_user')) : null;
+  if (currentToken && currentToken === initialToken && currentSessionUser === initialSessionUser) {
+    data[key] = petData;
+    savePetsHealthData(data);
+  }
   return data;
 };
 
-// ----------------- MIGRATION: XÓA SẠCH DỮ LIỆU MẪU CŨ -----------------
-(function runDataMigration() {
-  try {
-    const MIGRATION_FLAG = 'petcare_migration_v3_clean_mock';
-    if (typeof localStorage !== 'undefined' && !localStorage.getItem(MIGRATION_FLAG)) {
-      // 1. Dọn dẹp Pets mẫu
-      let allPets = getStored(STORAGE_KEYS.PETS, []);
-      if (Array.isArray(allPets)) {
-        const mockPetIds = ['pet-1', 'pet-2', 'pet-3'];
-        const cleanPets = allPets.filter(p => !mockPetIds.includes(p.id) && !p.isSample);
-        if (cleanPets.length !== allPets.length) {
-          setStored(STORAGE_KEYS.PETS, cleanPets);
-        }
-      }
+// ----------------- MIGRATION: KHÔNG TỰ Ý XÓA DỮ LIỆU THEO TÊN/ID PHỎNG ĐOÁN -----------------
+// (Đã loại bỏ cơ chế xóa tự động dựa trên tên hoặc ID phỏng đoán để bảo đảm toàn vẹn dữ liệu người dùng)
 
-      // 2. Dọn dẹp Lịch hẹn / Lịch trình mẫu
-      const mockApptIds = ['app-1', 'app-2', 'app-3', 'app-4', 'app-5'];
-      let allAppts = getStored(STORAGE_KEYS.APPOINTMENTS, []);
-      if (Array.isArray(allAppts)) {
-        const cleanAppts = allAppts.filter(a => !mockApptIds.includes(a.id));
-        setStored(STORAGE_KEYS.APPOINTMENTS, cleanAppts);
-      }
-
-      let allSchedules = getStored(STORAGE_KEYS.SCHEDULES, []);
-      if (Array.isArray(allSchedules)) {
-        const cleanSchedules = allSchedules.filter(s => s.petId && !['pet-1', 'pet-2', 'pet-3'].includes(s.petId));
-        setStored(STORAGE_KEYS.SCHEDULES, cleanSchedules);
-      }
-
-      // 3. Dọn dẹp sức khỏe mẫu
-      try {
-        const rawHealth = localStorage.getItem(PETS_HEALTH_STORAGE_KEY);
-        if (rawHealth) {
-          const healthData = JSON.parse(rawHealth);
-          let changed = false;
-          ['mochi', 'luna', 'banhbao', 'bánh bao', 'pet-1', 'pet-2', 'pet-3'].forEach(k => {
-            if (healthData[k]) {
-              delete healthData[k];
-              changed = true;
-            }
-          });
-          if (changed) {
-            localStorage.setItem(PETS_HEALTH_STORAGE_KEY, JSON.stringify(healthData));
-          }
-        }
-      } catch {}
-
-      localStorage.setItem(MIGRATION_FLAG, 'true');
-      console.log('[Migration] Đã xóa sạch dữ liệu mẫu thành công.');
-    }
-  } catch (err) {
-    console.error('Migration error:', err);
+export const getMedicalRecords = (userId = null, userRole = null) => {
+  const all = getStored('petcare_medical_records_v1', []);
+  if (!userId || userRole === 'system_admin') return all;
+  if (userRole === 'vet_doctor') {
+    return all.filter(r => r.authorId === userId || r.vetId === userId);
   }
-})();
+  const userPets = getStored('petcare_pets_v1', []).filter(p => String(p.ownerId).trim() === String(userId).trim());
+  const userPetIds = new Set(userPets.map(p => p.id));
+  return all.filter(r => {
+    const isOwner = String(r.ownerId).trim() === String(userId).trim() || userPetIds.has(r.petId);
+    return isOwner && (r.isFinal === true || r.status === 'published');
+  });
+};
+
+export const addMedicalRecord = async (record) => {
+  const res = await apiCreate('medical_records', record);
+  await syncAllDataToCache();
+  return res;
+};
+
+export const updateMedicalRecord = async (id, updates) => {
+  const res = await apiUpdate('medical_records', id, updates);
+  await syncAllDataToCache();
+  return res;
+};
+
+// Nghiệp vụ chốt bệnh án và hoàn thành lịch khám trong cùng 1 giao dịch nguyên tử ở backend
+export const finalizeEhrAndAppointment = async ({ appointmentId, petId, soap, notes, recordId }) => {
+  const res = await apiFetch('/medical-records/finalize-ehr', 'POST', {
+    appointmentId,
+    petId,
+    soap,
+    notes,
+    recordId
+  });
+  let syncSuccess = false;
+  try {
+    const syncRes = await syncAllDataToCache();
+    syncSuccess = (syncRes === true);
+  } catch (syncErr) {
+    console.warn('[PetCare] syncAllDataToCache warning after finalize-ehr:', syncErr);
+    syncSuccess = false;
+  }
+  return { ...res, success: true, syncWarning: !syncSuccess };
+};
+
+export const uploadMedicalDocument = async (fileData, petId) => {
+  return await apiFetch('/medical/upload-document', 'POST', { fileData, petId });
+};
+
+

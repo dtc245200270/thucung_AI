@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { sound } from '../../services/soundService';
 import { saveActiveAppointments, getActiveAppointments } from '../../services/storageService';
+import { getTodayVnDate } from '../../utils/dateUtils';
+import { VET_FACILITIES } from '../../constants/clinicFacilities';
 
 /**
  * EmergencyModal - Trung tâm Cấp Cứu Thú Y 24/7 & Hồi Sức Tích Cực
@@ -39,11 +41,11 @@ export const EmergencyModal = ({
 
   if (!isOpen) return null;
 
-  // Lấy thông tin bé cưng tự động theo yêu cầu (Mochi - Golden Retriever, 24.5kg)
-  const petName = currentPet?.name || 'Mochi';
-  const petBreed = currentPet?.breed || (currentPet?.species === 'cat' ? 'Mèo Anh Lông Ngắn' : currentPet?.species === 'rabbit' ? 'Thỏ Minilop' : 'Golden Retriever');
-  const petWeight = currentPet?.weight ? `${currentPet.weight}kg` : '24.5kg';
-  const petEmergencyTitle = `${petName} - ${petBreed}, ${petWeight}`;
+  // Lấy thông tin bé cưng từ state hiện tại
+  const petName = currentPet?.name || 'Thú cưng';
+  const petBreed = currentPet?.breed || (currentPet?.species === 'cat' ? 'Mèo' : currentPet?.species === 'dog' ? 'Chó' : (currentPet?.species || 'Chưa rõ giống'));
+  const petWeight = currentPet?.weight ? `${currentPet.weight}kg` : 'Chưa rõ cân nặng';
+  const petEmergencyTitle = currentPet ? `${petName} - ${petBreed}, ${petWeight}` : 'Chưa chọn thú cưng';
 
   // Xử lý gửi tín hiệu báo động đỏ tới phòng khám (Trigger Emergency Triage)
   const handleTriggerEmergencyTriage = () => {
@@ -63,11 +65,13 @@ export const EmergencyModal = ({
       priority: 'emergency',
       note: 'Báo động cấp cứu khẩn cấp từ chủ nuôi qua nút SOS',
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      date: new Date().toISOString().split('T')[0],
+      date: getTodayVnDate(),
       ownerName: 'Nguyễn Văn An (Chủ nuôi)',
       phone: '0912 345 678',
       service: '🚨 CẤP CỨU KHẨN CẤP (BÁO ĐỘNG ĐỎ)',
-      facility: 'Chi nhánh Cầu Giấy (Phòng khám 02)',
+      facility: VET_FACILITIES[0]?.name || 'Bệnh viện Thú y 2Vet Hospital',
+      facilityId: VET_FACILITIES[0]?.id || '2vet',
+      clinicId: VET_FACILITIES[0]?.id || '2vet',
       assignedVet: 'Bác sĩ trực cấp cứu ICU',
       createdAt: new Date().toISOString()
     };
@@ -204,7 +208,7 @@ export const EmergencyModal = ({
                 </span>
               </div>
 
-              {/* Tên bé gặp nạn: Tự động lấy tên bé đang chọn (Mochi - Golden Retriever, 24.5kg) */}
+              {/* Tên bé gặp nạn: Tự động lấy thông tin từ pet đang chọn */}
               <div className="mt-1 flex items-center gap-2 flex-wrap text-xs sm:text-sm">
                 <span className="text-slate-400">Bệnh nhân cần cấp cứu:</span>
                 <span className="font-extrabold text-amber-300 bg-amber-500/10 px-2.5 py-0.5 rounded-lg border border-amber-500/30">
@@ -255,11 +259,11 @@ export const EmergencyModal = ({
 
             {/* 1. Nút gọi điện khẩn cấp 1-chạm (Bấm là gọi ngay) */}
             <a 
-              href="tel:02473000899"
+              href="tel:0983358126"
               className="w-full bg-red-600 hover:bg-red-500 text-white font-black py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2.5 shadow-[0_0_30px_rgba(239,68,68,0.5)] border border-red-400/60 transition-all transform active:scale-98 text-sm sm:text-base text-center cursor-pointer"
             >
               <PhoneCall className="w-5 h-5 fill-current animate-bounce shrink-0" />
-              <span>📞 GỌI XE CẤP CỨU NGAY (024.7300.0899)</span>
+              <span>📞 GỌI XE CẤP CỨU NGAY (098 335 8126 - 2Vet)</span>
             </a>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -271,7 +275,7 @@ export const EmergencyModal = ({
                 className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 border border-slate-700 hover:border-slate-500 transition-all text-xs sm:text-sm text-center shadow-md cursor-pointer"
               >
                 <MapPin className="w-4 h-4 text-cyan-400 shrink-0" />
-                <span>📍 Bệnh viện gần nhất: 128 Cầu Giấy (Cách 1.2km)</span>
+                <span>📍 Bệnh viện 2Vet: 335 Kim Ngưu, Hai Bà Trưng</span>
               </a>
 
               {/* 3. Nút Phát Tín Hiệu Báo Động Đỏ Tới Phòng Khám */}

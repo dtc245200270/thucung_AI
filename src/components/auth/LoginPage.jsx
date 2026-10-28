@@ -76,8 +76,8 @@ export function LoginPage({
         targetEmail = 'tester@petcare.ai';
         targetPass = 'Doctor@123';
       } else {
-        targetEmail = 'demo@petcare.ai';
-        targetPass = 'Owner@123';
+        targetEmail = 'manhdinh2907@gmail.com';
+        targetPass = '123456';
       }
 
       setEmail(targetEmail);

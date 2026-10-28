@@ -1,0 +1,6 @@
+2026/10/27-16:04:53.831 482c Reusing MANIFEST C:\Users\Dell Precision 5550\Documents\PET_Ai\scratch\cdp_test_profile_headed\Default\Local Storage\leveldb/MANIFEST-000001
+2026/10/27-16:04:53.832 482c Recovering log #3
+2026/10/27-16:04:53.836 482c Reusing old log C:\Users\Dell Precision 5550\Documents\PET_Ai\scratch\cdp_test_profile_headed\Default\Local Storage\leveldb/000003.log 
+2026/10/27-17:54:04.732 605c Level-0 table #5: started
+2026/10/27-17:54:04.738 605c Level-0 table #5: 15454 bytes OK
+2026/10/27-17:54:04.771 605c Delete type=0 #3

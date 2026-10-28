@@ -26,24 +26,55 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { sound } from '../../services/soundService';
+import { getUsers } from '../../services/authService';
 
-export const VET_DOCTORS = [
-  { id: 'dr_paw', name: 'BS. Dr. Paw (AI Chẩn đoán & Hỗ trợ)', spec: 'Khoa Nội & Dinh dưỡng' },
-  { id: 'dr_manh', name: 'BS. Nguyễn Văn A (Trưởng khoa Ngoại)', spec: 'Phẫu thuật & Chấn thương' },
-  { id: 'dr_linh', name: 'BS. Trần Thị B (Chuyên gia Da liễu)', spec: 'Da liễu, Vi nấm & Ký sinh trùng' },
-  { id: 'dr_hoang', name: 'BS. Lê Minh Hoàng (Chuyên khoa Mèo & Thỏ)', spec: 'Hồi sức cấp cứu & Tiêu hóa' }
-];
+
 
 export const VetAppointmentsAdminView = ({
   appointments = [],
   onUpdateAppointment,
   onDeleteAppointment,
   onOpenCreateBooking,
-  pets = []
+  pets = [],
+  users = []
 }) => {
-  const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'Chờ duyệt' | 'Đã duyệt' | 'Đang khám' | 'Hoàn thành' | 'Đã hủy'
+  const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'unassigned' | 'Chờ duyệt' | 'Đã duyệt' | 'Đang khám' | 'Hoàn thành' | 'Đã hủy'
   const [searchQuery, setSearchQuery] = useState('');
   const [filterFacility, setFilterFacility] = useState('all');
+
+  // Chuẩn hóa trạng thái lịch khám (hỗ trợ cả mã tiếng Anh và nhãn tiếng Việt)
+  // TUYỆT ĐỐI KHÔNG TỰ GÁN TRẠNG THÁI pending KHI THIẾU STATUS ĐỂ TRÁNH LÀM SAI LỆCH DỮ LIỆU
+  const normalizeStatus = (status) => {
+    if (!status || typeof status !== 'string' || !status.trim()) return 'unspecified';
+    const s = String(status).toLowerCase().trim();
+    if (s === 'pending' || s === 'chờ duyệt' || s === 'chờ xác nhận') return 'Chờ duyệt';
+    if (s === 'confirmed' || s === 'đã duyệt' || s === 'đã xác nhận') return 'Đã duyệt';
+    if (s === 'in_progress' || s === 'đang khám') return 'Đang khám';
+    if (s === 'completed' || s === 'hoàn thành' || s === 'đã hoàn tất') return 'Hoàn thành';
+    if (s === 'cancelled' || s === 'đã hủy') return 'Đã hủy';
+    return 'unspecified';
+  };
+
+  // Helper nhận diện lịch chưa phân công bác sĩ phụ trách
+  const isAppointmentUnassigned = (app) => {
+    if (!app) return false;
+    if (!app.assignedVetId || app.assignedVetId === 'auto' || String(app.assignedVetId).trim() === '') return true;
+    const av = String(app.assignedVet || '').toLowerCase();
+    return av === 'đang xếp lịch' || av === 'cơ sở phân công' || av === 'chưa phân công';
+  };
+
+  // Danh sách bác sĩ thực tế từ cơ sở dữ liệu tài khoản (không dùng mock)
+  const availableVetDoctors = React.useMemo(() => {
+    const list = (users && users.length > 0) ? users : (getUsers() || []);
+    const fromUsers = list.filter(u => u.role === 'vet_doctor' && (!u.vetStatus || u.vetStatus === 'approved') && !u.isLocked);
+    return fromUsers.map(u => ({
+      id: u.id,
+      name: u.name.startsWith('BS.') ? u.name : `BS. ${u.name}`,
+      spec: u.specialty || 'Khoa Khám & Điều trị Thú y',
+      facilityId: u.facilityId || null,
+      facilityIds: Array.isArray(u.facilityIds) ? u.facilityIds : (u.facilityId ? [u.facilityId] : [])
+    }));
+  }, [users]);
 
   // Modal đổi giờ / từ chối
   const [rescheduleItem, setRescheduleItem] = useState(null);
@@ -52,20 +83,27 @@ export const VetAppointmentsAdminView = ({
 
   // Modal chỉ định Bác sĩ
   const [assignDoctorItem, setAssignDoctorItem] = useState(null);
-  const [selectedDoctor, setSelectedDoctor] = useState(VET_DOCTORS[0].name);
+  const [selectedDoctor, setSelectedDoctor] = useState(availableVetDoctors[0]?.name || '');
 
-  // Thống kê nhanh
+  // Thống kê nhanh minh bạch mọi trạng thái
   const totalCount = appointments.length;
-  const pendingCount = appointments.filter(a => a.status === 'Chờ duyệt').length;
-  const approvedCount = appointments.filter(a => a.status === 'Đã duyệt').length;
-  const inProgressCount = appointments.filter(a => a.status === 'Đang khám').length;
-  const completedCount = appointments.filter(a => a.status === 'Hoàn thành').length;
-  const emergencyCount = appointments.filter(a => a.isEmergency || (a.service || '').includes('Cấp cứu')).length;
+  const unassignedCount = appointments.filter(a => isAppointmentUnassigned(a) && normalizeStatus(a.status) !== 'Đã hủy').length;
+  const pendingCount = appointments.filter(a => normalizeStatus(a.status) === 'Chờ duyệt').length;
+  const approvedCount = appointments.filter(a => normalizeStatus(a.status) === 'Đã duyệt').length;
+  const inProgressCount = appointments.filter(a => normalizeStatus(a.status) === 'Đang khám').length;
+  const completedCount = appointments.filter(a => normalizeStatus(a.status) === 'Hoàn thành').length;
+  const cancelledCount = appointments.filter(a => normalizeStatus(a.status) === 'Đã hủy').length;
+  const unspecifiedCount = appointments.filter(a => normalizeStatus(a.status) === 'unspecified').length;
+  const emergencyCount = appointments.filter(a => Boolean(a.isEmergency || (a.service || '').includes('Cấp cứu'))).length;
 
   // Lọc danh sách lịch khám
   const filteredAppointments = appointments.filter(app => {
-    const matchStatus = filterStatus === 'all' || app.status === filterStatus;
-    const matchFacility = filterFacility === 'all' || app.facility.includes(filterFacility);
+    if (filterStatus === 'unassigned') {
+      return isAppointmentUnassigned(app) && normalizeStatus(app.status) !== 'Đã hủy';
+    }
+    const norm = normalizeStatus(app.status);
+    const matchStatus = filterStatus === 'all' || norm === filterStatus;
+    const matchFacility = filterFacility === 'all' || (app.facility || '').includes(filterFacility);
     
     const q = searchQuery.toLowerCase().trim();
     const matchQuery = !q || (
@@ -79,12 +117,13 @@ export const VetAppointmentsAdminView = ({
     return matchStatus && matchFacility && matchQuery;
   });
 
-  // 1. Duyệt lịch khám
+  // 1. Duyệt lịch khám (YÊU CẦU 7: Không tự gán bác sĩ cho ca "Cơ sở phân công")
   const handleApprove = (appointment) => {
     try { sound.playSuccess(); } catch (_) {}
     onUpdateAppointment(appointment.id, {
-      status: 'Đã duyệt',
-      assignedVet: appointment.assignedVet === 'Đang xếp lịch' ? 'BS. Dr. Paw (AI)' : appointment.assignedVet,
+      status: 'confirmed',
+      assignedVet: appointment.assignedVet || 'Cơ sở phân công',
+      assignedVetId: appointment.assignedVetId || null,
       adminNote: appointment.adminNote || ''
     });
   };
@@ -93,7 +132,7 @@ export const VetAppointmentsAdminView = ({
   const handleStartExam = (appointment) => {
     try { sound.playClick(); } catch (_) {}
     onUpdateAppointment(appointment.id, {
-      status: 'Đang khám',
+      status: 'in_progress',
       adminNote: appointment.adminNote || ''
     });
   };
@@ -102,7 +141,7 @@ export const VetAppointmentsAdminView = ({
   const handleCompleteExam = (appointment) => {
     try { sound.playSuccess(); } catch (_) {}
     onUpdateAppointment(appointment.id, {
-      status: 'Hoàn thành',
+      status: 'completed',
       adminNote: appointment.adminNote || ''
     });
   };
@@ -111,17 +150,24 @@ export const VetAppointmentsAdminView = ({
   const handleOpenAssign = (appointment) => {
     try { sound.playClick(); } catch (_) {}
     setAssignDoctorItem(appointment);
-    setSelectedDoctor(appointment.assignedVet !== 'Đang xếp lịch' ? appointment.assignedVet : VET_DOCTORS[0].name);
+    const existingDoc = availableVetDoctors.find(d => d.id === appointment.assignedVetId || d.name === appointment.assignedVet);
+    setSelectedDoctor(existingDoc ? existingDoc.name : availableVetDoctors[0].name);
   };
 
-  const handleSaveAssign = () => {
+  const handleSaveAssign = async () => {
     if (!assignDoctorItem) return;
     try { sound.playSuccess(); } catch (_) {}
-    onUpdateAppointment(assignDoctorItem.id, {
-      assignedVet: selectedDoctor,
-      status: assignDoctorItem.status === 'Chờ duyệt' ? 'Đã duyệt' : assignDoctorItem.status
-    });
-    setAssignDoctorItem(null);
+    const chosenDoc = availableVetDoctors.find(d => d.name === selectedDoctor || d.id === selectedDoctor) || availableVetDoctors[0];
+    try {
+      // Phân công không tự chuyển pending thành confirmed; bác sĩ vẫn phải xác nhận ca!
+      await onUpdateAppointment(assignDoctorItem.id, {
+        assignedVet: chosenDoc.name,
+        assignedVetId: chosenDoc.id
+      });
+      setAssignDoctorItem(null);
+    } catch (err) {
+      alert(err.message || 'Lỗi khi phân công bác sĩ. Vui lòng kiểm tra xung đột trùng lịch khám.');
+    }
   };
 
   // 5. Mở modal từ chối / đổi giờ
@@ -258,22 +304,30 @@ export const VetAppointmentsAdminView = ({
           {/* Status Tabs */}
           <div className="flex items-center gap-1 overflow-x-auto w-full md:w-auto no-scrollbar p-1 bg-slate-900/80 rounded-xl border border-white/[0.06]">
             {[
-              { id: 'all', label: 'Tất cả' },
+              { id: 'all', label: `Tất cả (${totalCount})` },
+              { id: 'unassigned', label: `Chờ phân công (${unassignedCount})`, highlight: unassignedCount > 0 },
               { id: 'Chờ duyệt', label: `Chờ duyệt (${pendingCount})`, highlight: pendingCount > 0 },
               { id: 'Đã duyệt', label: `Đã duyệt (${approvedCount})` },
               { id: 'Đang khám', label: `Đang khám (${inProgressCount})` },
               { id: 'Hoàn thành', label: `Hoàn thành (${completedCount})` },
-              { id: 'Đã hủy', label: 'Đã hủy / Đổi giờ' }
+              { id: 'Đã hủy', label: `Đã hủy (${cancelledCount})` },
+              ...(unspecifiedCount > 0 ? [
+                { id: 'unspecified', label: `Thiếu/Sai trạng thái (${unspecifiedCount})`, highlight: true, isWarning: true }
+              ] : [])
             ].map(tab => (
               <button
                 key={tab.id}
                 onClick={() => { sound.playClick(); setFilterStatus(tab.id); }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
                   filterStatus === tab.id
-                    ? 'bg-purple-600 text-white shadow-sm'
-                    : tab.highlight
-                      ? 'text-amber-400 bg-amber-500/10 hover:bg-amber-500/20'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    ? tab.isWarning
+                      ? 'bg-rose-600 text-white shadow-sm'
+                      : 'bg-purple-600 text-white shadow-sm'
+                    : tab.isWarning
+                      ? 'text-amber-300 bg-amber-500/20 border border-amber-500/40 animate-pulse'
+                      : tab.highlight
+                        ? 'text-amber-400 bg-amber-500/10 hover:bg-amber-500/20'
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
                 }`}
               >
                 {tab.label}
@@ -294,6 +348,24 @@ export const VetAppointmentsAdminView = ({
           </div>
 
         </div>
+
+        {/* Cảnh báo tính toàn vẹn dữ liệu nếu có ca thiếu/sai trạng thái */}
+        {unspecifiedCount > 0 && (
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 flex items-center justify-between gap-3 animate-in fade-in duration-200">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>
+                <strong>Kiểm tra toàn vẹn dữ liệu:</strong> Phát hiện {unspecifiedCount} ca khám thiếu hoặc sai trạng thái làm tổng ca không khớp bộ đếm chuẩn. Hệ thống giữ nguyên dữ liệu gốc, không tự gán 'Chờ duyệt' để làm khớp số liệu giả mạo.
+              </span>
+            </div>
+            <button
+              onClick={() => setFilterStatus('unspecified')}
+              className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 font-bold text-[11px] shrink-0 cursor-pointer"
+            >
+              Xem ca bất thường
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 4. Bảng danh sách lịch hẹn chi tiết (Table & Cards) */}
@@ -417,34 +489,46 @@ export const VetAppointmentsAdminView = ({
 
                       {/* Cột 6: Trạng thái */}
                       <td className="py-4 px-4 align-top whitespace-nowrap">
-                        {app.status === 'Chờ duyệt' && (
-                          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center gap-1 animate-pulse">
-                            <span className="w-2 h-2 rounded-full bg-amber-400" />
-                            Chờ duyệt
+                        {isAppointmentUnassigned(app) && normalizeStatus(app.status) !== 'Đã hủy' && (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center gap-1 mb-1 block w-fit">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                            Chờ phân công
                           </span>
                         )}
-                        {app.status === 'Đã duyệt' && (
+                        {normalizeStatus(app.status) === 'Chờ duyệt' && (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5 text-amber-400" />
+                            Chờ xác nhận
+                          </span>
+                        )}
+                        {normalizeStatus(app.status) === 'Đã duyệt' && (
                           <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 inline-flex items-center gap-1">
                             <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
-                            Đã duyệt
+                            Đã xác nhận
                           </span>
                         )}
-                        {app.status === 'Đang khám' && (
+                        {normalizeStatus(app.status) === 'Đang khám' && (
                           <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40 inline-flex items-center gap-1">
                             <PlayCircle className="w-3.5 h-3.5 text-purple-400 animate-spin" />
                             Đang khám
                           </span>
                         )}
-                        {app.status === 'Hoàn thành' && (
+                        {normalizeStatus(app.status) === 'Hoàn thành' && (
                           <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 inline-flex items-center gap-1">
                             <Check className="w-3.5 h-3.5 text-emerald-400" />
-                            Hoàn thành
+                            Đã hoàn tất
                           </span>
                         )}
-                        {(app.status === 'Đã hủy' || app.status === 'Đã đổi giờ') && (
+                        {normalizeStatus(app.status) === 'Đã hủy' && (
                           <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700 inline-flex items-center gap-1">
                             <XCircle className="w-3.5 h-3.5 text-rose-400" />
-                            {app.status}
+                            Đã hủy
+                          </span>
+                        )}
+                        {normalizeStatus(app.status) === 'unspecified' && (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center gap-1" title="Trạng thái không hợp lệ hoặc thiếu dữ liệu. Hệ thống không tự ý gán trạng thái.">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <span>{app.status ? `Sai: "${app.status}"` : 'Thiếu trạng thái'}</span>
                           </span>
                         )}
                       </td>
@@ -453,8 +537,20 @@ export const VetAppointmentsAdminView = ({
                       <td className="py-4 px-4 align-top text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5 flex-wrap">
                           
+                          {/* Nút Phân công bác sĩ nếu chưa phân công */}
+                          {isAppointmentUnassigned(app) && normalizeStatus(app.status) !== 'Đã hủy' && (
+                            <button
+                              onClick={() => handleOpenAssign(app)}
+                              className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold text-xs shadow-sm active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+                              title="Phân công bác sĩ cho ca khám này"
+                            >
+                              <UserCheck className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Phân Công</span>
+                            </button>
+                          )}
+
                           {/* Nút Duyệt Lịch */}
-                          {app.status === 'Chờ duyệt' && (
+                          {normalizeStatus(app.status) === 'Chờ duyệt' && !isAppointmentUnassigned(app) && (
                             <button
                               onClick={() => handleApprove(app)}
                               className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-sm shadow-emerald-600/30 active:scale-95 transition-all cursor-pointer flex items-center gap-1"
@@ -466,7 +562,7 @@ export const VetAppointmentsAdminView = ({
                           )}
 
                           {/* Nút Bắt đầu khám */}
-                          {app.status === 'Đã duyệt' && (
+                          {normalizeStatus(app.status) === 'Đã duyệt' && (
                             <button
                               onClick={() => handleStartExam(app)}
                               className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-sm shadow-purple-600/30 active:scale-95 transition-all cursor-pointer flex items-center gap-1"
@@ -478,7 +574,7 @@ export const VetAppointmentsAdminView = ({
                           )}
 
                           {/* Nút Hoàn thành khám */}
-                          {app.status === 'Đang khám' && (
+                          {normalizeStatus(app.status) === 'Đang khám' && (
                             <button
                               onClick={() => handleCompleteExam(app)}
                               className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm shadow-emerald-600/30 active:scale-95 transition-all cursor-pointer flex items-center gap-1"
@@ -646,7 +742,7 @@ export const VetAppointmentsAdminView = ({
             </p>
 
             <div className="space-y-2">
-              {VET_DOCTORS.map((doc) => {
+              {availableVetDoctors.map((doc) => {
                 const isSelected = selectedDoctor === doc.name;
                 return (
                   <button

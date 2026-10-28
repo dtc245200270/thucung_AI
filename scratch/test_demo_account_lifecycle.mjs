@@ -5,8 +5,8 @@ const BASE_URL = 'http://localhost:5000';
 async function request(endpoint, options = {}) {
   const url = `${BASE_URL}${endpoint}`;
   const response = await fetch(url, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     ...options,
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
   });
   const data = await response.json().catch(() => ({}));
   return { status: response.status, ok: response.ok, data };
@@ -22,6 +22,8 @@ async function runTest() {
   });
   assert.strictEqual(adminLogin.status, 200, 'Đăng nhập admin phải thành công');
   const adminId = adminLogin.data.user.id;
+  const adminToken = adminLogin.data.token;
+  assert.ok(adminToken, 'Admin phải có token');
   console.log(`✅ [1/6] Đăng nhập Admin thành công (Admin ID: ${adminId})`);
 
   // 2. Tạo tài khoản với email demo@petcare.ai (tài khoản mẫu từng bị xóa)
@@ -30,8 +32,8 @@ async function runTest() {
   
   const createRes1 = await request('/api/auth/admin/create-user', {
     method: 'POST',
+    headers: { Authorization: `Bearer ${adminToken}` },
     body: JSON.stringify({
-      callerId: adminId,
       name: 'Đinh Xuân Mạnh (Tái Tạo)',
       email: targetEmail,
       phone: '0912.888.999',
@@ -52,8 +54,8 @@ async function runTest() {
   // 3. Thử tạo lại email đang tồn tại (Phải bị từ chối)
   const createDup = await request('/api/auth/admin/create-user', {
     method: 'POST',
+    headers: { Authorization: `Bearer ${adminToken}` },
     body: JSON.stringify({
-      callerId: adminId,
       name: 'Người trùng email',
       email: targetEmail,
       phone: '0912.111.222',
@@ -79,8 +81,8 @@ async function runTest() {
   // 5. Xóa tài khoản vừa tạo
   const deleteRes = await request('/api/auth/admin/delete-user', {
     method: 'POST',
+    headers: { Authorization: `Bearer ${adminToken}` },
     body: JSON.stringify({
-      callerId: adminId,
       targetUserId: createdUser1.id,
       targetEmail: targetEmail,
       confirmEmail: targetEmail
@@ -93,8 +95,8 @@ async function runTest() {
   const secondPassword = 'SecondNewPassword@456';
   const createRes2 = await request('/api/auth/admin/create-user', {
     method: 'POST',
+    headers: { Authorization: `Bearer ${adminToken}` },
     body: JSON.stringify({
-      callerId: adminId,
       name: 'Đinh Xuân Mạnh (Tái Tạo Lần 2)',
       email: targetEmail,
       phone: '0912.999.888',
@@ -113,8 +115,8 @@ async function runTest() {
   // Dọn dẹp an toàn sau kiểm thử: Xóa tài khoản lần 2 để đưa database về trạng thái sạch (chỉ còn Admin & Bác sĩ)
   const cleanupRes = await request('/api/auth/admin/delete-user', {
     method: 'POST',
+    headers: { Authorization: `Bearer ${adminToken}` },
     body: JSON.stringify({
-      callerId: adminId,
       targetUserId: createdUser2.id,
       targetEmail: targetEmail,
       confirmEmail: targetEmail

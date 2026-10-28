@@ -15,6 +15,7 @@ import {
   ShieldAlert
 } from 'lucide-react';
 import { analyzeDailyHealthTrend } from '../../services/aiService';
+import { getTodayVnDate } from '../../utils/dateUtils';
 
 export const DailyActivityView = ({
   dailyLogs = [],
@@ -26,7 +27,7 @@ export const DailyActivityView = ({
 
   const [formData, setFormData] = useState({
     petId: pets[0]?.id || '',
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayVnDate(),
     poopStatus: 'normal',
     peeStatus: 'normal',
     walkMinutes: 30,

@@ -1,0 +1,526 @@
+import { getTodayVnDate, addDaysLocal } from "/src/utils/dateUtils.js";
+// Mock data ban đầu phong phú và chuẩn thú y
+export const INITIAL_PETS = [];
+// Cơ sở dữ liệu Vắc-xin chuẩn y khoa theo từng cá thể & loài thú cưng
+export const petVaccineDatabase = {
+	mochi: {
+		id: "mochi",
+		name: "Mochi",
+		species: "Golden Retriever",
+		microchip: "98200036412",
+		stats: {
+			completed: 3,
+			nextDue: "18/01/2027",
+			dewormCount: 2
+		},
+		vaccines: [
+			{
+				name: "Nobivac DHPPi + L4 (7 Bệnh)",
+				lot: "NV-2026-8892",
+				date: "10/05/2026",
+				nextDue: "18/01/2027",
+				remainingDays: 106,
+				vet: "BS. Nam - CCHN-0981"
+			},
+			{
+				name: "Rabisin (Vắc-xin Dại Quốc Tế)",
+				lot: "RB-2026-4412",
+				date: "15/04/2026",
+				nextDue: "15/04/2027",
+				remainingDays: 193,
+				vet: "BS. Trần Thị Mai - CCHN-1204"
+			},
+			{
+				name: "Bordetella Bronchiseptica (Ho cũi chó)",
+				lot: "KC-2026-1102",
+				date: "20/09/2026",
+				nextDue: "20/09/2027",
+				remainingDays: 351,
+				vet: "BS. Nam - CCHN-0981"
+			}
+		]
+	},
+	luna: {
+		id: "luna",
+		name: "Luna",
+		species: "Mèo Anh Lông Ngắn (BSH)",
+		microchip: "VN-9820008871",
+		stats: {
+			completed: 2,
+			nextDue: "12/03/2027",
+			dewormCount: 3
+		},
+		vaccines: [{
+			name: "Purevax RCPCh (Vắc-xin 4 Bệnh Mèo)",
+			lot: "PV-2026-3391",
+			date: "12/03/2026",
+			nextDue: "12/03/2027",
+			remainingDays: 159,
+			vet: "BS. Trần Thị Mai - CCHN-1204"
+		}, {
+			name: "Rabisin (Phòng Dại Cho Mèo)",
+			lot: "RB-2026-9021",
+			date: "15/04/2026",
+			nextDue: "15/04/2027",
+			remainingDays: 193,
+			vet: "BS. Nam - CCHN-0981"
+		}]
+	},
+	banhbao: {
+		id: "banhbao",
+		name: "Bánh Bao",
+		species: "Thỏ Minilop",
+		microchip: "VN-9820001905",
+		stats: {
+			completed: 1,
+			nextDue: "05/11/2026",
+			dewormCount: 1
+		},
+		vaccines: [{
+			name: "Filavac VHD K C+V (Bại huyết Thỏ RHDV1 & RHDV2)",
+			lot: "FL-2026-0418",
+			date: "05/11/2025",
+			nextDue: "05/11/2026",
+			remainingDays: 32,
+			vet: "BS. Nam - CCHN-0981"
+		}]
+	}
+};
+// Dữ liệu tẩy giun & ký sinh trùng chuẩn y khoa cho từng loài
+export const petDewormDatabase = {
+	mochi: [{
+		id: "deworm-m-1",
+		title: "Drontal Plus Flavour",
+		diseaseDesc: "Tẩy sán dây, giun tròn, giun móc, giun tóc đường ruột",
+		batchNumber: "DT-2026-0988",
+		date: "01/08/2026",
+		nextDueDate: "01/11/2026",
+		doctor: "BS. Lê Minh Hoàng (Khoa Dược)",
+		facility: "Phòng khám PetCare Chi nhánh 1",
+		completed: true,
+		repeat: "3 tháng/lần",
+		notes: "Uống sau ăn no, đường ruột sạch, thể trạng ổn định."
+	}, {
+		id: "deworm-m-2",
+		title: "NexGard Spectra 15-30kg",
+		diseaseDesc: "Dự phòng giun tim, tẩy giun phổi & phòng diệt ve rận, ghẻ demodex",
+		batchNumber: "NX-2027-5501",
+		date: "01/09/2026",
+		nextDueDate: "01/10/2026",
+		doctor: "Dược sĩ Thú y Khoa Dược",
+		facility: "Hệ thống PetCare Hub",
+		completed: true,
+		repeat: "1 tháng/lần",
+		notes: "Viên nhai vị bò thơm ngon, dự phòng ngoại ký sinh trùng tuyệt đối."
+	}],
+	luna: [
+		{
+			id: "deworm-l-1",
+			title: "Broadline Spot-on (Cho mèo 2.5 - 7.5kg)",
+			diseaseDesc: "Nhỏ gáy phòng trị ve rận, bọ chét, giun tim & sán dây cho mèo",
+			batchNumber: "BL-2026-1190",
+			date: "15/08/2026",
+			nextDueDate: "15/09/2026",
+			doctor: "BS. Trần Thị Mai - CCHN-1204",
+			facility: "Bệnh Viện Thú Y PetCare Central",
+			completed: true,
+			repeat: "1 tháng/lần",
+			notes: "Nhỏ gáy tại nhà, lông khô sạch, không kích ứng da."
+		},
+		{
+			id: "deworm-l-2",
+			title: "Revolution Plus (Mèo 2.5 - 5kg)",
+			diseaseDesc: "Phòng ngừa giun tim, ghẻ tai, diệt ve rận và bọ chét chuyên biệt mèo",
+			batchNumber: "RP-2026-4421",
+			date: "15/07/2026",
+			nextDueDate: "15/08/2026",
+			doctor: "BS. Lê Minh Hoàng (Khoa Dược)",
+			facility: "Hệ thống PetCare Hub",
+			completed: true,
+			repeat: "1 tháng/lần",
+			notes: "Bảo vệ ngoại ký sinh và giun chỉ toàn diện."
+		},
+		{
+			id: "deworm-l-3",
+			title: "Milbemax Chewable Cat",
+			diseaseDesc: "Viên nhai tẩy giun tròn, giun móc và sán dây nội tạng cho mèo",
+			batchNumber: "MB-2026-0032",
+			date: "12/03/2026",
+			nextDueDate: "12/06/2026",
+			doctor: "BS. Nam - CCHN-0981",
+			facility: "Phòng khám PetCare Chi nhánh 1",
+			completed: true,
+			repeat: "3 tháng/lần",
+			notes: "Tẩy giun nội tạng định kỳ, tiêu hóa ổn định."
+		}
+	],
+	banhbao: [{
+		id: "deworm-b-1",
+		title: "Panacur Rabbit Oral Paste (Fenbendazole)",
+		diseaseDesc: "Gel uống phòng ngừa ký sinh trùng nội tạng và vi bào tử trùng E. Cuniculi ở thỏ",
+		batchNumber: "PC-2026-7819",
+		date: "05/08/2026",
+		nextDueDate: "05/02/2027",
+		doctor: "BS. Nam - CCHN-0981",
+		facility: "Bệnh Viện Thú Y PetCare Central",
+		completed: true,
+		repeat: "6 tháng/lần",
+		notes: "Uống trực tiếp hoặc trộn cỏ Timothy, đường ruột khỏe mạnh."
+	}]
+};
+// Helper lấy khóa của thú cưng
+export const getPetKey = (pet) => {
+	if (!pet) return "";
+	return String(pet.id || "").trim();
+};
+// Helper tính ngày linh động tương đối theo hôm nay
+const getOffsetDate = (days) => addDaysLocal(getTodayVnDate(), days);
+export const INITIAL_SCHEDULES = [];
+export const SCHEDULE_TYPES = {
+	vaccine: {
+		label: "Tiêm phòng",
+		icon: "Syringe",
+		color: "emerald",
+		bgLight: "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-800/50 dark:text-emerald-300",
+		badge: "bg-emerald-100 text-emerald-800"
+	},
+	deworm: {
+		label: "Tẩy giun / Phòng ký sinh trùng",
+		icon: "Pill",
+		color: "amber",
+		bgLight: "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/40 dark:border-amber-800/50 dark:text-amber-300",
+		badge: "bg-amber-100 text-amber-800"
+	},
+	grooming: {
+		label: "Vệ sinh / Làm đẹp",
+		icon: "Sparkles",
+		color: "purple",
+		bgLight: "bg-purple-50 border-purple-200 text-purple-700 dark:bg-purple-950/40 dark:border-purple-800/50 dark:text-purple-300",
+		badge: "bg-purple-100 text-purple-800"
+	},
+	vet: {
+		label: "Nhắc khám / Tái khám",
+		icon: "Stethoscope",
+		color: "blue",
+		bgLight: "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950/40 dark:border-blue-800/50 dark:text-blue-300",
+		badge: "bg-blue-100 text-blue-800"
+	},
+	medicine: {
+		label: "Uống thuốc / Điều trị",
+		icon: "Activity",
+		color: "rose",
+		bgLight: "bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-950/40 dark:border-rose-800/50 dark:text-rose-300",
+		badge: "bg-rose-100 text-rose-800"
+	},
+	feeding: {
+		label: "Ăn uống",
+		icon: "Utensils",
+		color: "orange",
+		bgLight: "bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-950/40 dark:border-orange-800/50 dark:text-orange-300",
+		badge: "bg-orange-100 text-orange-800"
+	},
+	exercise: {
+		label: "Vận động / Vui chơi",
+		icon: "Footprints",
+		color: "teal",
+		bgLight: "bg-teal-50 border-teal-200 text-teal-700 dark:bg-teal-950/40 dark:border-teal-800/50 dark:text-teal-300",
+		badge: "bg-teal-100 text-teal-800"
+	},
+	other: {
+		label: "Khác",
+		icon: "HelpCircle",
+		color: "slate",
+		bgLight: "bg-slate-100 border-slate-200 text-slate-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300",
+		badge: "bg-slate-100 text-slate-800"
+	}
+};
+export const SPECIES_LIST = [
+	{
+		id: "dog",
+		label: "Chó",
+		emoji: "🐶",
+		icon: "Dog"
+	},
+	{
+		id: "cat",
+		label: "Mèo",
+		emoji: "🐱",
+		icon: "Cat"
+	},
+	{
+		id: "rabbit",
+		label: "Thỏ",
+		emoji: "🐰",
+		icon: "Rabbit"
+	},
+	{
+		id: "hamster",
+		label: "Hamster / Chuột kiểng",
+		emoji: "🐹",
+		icon: "Mouse"
+	},
+	{
+		id: "bird",
+		label: "Chim cảnh",
+		emoji: "🦜",
+		icon: "Bird"
+	},
+	{
+		id: "other",
+		label: "Khác",
+		emoji: "🐾",
+		icon: "PawPrint"
+	}
+];
+export const DAILY_AI_TIPS = [
+	{
+		title: "Thời tiết ấm lên - Đề phòng ve rận & bọ chét",
+		petType: "all",
+		content: "Khi độ ẩm và nhiệt độ tăng, trứng ve rận phát triển rất nhanh. Hãy kiểm tra kẽ tai, đệm bàn chân và định kỳ nhỏ gáy phòng ngừa cho thú cưng mỗi tháng 1 lần.",
+		tag: "Phòng bệnh"
+	},
+	{
+		title: "Chăm sóc răng miệng cho Chó Golden & các giống chó lớn",
+		petType: "dog",
+		content: "Trên 80% chó từ 3 tuổi trở lên có dấu hiệu viêm nha chu. Cho gặm xương đồ chơi chuyên dụng và đánh răng bằng kem đánh răng thú y vị thịt 2-3 lần/tuần để tránh hôi miệng.",
+		tag: "Răng miệng"
+	},
+	{
+		title: "Khuyến khích mèo uống nhiều nước để ngừa sỏi thận",
+		petType: "cat",
+		content: "Mèo có thói quen lười uống nước đọng. Sử dụng đài phun nước lưu động hoặc bổ sung pate ướt trộn nước ấm sẽ giúp giảm 70% nguy cơ viêm bàng quang và sỏi tiết niệu.",
+		tag: "Dinh dưỡng"
+	}
+];
+// Danh mục Chi tiêu Thú cưng
+export const EXPENSE_CATEGORIES = {
+	food: {
+		label: "Thức ăn & Bánh thưởng",
+		icon: "Utensils",
+		color: "bg-emerald-100 text-emerald-800"
+	},
+	medical: {
+		label: "Khám thú y & Thuốc men",
+		icon: "Stethoscope",
+		color: "bg-blue-100 text-blue-800"
+	},
+	grooming: {
+		label: "Spa & Cắt tỉa lông",
+		icon: "Sparkles",
+		color: "bg-purple-100 text-purple-800"
+	},
+	toys: {
+		label: "Đồ chơi & Phụ kiện",
+		icon: "Gamepad2",
+		color: "bg-amber-100 text-amber-800"
+	},
+	vaccine: {
+		label: "Tiêm phòng vắc-xin",
+		icon: "Syringe",
+		color: "bg-teal-100 text-teal-800"
+	},
+	hygiene: {
+		label: "Vệ sinh & Cát vệ sinh",
+		icon: "Trash2",
+		color: "bg-rose-100 text-rose-800"
+	},
+	other: {
+		label: "Chi phí khác",
+		icon: "Receipt",
+		color: "bg-slate-100 text-slate-800"
+	}
+};
+export const INITIAL_EXPENSES = [];
+// Nhật ký sinh hoạt hàng ngày
+export const INITIAL_DAILY_LOGS = [];
+// Đơn thuốc đang điều trị
+export const INITIAL_PRESCRIPTIONS = [];
+// Danh bạ cứu hộ & bệnh viện thú y uy tín
+export const PET_SERVICES = [
+	{
+		id: "srv-1",
+		name: "Bệnh Viện Thú Y PetHealth 24/7",
+		type: "hospital",
+		address: "Số 240 Âu Cơ, Tây Hồ, Hà Nội",
+		phone: "024 2242 8882",
+		hotline: "1900 6868",
+		is247: true,
+		rating: 4.9,
+		services: [
+			"Cấp cứu 24/7",
+			"Phẫu thuật",
+			"X-Quang & Siêu âm",
+			"Xét nghiệm máu"
+		]
+	},
+	{
+		id: "srv-2",
+		name: "Phòng Khám Thú Y Sammi Pet Clinic",
+		type: "clinic",
+		address: "159 Nguyễn Đình Chiểu, Quận 3, TP.HCM",
+		phone: "028 3930 1234",
+		hotline: "0903 123 456",
+		is247: false,
+		rating: 4.8,
+		services: [
+			"Tiêm phòng vắc-xin",
+			"Khám da liễu",
+			"Nha khoa thú cưng",
+			"Điều trị nội trú"
+		]
+	},
+	{
+		id: "srv-3",
+		name: "Paddy Spa & Pet Grooming Lounge",
+		type: "spa",
+		address: "88 Trần Não, P. An Khánh, TP. Thủ Đức",
+		phone: "0938 123 789",
+		hotline: "0938 123 789",
+		is247: false,
+		rating: 4.9,
+		services: [
+			"Tắm sấy tạo kiểu",
+			"Nhuộm lông an toàn",
+			"Vệ sinh tai móng",
+			"Khách sạn thú cưng"
+		]
+	}
+];
+// Thành viên gia đình cùng đồng chăm sóc (Co-Parenting)
+export const INITIAL_FAMILY_MEMBERS = [];
+// Thói quen & Công việc hàng ngày (Daily Habits & Streak)
+export const INITIAL_DAILY_HABITS = [];
+// Đường cong tăng trưởng chuẩn của các giống loài (Growth Curves Standard)
+export const BREED_GROWTH_STANDARDS = {
+	"Golden Retriever": {
+		species: "dog",
+		adultWeightRange: [25, 34],
+		monthlyStandards: [
+			{
+				month: 2,
+				min: 4.5,
+				max: 7,
+				ideal: 5.8
+			},
+			{
+				month: 4,
+				min: 11,
+				max: 15,
+				ideal: 13
+			},
+			{
+				month: 6,
+				min: 18,
+				max: 22,
+				ideal: 20
+			},
+			{
+				month: 9,
+				min: 22,
+				max: 28,
+				ideal: 25
+			},
+			{
+				month: 12,
+				min: 25,
+				max: 32,
+				ideal: 28.5
+			},
+			{
+				month: 18,
+				min: 26,
+				max: 34,
+				ideal: 30
+			},
+			{
+				month: 24,
+				min: 27,
+				max: 34,
+				ideal: 30.5
+			}
+		],
+		growthNotes: "Chó Golden phát triển hệ khung xương mạnh nhất từ 3-8 tháng tuổi. Cần bổ sung Canxi Nano và Glucosamine để chống hạ bàn."
+	},
+	"Mèo Anh Lông Ngắn (BSH)": {
+		species: "cat",
+		adultWeightRange: [3.5, 6.5],
+		monthlyStandards: [
+			{
+				month: 2,
+				min: .8,
+				max: 1.2,
+				ideal: 1
+			},
+			{
+				month: 4,
+				min: 1.6,
+				max: 2.3,
+				ideal: 2
+			},
+			{
+				month: 6,
+				min: 2.4,
+				max: 3.4,
+				ideal: 2.9
+			},
+			{
+				month: 9,
+				min: 3.2,
+				max: 4.5,
+				ideal: 3.8
+			},
+			{
+				month: 12,
+				min: 3.5,
+				max: 5.5,
+				ideal: 4.4
+			},
+			{
+				month: 18,
+				min: 3.8,
+				max: 6,
+				ideal: 4.8
+			},
+			{
+				month: 24,
+				min: 4,
+				max: 6.5,
+				ideal: 5
+			}
+		],
+		growthNotes: "Mèo Anh lông ngắn có khung xương to, nọng má phúng phính. Cần kiểm soát lượng hạt sau khi triệt sản để tránh béo phì."
+	},
+	"Thỏ Minilop": {
+		species: "rabbit",
+		adultWeightRange: [1.4, 2],
+		monthlyStandards: [
+			{
+				month: 2,
+				min: .5,
+				max: .8,
+				ideal: .65
+			},
+			{
+				month: 4,
+				min: .9,
+				max: 1.3,
+				ideal: 1.1
+			},
+			{
+				month: 6,
+				min: 1.2,
+				max: 1.7,
+				ideal: 1.45
+			},
+			{
+				month: 12,
+				min: 1.4,
+				max: 2,
+				ideal: 1.65
+			}
+		],
+		growthNotes: "Cần ăn 80% cỏ khô Timothy để mài răng cửa và bảo vệ hệ tiêu hóa."
+	}
+};
+
+//# sourceMappingURL=data:application/json;base64,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LEtBQUs7SUFBSyxPQUFPO0dBQUk7R0FDM0M7SUFBRSxPQUFPO0lBQUcsS0FBSztJQUFLLEtBQUs7SUFBSyxPQUFPO0dBQUk7R0FDM0M7SUFBRSxPQUFPO0lBQUksS0FBSztJQUFLLEtBQUs7SUFBSyxPQUFPO0dBQUk7R0FDNUM7SUFBRSxPQUFPO0lBQUksS0FBSztJQUFLLEtBQUs7SUFBSyxPQUFPO0dBQUk7R0FDNUM7SUFBRSxPQUFPO0lBQUksS0FBSztJQUFLLEtBQUs7SUFBSyxPQUFPO0dBQUk7RUFDOUM7RUFDQSxhQUFhO0NBQ2Y7Q0FDQSxlQUFlO0VBQ2IsU0FBUztFQUNULGtCQUFrQixDQUFDLEtBQUssQ0FBRztFQUMzQixrQkFBa0I7R0FDaEI7SUFBRSxPQUFPO0lBQUcsS0FBSztJQUFLLEtBQUs7SUFBSyxPQUFPO0dBQUs7R0FDNUM7SUFBRSxPQUFPO0lBQUcsS0FBSztJQUFLLEtBQUs7SUFBSyxPQUFPO0dBQUk7R0FDM0M7SUFBRSxPQUFPO0lBQUcsS0FBSztJQUFLLEtBQUs7SUFBSyxPQUFPO0dBQUs7R0FDNUM7SUFBRSxPQUFPO0lBQUksS0FBSztJQUFLLEtBQUs7SUFBSyxPQUFPO0dBQUs7RUFDL0M7RUFDQSxhQUFhO0NBQ2Y7QUFDRiIsIm5hbWVzIjpbXSwic291cmNlcyI6WyJtb2NrRGF0YS5qcyJdLCJ2ZXJzaW9uIjozLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBnZXRUb2RheVZuRGF0ZSwgYWRkRGF5c0xvY2FsIH0gZnJvbSAnLi4vdXRpbHMvZGF0ZVV0aWxzJztcblxuLy8gTW9jayBkYXRhIGJhbiDEkeG6p3UgcGhvbmcgcGjDuiB2w6AgY2h14bqpbiB0aMO6IHlcbmV4cG9ydCBjb25zdCBJTklUSUFMX1BFVFMgPSBbXTtcblxuLy8gQ8ahIHPhu58gZOG7ryBsaeG7h3UgVuG6r2MteGluIGNodeG6qW4geSBraG9hIHRoZW8gdOG7q25nIGPDoSB0aOG7gyAmIGxvw6BpIHRow7ogY8awbmdcbmV4cG9ydCBjb25zdCBwZXRWYWNjaW5lRGF0YWJhc2UgPSB7XG4gIG1vY2hpOiB7XG4gICAgaWQ6ICdtb2NoaScsXG4gICAgbmFtZTogJ01vY2hpJyxcbiAgICBzcGVjaWVzOiAnR29sZGVuIFJldHJpZXZlcicsXG4gICAgbWljcm9jaGlwOiAnOTgyMDAwMzY0MTInLFxuICAgIHN0YXRzOiB7IGNvbXBsZXRlZDogMywgbmV4dER1ZTogJzE4LzAxLzIwMjcnLCBkZXdvcm1Db3VudDogMiB9LFxuICAgIHZhY2NpbmVzOiBbXG4gICAgICB7IG5hbWU6ICdOb2JpdmFjIERIUFBpICsgTDQgKDcgQuG7h25oKScsIGxvdDogJ05WLTIwMjYtODg5MicsIGRhdGU6ICcxMC8wNS8yMDI2JywgbmV4dER1ZTogJzE4LzAxLzIwMjcnLCByZW1haW5pbmdEYXlzOiAxMDYsIHZldDogJ0JTLiBOYW0gLSBDQ0hOLTA5ODEnIH0sXG4gICAgICB7IG5hbWU6ICdSYWJpc2luIChW4bqvYy14aW4gROG6oWkgUXXhu5FjIFThur8pJywgbG90OiAnUkItMjAyNi00NDEyJywgZGF0ZTogJzE1LzA0LzIwMjYnLCBuZXh0RHVlOiAnMTUvMDQvMjAyNycsIHJlbWFpbmluZ0RheXM6IDE5MywgdmV0OiAnQlMuIFRy4bqnbiBUaOG7iyBNYWkgLSBDQ0hOLTEyMDQnIH0sXG4gICAgICB7IG5hbWU6ICdCb3JkZXRlbGxhIEJyb25jaGlzZXB0aWNhIChIbyBjxalpIGNow7MpJywgbG90OiAnS0MtMjAyNi0xMTAyJywgZGF0ZTogJzIwLzA5LzIwMjYnLCBuZXh0RHVlOiAnMjAvMDkvMjAyNycsIHJlbWFpbmluZ0RheXM6IDM1MSwgdmV0OiAnQlMuIE5hbSAtIENDSE4tMDk4MScgfVxuICAgIF1cbiAgfSxcbiAgbHVuYToge1xuICAgIGlkOiAnbHVuYScsXG4gICAgbmFtZTogJ0x1bmEnLFxuICAgIHNwZWNpZXM6ICdNw6hvIEFuaCBMw7RuZyBOZ+G6r24gKEJTSCknLFxuICAgIG1pY3JvY2hpcDogJ1ZOLTk4MjAwMDg4NzEnLFxuICAgIHN0YXRzOiB7IGNvbXBsZXRlZDogMiwgbmV4dER1ZTogJzEyLzAzLzIwMjcnLCBkZXdvcm1Db3VudDogMyB9LFxuICAgIHZhY2NpbmVzOiBbXG4gICAgICB7IG5hbWU6ICdQdXJldmF4IFJDUENoIChW4bqvYy14aW4gNCBC4buHbmggTcOobyknLCBsb3Q6ICdQVi0yMDI2LTMzOTEnLCBkYXRlOiAnMTIvMDMvMjAyNicsIG5leHREdWU6ICcxMi8wMy8yMDI3JywgcmVtYWluaW5nRGF5czogMTU5LCB2ZXQ6ICdCUy4gVHLhuqduIFRo4buLIE1haSAtIENDSE4tMTIwNCcgfSxcbiAgICAgIHsgbmFtZTogJ1JhYmlzaW4gKFBow7JuZyBE4bqhaSBDaG8gTcOobyknLCBsb3Q6ICdSQi0yMDI2LTkwMjEnLCBkYXRlOiAnMTUvMDQvMjAyNicsIG5leHREdWU6ICcxNS8wNC8yMDI3JywgcmVtYWluaW5nRGF5czogMTkzLCB2ZXQ6ICdCUy4gTmFtIC0gQ0NITi0wOTgxJyB9XG4gICAgXVxuICB9LFxuICBiYW5oYmFvOiB7XG4gICAgaWQ6ICdiYW5oYmFvJyxcbiAgICBuYW1lOiAnQsOhbmggQmFvJyxcbiAgICBzcGVjaWVzOiAnVGjhu48gTWluaWxvcCcsXG4gICAgbWljcm9jaGlwOiAnVk4tOTgyMDAwMTkwNScsXG4gICAgc3RhdHM6IHsgY29tcGxldGVkOiAxLCBuZXh0RHVlOiAnMDUvMTEvMjAyNicsIGRld29ybUNvdW50OiAxIH0sXG4gICAgdmFjY2luZXM6IFtcbiAgICAgIHsgbmFtZTogJ0ZpbGF2YWMgVkhEIEsgQytWIChC4bqhaSBodXnhur90IFRo4buPIFJIRFYxICYgUkhEVjIpJywgbG90OiAnRkwtMjAyNi0wNDE4JywgZGF0ZTogJzA1LzExLzIwMjUnLCBuZXh0RHVlOiAnMDUvMTEvMjAyNicsIHJlbWFpbmluZ0RheXM6IDMyLCB2ZXQ6ICdCUy4gTmFtIC0gQ0NITi0wOTgxJyB9XG4gICAgXVxuICB9XG59O1xuXG4vLyBE4buvIGxp4buHdSB04bqpeSBnaXVuICYga8O9IHNpbmggdHLDuW5nIGNodeG6qW4geSBraG9hIGNobyB04burbmcgbG/DoGlcbmV4cG9ydCBjb25zdCBwZXREZXdvcm1EYXRhYmFzZSA9IHtcbiAgbW9jaGk6IFtcbiAgICB7XG4gICAgICBpZDogJ2Rld29ybS1tLTEnLFxuICAgICAgdGl0bGU6ICdEcm9udGFsIFBsdXMgRmxhdm91cicsXG4gICAgICBkaXNlYXNlRGVzYzogJ1Thuql5IHPDoW4gZMOieSwgZ2l1biB0csOybiwgZ2l1biBtw7NjLCBnaXVuIHTDs2MgxJHGsOG7nW5nIHJ14buZdCcsXG4gICAgICBiYXRjaE51bWJlcjogJ0RULTIwMjYtMDk4OCcsXG4gICAgICBkYXRlOiAnMDEvMDgvMjAyNicsXG4gICAgICBuZXh0RHVlRGF0ZTogJzAxLzExLzIwMjYnLFxuICAgICAgZG9jdG9yOiAnQlMuIEzDqiBNaW5oIEhvw6BuZyAoS2hvYSBExrDhu6NjKScsXG4gICAgICBmYWNpbGl0eTogJ1Bow7JuZyBraMOhbSBQZXRDYXJlIENoaSBuaMOhbmggMScsXG4gICAgICBjb21wbGV0ZWQ6IHRydWUsXG4gICAgICByZXBlYXQ6ICczIHRow6FuZy9s4bqnbicsXG4gICAgICBub3RlczogJ1Xhu5FuZyBzYXUgxINuIG5vLCDEkcaw4budbmcgcnXhu5l0IHPhuqFjaCwgdGjhu4MgdHLhuqFuZyDhu5VuIMSR4buLbmguJ1xuICAgIH0sXG4gICAge1xuICAgICAgaWQ6ICdkZXdvcm0tbS0yJyxcbiAgICAgIHRpdGxlOiAnTmV4R2FyZCBTcGVjdHJhIDE1LTMwa2cnLFxuICAgICAgZGlzZWFzZURlc2M6ICdE4buxIHBow7JuZyBnaXVuIHRpbSwgdOG6qXkgZ2l1biBwaOG7lWkgJiBwaMOybmcgZGnhu4d0IHZlIHLhuq1uLCBnaOG6uyBkZW1vZGV4JyxcbiAgICAgIGJhdGNoTnVtYmVyOiAnTlgtMjAyNy01NTAxJyxcbiAgICAgIGRhdGU6ICcwMS8wOS8yMDI2JyxcbiAgICAgIG5leHREdWVEYXRlOiAnMDEvMTAvMjAyNicsXG4gICAgICBkb2N0b3I6ICdExrDhu6NjIHPEqSBUaMO6IHkgS2hvYSBExrDhu6NjJyxcbiAgICAgIGZhY2lsaXR5OiAnSOG7hyB0aOG7kW5nIFBldENhcmUgSHViJyxcbiAgICAgIGNvbXBsZXRlZDogdHJ1ZSxcbiAgICAgIHJlcGVhdDogJzEgdGjDoW5nL2zhuqduJyxcbiAgICAgIG5vdGVzOiAnVmnDqm4gbmhhaSB24buLIGLDsiB0aMahbSBuZ29uLCBk4buxIHBow7JuZyBuZ2/huqFpIGvDvSBzaW5oIHRyw7luZyB0dXnhu4d0IMSR4buRaS4nXG4gICAgfVxuICBdLFxuICBsdW5hOiBbXG4gICAge1xuICAgICAgaWQ6ICdkZXdvcm0tbC0xJyxcbiAgICAgIHRpdGxlOiAnQnJvYWRsaW5lIFNwb3Qtb24gKENobyBtw6hvIDIuNSAtIDcuNWtnKScsXG4gICAgICBkaXNlYXNlRGVzYzogJ05o4buPIGfDoXkgcGjDsm5nIHRy4buLIHZlIHLhuq1uLCBi4buNIGNow6l0LCBnaXVuIHRpbSAmIHPDoW4gZMOieSBjaG8gbcOobycsXG4gICAgICBiYXRjaE51bWJlcjogJ0JMLTIwMjYtMTE5MCcsXG4gICAgICBkYXRlOiAnMTUvMDgvMjAyNicsXG4gICAgICBuZXh0RHVlRGF0ZTogJzE1LzA5LzIwMjYnLFxuICAgICAgZG9jdG9yOiAnQlMuIFRy4bqnbiBUaOG7iyBNYWkgLSBDQ0hOLTEyMDQnLFxuICAgICAgZmFjaWxpdHk6ICdC4buHbmggVmnhu4duIFRow7ogWSBQZXRDYXJlIENlbnRyYWwnLFxuICAgICAgY29tcGxldGVkOiB0cnVlLFxuICAgICAgcmVwZWF0OiAnMSB0aMOhbmcvbOG6p24nLFxuICAgICAgbm90ZXM6ICdOaOG7jyBnw6F5IHThuqFpIG5ow6AsIGzDtG5nIGtow7Qgc+G6oWNoLCBraMO0bmcga8OtY2gg4bupbmcgZGEuJ1xuICAgIH0sXG4gICAge1xuICAgICAgaWQ6ICdkZXdvcm0tbC0yJyxcbiAgICAgIHRpdGxlOiAnUmV2b2x1dGlvbiBQbHVzIChNw6hvIDIuNSAtIDVrZyknLFxuICAgICAgZGlzZWFzZURlc2M6ICdQaMOybmcgbmfhu6thIGdpdW4gdGltLCBnaOG6uyB0YWksIGRp4buHdCB2ZSBy4bqtbiB2w6AgYuG7jSBjaMOpdCBjaHV5w6puIGJp4buHdCBtw6hvJyxcbiAgICAgIGJhdGNoTnVtYmVyOiAnUlAtMjAyNi00NDIxJyxcbiAgICAgIGRhdGU6ICcxNS8wNy8yMDI2JyxcbiAgICAgIG5leHREdWVEYXRlOiAnMTUvMDgvMjAyNicsXG4gICAgICBkb2N0b3I6ICdCUy4gTMOqIE1pbmggSG/DoG5nIChLaG9hIETGsOG7o2MpJyxcbiAgICAgIGZhY2lsaXR5OiAnSOG7hyB0aOG7kW5nIFBldENhcmUgSHViJyxcbiAgICAgIGNvbXBsZXRlZDogdHJ1ZSxcbiAgICAgIHJlcGVhdDogJzEgdGjDoW5nL2zhuqduJyxcbiAgICAgIG5vdGVzOiAnQuG6o28gduG7hyBuZ2/huqFpIGvDvSBzaW5oIHbDoCBnaXVuIGNo4buJIHRvw6BuIGRp4buHbi4nXG4gICAgfSxcbiAgICB7XG4gICAgICBpZDogJ2Rld29ybS1sLTMnLFxuICAgICAgdGl0bGU6ICdNaWxiZW1heCBDaGV3YWJsZSBDYXQnLFxuICAgICAgZGlzZWFzZURlc2M6ICdWacOqbiBuaGFpIHThuql5IGdpdW4gdHLDsm4sIGdpdW4gbcOzYyB2w6Agc8OhbiBkw6J5IG7hu5lpIHThuqFuZyBjaG8gbcOobycsXG4gICAgICBiYXRjaE51bWJlcjogJ01CLTIwMjYtMDAzMicsXG4gICAgICBkYXRlOiAnMTIvMDMvMjAyNicsXG4gICAgICBuZXh0RHVlRGF0ZTogJzEyLzA2LzIwMjYnLFxuICAgICAgZG9jdG9yOiAnQlMuIE5hbSAtIENDSE4tMDk4MScsXG4gICAgICBmYWNpbGl0eTogJ1Bow7JuZyBraMOhbSBQZXRDYXJlIENoaSBuaMOhbmggMScsXG4gICAgICBjb21wbGV0ZWQ6IHRydWUsXG4gICAgICByZXBlYXQ6ICczIHRow6FuZy9s4bqnbicsXG4gICAgICBub3RlczogJ1Thuql5IGdpdW4gbuG7mWkgdOG6oW5nIMSR4buLbmgga+G7sywgdGnDqnUgaMOzYSDhu5VuIMSR4buLbmguJ1xuICAgIH1cbiAgXSxcbiAgYmFuaGJhbzogW1xuICAgIHtcbiAgICAgIGlkOiAnZGV3b3JtLWItMScsXG4gICAgICB0aXRsZTogJ1BhbmFjdXIgUmFiYml0IE9yYWwgUGFzdGUgKEZlbmJlbmRhem9sZSknLFxuICAgICAgZGlzZWFzZURlc2M6ICdHZWwgdeG7kW5nIHBow7JuZyBuZ+G7q2Ega8O9IHNpbmggdHLDuW5nIG7hu5lpIHThuqFuZyB2w6AgdmkgYsOgbyB04butIHRyw7luZyBFLiBDdW5pY3VsaSDhu58gdGjhu48nLFxuICAgICAgYmF0Y2hOdW1iZXI6ICdQQy0yMDI2LTc4MTknLFxuICAgICAgZGF0ZTogJzA1LzA4LzIwMjYnLFxuICAgICAgbmV4dER1ZURhdGU6ICcwNS8wMi8yMDI3JyxcbiAgICAgIGRvY3RvcjogJ0JTLiBOYW0gLSBDQ0hOLTA5ODEnLFxuICAgICAgZmFjaWxpdHk6ICdC4buHbmggVmnhu4duIFRow7ogWSBQZXRDYXJlIENlbnRyYWwnLFxuICAgICAgY29tcGxldGVkOiB0cnVlLFxuICAgICAgcmVwZWF0OiAnNiB0aMOhbmcvbOG6p24nLFxuICAgICAgbm90ZXM6ICdV4buRbmcgdHLhu7FjIHRp4bq/cCBob+G6t2MgdHLhu5luIGPhu48gVGltb3RoeSwgxJHGsOG7nW5nIHJ14buZdCBraOG7j2UgbeG6oW5oLidcbiAgICB9XG4gIF1cbn07XG5cbi8vIEhlbHBlciBs4bqleSBraMOzYSBj4bunYSB0aMO6IGPGsG5nXG5leHBvcnQgY29uc3QgZ2V0UGV0S2V5ID0gKHBldCkgPT4ge1xuICBpZiAoIXBldCkgcmV0dXJuICcnO1xuICByZXR1cm4gU3RyaW5nKHBldC5pZCB8fCAnJykudHJpbSgpO1xufTtcblxuLy8gSGVscGVyIHTDrW5oIG5nw6B5IGxpbmggxJHhu5luZyB0xrDGoW5nIMSR4buRaSB0aGVvIGjDtG0gbmF5XG5jb25zdCBnZXRPZmZzZXREYXRlID0gKGRheXMpID0+IGFkZERheXNMb2NhbChnZXRUb2RheVZuRGF0ZSgpLCBkYXlzKTtcblxuZXhwb3J0IGNvbnN0IElOSVRJQUxfU0NIRURVTEVTID0gW107XG5cbmV4cG9ydCBjb25zdCBTQ0hFRFVMRV9UWVBFUyA9IHtcbiAgdmFjY2luZToge1xuICAgIGxhYmVsOiAnVGnDqm0gcGjDsm5nJyxcbiAgICBpY29uOiAnU3lyaW5nZScsXG4gICAgY29sb3I6ICdlbWVyYWxkJyxcbiAgICBiZ0xpZ2h0OiAnYmctZW1lcmFsZC01MCBib3JkZXItZW1lcmFsZC0yMDAgdGV4dC1lbWVyYWxkLTcwMCBkYXJrOmJnLWVtZXJhbGQtOTUwLzQwIGRhcms6Ym9yZGVyLWVtZXJhbGQtODAwLzUwIGRhcms6dGV4dC1lbWVyYWxkLTMwMCcsXG4gICAgYmFkZ2U6ICdiZy1lbWVyYWxkLTEwMCB0ZXh0LWVtZXJhbGQtODAwJ1xuICB9LFxuICBkZXdvcm06IHtcbiAgICBsYWJlbDogJ1Thuql5IGdpdW4gLyBQaMOybmcga8O9IHNpbmggdHLDuW5nJyxcbiAgICBpY29uOiAnUGlsbCcsXG4gICAgY29sb3I6ICdhbWJlcicsXG4gICAgYmdMaWdodDogJ2JnLWFtYmVyLTUwIGJvcmRlci1hbWJlci0yMDAgdGV4dC1hbWJlci03MDAgZGFyazpiZy1hbWJlci05NTAvNDAgZGFyazpib3JkZXItYW1iZXItODAwLzUwIGRhcms6dGV4dC1hbWJlci0zMDAnLFxuICAgIGJhZGdlOiAnYmctYW1iZXItMTAwIHRleHQtYW1iZXItODAwJ1xuICB9LFxuICBncm9vbWluZzoge1xuICAgIGxhYmVsOiAnVuG7hyBzaW5oIC8gTMOgbSDEkeG6uXAnLFxuICAgIGljb246ICdTcGFya2xlcycsXG4gICAgY29sb3I6ICdwdXJwbGUnLFxuICAgIGJnTGlnaHQ6ICdiZy1wdXJwbGUtNTAgYm9yZGVyLXB1cnBsZS0yMDAgdGV4dC1wdXJwbGUtNzAwIGRhcms6YmctcHVycGxlLTk1MC80MCBkYXJrOmJvcmRlci1wdXJwbGUtODAwLzUwIGRhcms6dGV4dC1wdXJwbGUtMzAwJyxcbiAgICBiYWRnZTogJ2JnLXB1cnBsZS0xMDAgdGV4dC1wdXJwbGUtODAwJ1xuICB9LFxuICB2ZXQ6IHtcbiAgICBsYWJlbDogJ05o4bqvYyBraMOhbSAvIFTDoWkga2jDoW0nLFxuICAgIGljb246ICdTdGV0aG9zY29wZScsXG4gICAgY29sb3I6ICdibHVlJyxcbiAgICBiZ0xpZ2h0OiAnYmctYmx1ZS01MCBib3JkZXItYmx1ZS0yMDAgdGV4dC1ibHVlLTcwMCBkYXJrOmJnLWJsdWUtOTUwLzQwIGRhcms6Ym9yZGVyLWJsdWUtODAwLzUwIGRhcms6dGV4dC1ibHVlLTMwMCcsXG4gICAgYmFkZ2U6ICdiZy1ibHVlLTEwMCB0ZXh0LWJsdWUtODAwJ1xuICB9LFxuICBtZWRpY2luZToge1xuICAgIGxhYmVsOiAnVeG7kW5nIHRodeG7kWMgLyDEkGnhu4F1IHRy4buLJyxcbiAgICBpY29uOiAnQWN0aXZpdHknLFxuICAgIGNvbG9yOiAncm9zZScsXG4gICAgYmdMaWdodDogJ2JnLXJvc2UtNTAgYm9yZGVyLXJvc2UtMjAwIHRleHQtcm9zZS03MDAgZGFyazpiZy1yb3NlLTk1MC80MCBkYXJrOmJvcmRlci1yb3NlLTgwMC81MCBkYXJrOnRleHQtcm9zZS0zMDAnLFxuICAgIGJhZGdlOiAnYmctcm9zZS0xMDAgdGV4dC1yb3NlLTgwMCdcbiAgfSxcbiAgZmVlZGluZzoge1xuICAgIGxhYmVsOiAnxIJuIHXhu5FuZycsXG4gICAgaWNvbjogJ1V0ZW5zaWxzJyxcbiAgICBjb2xvcjogJ29yYW5nZScsXG4gICAgYmdMaWdodDogJ2JnLW9yYW5nZS01MCBib3JkZXItb3JhbmdlLTIwMCB0ZXh0LW9yYW5nZS03MDAgZGFyazpiZy1vcmFuZ2UtOTUwLzQwIGRhcms6Ym9yZGVyLW9yYW5nZS04MDAvNTAgZGFyazp0ZXh0LW9yYW5nZS0zMDAnLFxuICAgIGJhZGdlOiAnYmctb3JhbmdlLTEwMCB0ZXh0LW9yYW5nZS04MDAnXG4gIH0sXG4gIGV4ZXJjaXNlOiB7XG4gICAgbGFiZWw6ICdW4bqtbiDEkeG7mW5nIC8gVnVpIGNoxqFpJyxcbiAgICBpY29uOiAnRm9vdHByaW50cycsXG4gICAgY29sb3I6ICd0ZWFsJyxcbiAgICBiZ0xpZ2h0OiAnYmctdGVhbC01MCBib3JkZXItdGVhbC0yMDAgdGV4dC10ZWFsLTcwMCBkYXJrOmJnLXRlYWwtOTUwLzQwIGRhcms6Ym9yZGVyLXRlYWwtODAwLzUwIGRhcms6dGV4dC10ZWFsLTMwMCcsXG4gICAgYmFkZ2U6ICdiZy10ZWFsLTEwMCB0ZXh0LXRlYWwtODAwJ1xuICB9LFxuICBvdGhlcjoge1xuICAgIGxhYmVsOiAnS2jDoWMnLFxuICAgIGljb246ICdIZWxwQ2lyY2xlJyxcbiAgICBjb2xvcjogJ3NsYXRlJyxcbiAgICBiZ0xpZ2h0OiAnYmctc2xhdGUtMTAwIGJvcmRlci1zbGF0ZS0yMDAgdGV4dC1zbGF0ZS03MDAgZGFyazpiZy1zbGF0ZS04MDAgZGFyazpib3JkZXItc2xhdGUtNzAwIGRhcms6dGV4dC1zbGF0ZS0zMDAnLFxuICAgIGJhZGdlOiAnYmctc2xhdGUtMTAwIHRleHQtc2xhdGUtODAwJ1xuICB9XG59O1xuXG5leHBvcnQgY29uc3QgU1BFQ0lFU19MSVNUID0gW1xuICB7IGlkOiAnZG9nJywgbGFiZWw6ICdDaMOzJywgZW1vamk6ICfwn5C2JywgaWNvbjogJ0RvZycgfSxcbiAgeyBpZDogJ2NhdCcsIGxhYmVsOiAnTcOobycsIGVtb2ppOiAn8J+QsScsIGljb246ICdDYXQnIH0sXG4gIHsgaWQ6ICdyYWJiaXQnLCBsYWJlbDogJ1Ro4buPJywgZW1vamk6ICfwn5CwJywgaWNvbjogJ1JhYmJpdCcgfSxcbiAgeyBpZDogJ2hhbXN0ZXInLCBsYWJlbDogJ0hhbXN0ZXIgLyBDaHXhu5l0IGtp4buDbmcnLCBlbW9qaTogJ/CfkLknLCBpY29uOiAnTW91c2UnIH0sXG4gIHsgaWQ6ICdiaXJkJywgbGFiZWw6ICdDaGltIGPhuqNuaCcsIGVtb2ppOiAn8J+mnCcsIGljb246ICdCaXJkJyB9LFxuICB7IGlkOiAnb3RoZXInLCBsYWJlbDogJ0tow6FjJywgZW1vamk6ICfwn5C+JywgaWNvbjogJ1Bhd1ByaW50JyB9XG5dO1xuXG5leHBvcnQgY29uc3QgREFJTFlfQUlfVElQUyA9IFtcbiAge1xuICAgIHRpdGxlOiAnVGjhu51pIHRp4bq/dCDhuqVtIGzDqm4gLSDEkOG7gSBwaMOybmcgdmUgcuG6rW4gJiBi4buNIGNow6l0JyxcbiAgICBwZXRUeXBlOiAnYWxsJyxcbiAgICBjb250ZW50OiAnS2hpIMSR4buZIOG6qW0gdsOgIG5oaeG7h3QgxJHhu5kgdMSDbmcsIHRy4bupbmcgdmUgcuG6rW4gcGjDoXQgdHJp4buDbiBy4bqldCBuaGFuaC4gSMOjeSBraeG7g20gdHJhIGvhur0gdGFpLCDEkeG7h20gYsOgbiBjaMOibiB2w6AgxJHhu4tuaCBr4buzIG5o4buPIGfDoXkgcGjDsm5nIG5n4burYSBjaG8gdGjDuiBjxrBuZyBt4buXaSB0aMOhbmcgMSBs4bqnbi4nLFxuICAgIHRhZzogJ1Bow7JuZyBi4buHbmgnXG4gIH0sXG4gIHtcbiAgICB0aXRsZTogJ0NoxINtIHPDs2MgcsSDbmcgbWnhu4duZyBjaG8gQ2jDsyBHb2xkZW4gJiBjw6FjIGdp4buRbmcgY2jDsyBs4bubbicsXG4gICAgcGV0VHlwZTogJ2RvZycsXG4gICAgY29udGVudDogJ1Ryw6puIDgwJSBjaMOzIHThu6sgMyB0deG7lWkgdHLhu58gbMOqbiBjw7MgZOG6pXUgaGnhu4d1IHZpw6ptIG5oYSBjaHUuIENobyBn4bq3bSB4xrDGoW5nIMSR4buTIGNoxqFpIGNodXnDqm4gZOG7pW5nIHbDoCDEkcOhbmggcsSDbmcgYuG6sW5nIGtlbSDEkcOhbmggcsSDbmcgdGjDuiB5IHbhu4sgdGjhu4t0IDItMyBs4bqnbi90deG6p24gxJHhu4MgdHLDoW5oIGjDtGkgbWnhu4duZy4nLFxuICAgIHRhZzogJ1LEg25nIG1p4buHbmcnXG4gIH0sXG4gIHtcbiAgICB0aXRsZTogJ0todXnhur9uIGtow61jaCBtw6hvIHXhu5FuZyBuaGnhu4F1IG7GsOG7m2MgxJHhu4Mgbmfhu6thIHPhu49pIHRo4bqtbicsXG4gICAgcGV0VHlwZTogJ2NhdCcsXG4gICAgY29udGVudDogJ03DqG8gY8OzIHRow7NpIHF1ZW4gbMaw4budaSB14buRbmcgbsaw4bubYyDEkeG7jW5nLiBT4butIGThu6VuZyDEkcOgaSBwaHVuIG7GsOG7m2MgbMawdSDEkeG7mW5nIGhv4bq3YyBi4buVIHN1bmcgcGF0ZSDGsOG7m3QgdHLhu5luIG7GsOG7m2Mg4bqlbSBz4bq9IGdpw7pwIGdp4bqjbSA3MCUgbmd1eSBjxqEgdmnDqm0gYsOgbmcgcXVhbmcgdsOgIHPhu49pIHRp4bq/dCBuaeG7h3UuJyxcbiAgICB0YWc6ICdEaW5oIGTGsOG7oW5nJ1xuICB9XG5dO1xuXG4vLyBEYW5oIG3hu6VjIENoaSB0acOqdSBUaMO6IGPGsG5nXG5leHBvcnQgY29uc3QgRVhQRU5TRV9DQVRFR09SSUVTID0ge1xuICBmb29kOiB7IGxhYmVsOiAnVGjhu6ljIMSDbiAmIELDoW5oIHRoxrDhu59uZycsIGljb246ICdVdGVuc2lscycsIGNvbG9yOiAnYmctZW1lcmFsZC0xMDAgdGV4dC1lbWVyYWxkLTgwMCcgfSxcbiAgbWVkaWNhbDogeyBsYWJlbDogJ0tow6FtIHRow7ogeSAmIFRodeG7kWMgbWVuJywgaWNvbjogJ1N0ZXRob3Njb3BlJywgY29sb3I6ICdiZy1ibHVlLTEwMCB0ZXh0LWJsdWUtODAwJyB9LFxuICBncm9vbWluZzogeyBsYWJlbDogJ1NwYSAmIEPhuq90IHThu4lhIGzDtG5nJywgaWNvbjogJ1NwYXJrbGVzJywgY29sb3I6ICdiZy1wdXJwbGUtMTAwIHRleHQtcHVycGxlLTgwMCcgfSxcbiAgdG95czogeyBsYWJlbDogJ8SQ4buTIGNoxqFpICYgUGjhu6Uga2nhu4duJywgaWNvbjogJ0dhbWVwYWQyJywgY29sb3I6ICdiZy1hbWJlci0xMDAgdGV4dC1hbWJlci04MDAnIH0sXG4gIHZhY2NpbmU6IHsgbGFiZWw6ICdUacOqbSBwaMOybmcgduG6r2MteGluJywgaWNvbjogJ1N5cmluZ2UnLCBjb2xvcjogJ2JnLXRlYWwtMTAwIHRleHQtdGVhbC04MDAnIH0sXG4gIGh5Z2llbmU6IHsgbGFiZWw6ICdW4buHIHNpbmggJiBDw6F0IHbhu4cgc2luaCcsIGljb246ICdUcmFzaDInLCBjb2xvcjogJ2JnLXJvc2UtMTAwIHRleHQtcm9zZS04MDAnIH0sXG4gIG90aGVyOiB7IGxhYmVsOiAnQ2hpIHBow60ga2jDoWMnLCBpY29uOiAnUmVjZWlwdCcsIGNvbG9yOiAnYmctc2xhdGUtMTAwIHRleHQtc2xhdGUtODAwJyB9XG59O1xuXG5leHBvcnQgY29uc3QgSU5JVElBTF9FWFBFTlNFUyA9IFtdO1xuXG4vLyBOaOG6rXQga8O9IHNpbmggaG/huqF0IGjDoG5nIG5nw6B5XG5leHBvcnQgY29uc3QgSU5JVElBTF9EQUlMWV9MT0dTID0gW107XG5cbi8vIMSQxqFuIHRodeG7kWMgxJFhbmcgxJFp4buBdSB0cuG7i1xuZXhwb3J0IGNvbnN0IElOSVRJQUxfUFJFU0NSSVBUSU9OUyA9IFtdO1xuXG4vLyBEYW5oIGLhuqEgY+G7qXUgaOG7mSAmIGLhu4duaCB2aeG7h24gdGjDuiB5IHV5IHTDrW5cbmV4cG9ydCBjb25zdCBQRVRfU0VSVklDRVMgPSBbXG4gIHtcbiAgICBpZDogJ3Nydi0xJyxcbiAgICBuYW1lOiAnQuG7h25oIFZp4buHbiBUaMO6IFkgUGV0SGVhbHRoIDI0LzcnLFxuICAgIHR5cGU6ICdob3NwaXRhbCcsXG4gICAgYWRkcmVzczogJ1Phu5EgMjQwIMOCdSBDxqEsIFTDonkgSOG7kywgSMOgIE7hu5lpJyxcbiAgICBwaG9uZTogJzAyNCAyMjQyIDg4ODInLFxuICAgIGhvdGxpbmU6ICcxOTAwIDY4NjgnLFxuICAgIGlzMjQ3OiB0cnVlLFxuICAgIHJhdGluZzogNC45LFxuICAgIHNlcnZpY2VzOiBbJ0PhuqVwIGPhu6l1IDI0LzcnLCAnUGjhuqt1IHRodeG6rXQnLCAnWC1RdWFuZyAmIFNpw6p1IMOibScsICdYw6l0IG5naGnhu4dtIG3DoXUnXVxuICB9LFxuICB7XG4gICAgaWQ6ICdzcnYtMicsXG4gICAgbmFtZTogJ1Bow7JuZyBLaMOhbSBUaMO6IFkgU2FtbWkgUGV0IENsaW5pYycsXG4gICAgdHlwZTogJ2NsaW5pYycsXG4gICAgYWRkcmVzczogJzE1OSBOZ3V54buFbiDEkMOsbmggQ2hp4buDdSwgUXXhuq1uIDMsIFRQLkhDTScsXG4gICAgcGhvbmU6ICcwMjggMzkzMCAxMjM0JyxcbiAgICBob3RsaW5lOiAnMDkwMyAxMjMgNDU2JyxcbiAgICBpczI0NzogZmFsc2UsXG4gICAgcmF0aW5nOiA0LjgsXG4gICAgc2VydmljZXM6IFsnVGnDqm0gcGjDsm5nIHbhuq9jLXhpbicsICdLaMOhbSBkYSBsaeG7hXUnLCAnTmhhIGtob2EgdGjDuiBjxrBuZycsICfEkGnhu4F1IHRy4buLIG7hu5lpIHRyw7onXVxuICB9LFxuICB7XG4gICAgaWQ6ICdzcnYtMycsXG4gICAgbmFtZTogJ1BhZGR5IFNwYSAmIFBldCBHcm9vbWluZyBMb3VuZ2UnLFxuICAgIHR5cGU6ICdzcGEnLFxuICAgIGFkZHJlc3M6ICc4OCBUcuG6p24gTsOjbywgUC4gQW4gS2jDoW5oLCBUUC4gVGjhu6cgxJDhu6ljJyxcbiAgICBwaG9uZTogJzA5MzggMTIzIDc4OScsXG4gICAgaG90bGluZTogJzA5MzggMTIzIDc4OScsXG4gICAgaXMyNDc6IGZhbHNlLFxuICAgIHJhdGluZzogNC45LFxuICAgIHNlcnZpY2VzOiBbJ1Thuq9tIHPhuqV5IHThuqFvIGtp4buDdScsICdOaHXhu5ltIGzDtG5nIGFuIHRvw6BuJywgJ1bhu4cgc2luaCB0YWkgbcOzbmcnLCAnS2jDoWNoIHPhuqFuIHRow7ogY8awbmcnXVxuICB9XG5dO1xuXG4vLyBUaMOgbmggdmnDqm4gZ2lhIMSRw6xuaCBjw7luZyDEkeG7k25nIGNoxINtIHPDs2MgKENvLVBhcmVudGluZylcbmV4cG9ydCBjb25zdCBJTklUSUFMX0ZBTUlMWV9NRU1CRVJTID0gW107XG5cbi8vIFRow7NpIHF1ZW4gJiBDw7RuZyB2aeG7h2MgaMOgbmcgbmfDoHkgKERhaWx5IEhhYml0cyAmIFN0cmVhaylcbmV4cG9ydCBjb25zdCBJTklUSUFMX0RBSUxZX0hBQklUUyA9IFtdO1xuXG4vLyDEkMaw4budbmcgY29uZyB0xINuZyB0csaw4bufbmcgY2h14bqpbiBj4bunYSBjw6FjIGdp4buRbmcgbG/DoGkgKEdyb3d0aCBDdXJ2ZXMgU3RhbmRhcmQpXG5leHBvcnQgY29uc3QgQlJFRURfR1JPV1RIX1NUQU5EQVJEUyA9IHtcbiAgJ0dvbGRlbiBSZXRyaWV2ZXInOiB7XG4gICAgc3BlY2llczogJ2RvZycsXG4gICAgYWR1bHRXZWlnaHRSYW5nZTogWzI1LCAzNF0sIC8vIGtnXG4gICAgbW9udGhseVN0YW5kYXJkczogW1xuICAgICAgeyBtb250aDogMiwgbWluOiA0LjUsIG1heDogNy4wLCBpZGVhbDogNS44IH0sXG4gICAgICB7IG1vbnRoOiA0LCBtaW46IDExLjAsIG1heDogMTUuMCwgaWRlYWw6IDEzLjAgfSxcbiAgICAgIHsgbW9udGg6IDYsIG1pbjogMTguMCwgbWF4OiAyMi4wLCBpZGVhbDogMjAuMCB9LFxuICAgICAgeyBtb250aDogOSwgbWluOiAyMi4wLCBtYXg6IDI4LjAsIGlkZWFsOiAyNS4wIH0sXG4gICAgICB7IG1vbnRoOiAxMiwgbWluOiAyNS4wLCBtYXg6IDMyLjAsIGlkZWFsOiAyOC41IH0sXG4gICAgICB7IG1vbnRoOiAxOCwgbWluOiAyNi4wLCBtYXg6IDM0LjAsIGlkZWFsOiAzMC4wIH0sXG4gICAgICB7IG1vbnRoOiAyNCwgbWluOiAyNy4wLCBtYXg6IDM0LjAsIGlkZWFsOiAzMC41IH1cbiAgICBdLFxuICAgIGdyb3d0aE5vdGVzOiAnQ2jDsyBHb2xkZW4gcGjDoXQgdHJp4buDbiBo4buHIGtodW5nIHjGsMahbmcgbeG6oW5oIG5o4bqldCB04burIDMtOCB0aMOhbmcgdHXhu5VpLiBD4bqnbiBi4buVIHN1bmcgQ2FueGkgTmFubyB2w6AgR2x1Y29zYW1pbmUgxJHhu4MgY2jhu5FuZyBo4bqhIGLDoG4uJ1xuICB9LFxuICAnTcOobyBBbmggTMO0bmcgTmfhuq9uIChCU0gpJzoge1xuICAgIHNwZWNpZXM6ICdjYXQnLFxuICAgIGFkdWx0V2VpZ2h0UmFuZ2U6IFszLjUsIDYuNV0sXG4gICAgbW9udGhseVN0YW5kYXJkczogW1xuICAgICAgeyBtb250aDogMiwgbWluOiAwLjgsIG1heDogMS4yLCBpZGVhbDogMS4wIH0sXG4gICAgICB7IG1vbnRoOiA0LCBtaW46IDEuNiwgbWF4OiAyLjMsIGlkZWFsOiAyLjAgfSxcbiAgICAgIHsgbW9udGg6IDYsIG1pbjogMi40LCBtYXg6IDMuNCwgaWRlYWw6IDIuOSB9LFxuICAgICAgeyBtb250aDogOSwgbWluOiAzLjIsIG1heDogNC41LCBpZGVhbDogMy44IH0sXG4gICAgICB7IG1vbnRoOiAxMiwgbWluOiAzLjUsIG1heDogNS41LCBpZGVhbDogNC40IH0sXG4gICAgICB7IG1vbnRoOiAxOCwgbWluOiAzLjgsIG1heDogNi4wLCBpZGVhbDogNC44IH0sXG4gICAgICB7IG1vbnRoOiAyNCwgbWluOiA0LjAsIG1heDogNi41LCBpZGVhbDogNS4wIH1cbiAgICBdLFxuICAgIGdyb3d0aE5vdGVzOiAnTcOobyBBbmggbMO0bmcgbmfhuq9uIGPDsyBraHVuZyB4xrDGoW5nIHRvLCBu4buNbmcgbcOhIHBow7puZyBwaMOtbmguIEPhuqduIGtp4buDbSBzb8OhdCBsxrDhu6NuZyBo4bqhdCBzYXUga2hpIHRyaeG7h3Qgc+G6o24gxJHhu4MgdHLDoW5oIGLDqW8gcGjDrC4nXG4gIH0sXG4gICdUaOG7jyBNaW5pbG9wJzoge1xuICAgIHNwZWNpZXM6ICdyYWJiaXQnLFxuICAgIGFkdWx0V2VpZ2h0UmFuZ2U6IFsxLjQsIDIuMF0sXG4gICAgbW9udGhseVN0YW5kYXJkczogW1xuICAgICAgeyBtb250aDogMiwgbWluOiAwLjUsIG1heDogMC44LCBpZGVhbDogMC42NSB9LFxuICAgICAgeyBtb250aDogNCwgbWluOiAwLjksIG1heDogMS4zLCBpZGVhbDogMS4xIH0sXG4gICAgICB7IG1vbnRoOiA2LCBtaW46IDEuMiwgbWF4OiAxLjcsIGlkZWFsOiAxLjQ1IH0sXG4gICAgICB7IG1vbnRoOiAxMiwgbWluOiAxLjQsIG1heDogMi4wLCBpZGVhbDogMS42NSB9XG4gICAgXSxcbiAgICBncm93dGhOb3RlczogJ0PhuqduIMSDbiA4MCUgY+G7jyBraMO0IFRpbW90aHkgxJHhu4MgbcOgaSByxINuZyBj4butYSB2w6AgYuG6o28gduG7hyBo4buHIHRpw6p1IGjDs2EuJ1xuICB9XG59O1xuXG4iXX0=

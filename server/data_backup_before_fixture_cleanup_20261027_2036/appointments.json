@@ -1,0 +1,38 @@
+[
+  {
+    "id": "BK-1793103632301",
+    "ownerId": "user_1791541299976_7ebbe5",
+    "petId": "pet-1792128958474",
+    "petName": "Cún Kiểm Thử",
+    "petType": "Chó Poodle",
+    "ownerName": "Chủ Nuôi Mẫu (Demo Owner)",
+    "phone": "0912345678",
+    "service": "Khám tổng quát định kỳ",
+    "facility": "Bệnh viện Thú y 2Vet Hospital",
+    "facilityId": "2vet",
+    "assignedVetId": "user_vet_01",
+    "assignedVet": "BS. Nguyễn Văn A (Tester)",
+    "date": "2026-10-28",
+    "time": "08:30",
+    "note": "Kiểm thử mới sau sửa lịch khám",
+    "status": "pending",
+    "adminNote": "",
+    "isEmergency": false,
+    "createdAt": "2026-10-27T12:20:32.309Z"
+  },
+  {
+    "id": "app-err1-1793094737585",
+    "status": "completed"
+  },
+  {
+    "id": "app-test-fs-1793094738755-1",
+    "petId": "pet-test-1793094738754",
+    "ownerId": "user_1793094738588_7cb5d0",
+    "vetId": "user_vet_01",
+    "status": "in_progress",
+    "date": "2026-10-15",
+    "time": "14:00",
+    "type": "Khám tổng quát",
+    "createdAt": "2026-10-27T09:52:18.755Z"
+  }
+]

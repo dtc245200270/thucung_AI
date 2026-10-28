@@ -8,7 +8,16 @@
     "server": "node server/index.js",
     "build": "vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node tests/run_all_suites.mjs",
+    "test:regression": "node scratch/test_hardening_all.mjs",
+    "test:independent": "node tests/test_independent.mjs",
+    "test:muc1": "node scratch/test_muc1_schedules.mjs",
+    "test:muc2": "node tests/test_muc2_backend_and_fs.mjs",
+    "test:muc3": "node tests/test_muc3_prescriptions.mjs",
+    "test:e2e:muc2": "node tests/test_muc2_e2e_ui.mjs",
+    "test:e2e:muc3": "node tests/test_muc3_e2e_ui.mjs",
+    "test:e2e": "node tests/test_muc2_e2e_ui.mjs && node tests/test_muc3_e2e_ui.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

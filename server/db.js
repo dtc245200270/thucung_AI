@@ -2,10 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
+import { getCollectionData, saveCollectionData, saveMultipleCollections } from './dataHandler.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_DIR = path.resolve(__dirname, './data');
+const DATA_DIR = path.resolve(process.cwd(), process.env.PETCARE_DATA_DIR || path.join(__dirname, 'data'));
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const TOKENS_FILE = path.join(DATA_DIR, 'tokens.json');
 const DELETED_USERS_FILE = path.join(DATA_DIR, 'deleted_users.json');
@@ -64,36 +65,6 @@ const INITIAL_USERS = [
     vetStatus: null,
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
     createdAt: '2026-01-01T08:00:00.000Z',
-    passwordChangedAt: null,
-    mustChangePassword: false
-  },
-  {
-    id: 'user_vet_pro',
-    name: 'BS. Hoàng Hải Nam (Pro Vet)',
-    email: 'tester@petcare.ai',
-    password: hashPassword('Doctor@123'),
-    phone: '0988.789.999',
-    address: 'Tòa Landmark 81, P. 22, Q. Bình Thạnh, TP. Hồ Chí Minh',
-    role: 'vet_doctor',
-    isLocked: false,
-    vetStatus: 'approved',
-    avatar: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=400&auto=format&fit=crop&q=80',
-    createdAt: '2026-02-01T08:00:00.000Z',
-    passwordChangedAt: null,
-    mustChangePassword: false
-  },
-  {
-    id: 'user_owner_demo',
-    name: 'Đinh Xuân Mạnh',
-    email: 'demo@petcare.ai',
-    password: hashPassword('Owner@123'),
-    phone: '0912.345.678',
-    address: 'Cầu Giấy, Hà Nội',
-    role: 'pet_owner',
-    isLocked: false,
-    vetStatus: null,
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80',
-    createdAt: '2026-03-01T08:00:00.000Z',
     passwordChangedAt: null,
     mustChangePassword: false
   }
@@ -159,36 +130,59 @@ export function unmarkDeletedEmail(email) {
 // Đọc và ghi tệp dữ liệu an toàn
 export function getUsers() {
   try {
-    const deletedList = getDeletedUsers();
-    const isDeletedSeed = (id) => {
-      const cleanId = id ? String(id).trim() : '';
-      return deletedList.some(d => cleanId && String(d.id).trim() === cleanId);
-    };
-
     if (!fs.existsSync(USERS_FILE)) {
-      const initialAllowed = INITIAL_USERS.filter(u => !isDeletedSeed(u.id));
-      saveUsers(initialAllowed);
-      return initialAllowed;
+      return [];
     }
     const data = fs.readFileSync(USERS_FILE, 'utf8');
     const parsed = JSON.parse(data);
-    if (!Array.isArray(parsed)) {
-      const initialAllowed = INITIAL_USERS.filter(u => !isDeletedSeed(u.id));
-      saveUsers(initialAllowed);
-      return initialAllowed;
-    }
-    return parsed;
+    return Array.isArray(parsed) ? parsed : [];
   } catch (err) {
     console.error('Error reading users file:', err);
     return [];
   }
 }
 
+let simulatedUserSaveFailure = false;
+export function simulateUserSaveFailure(enable = true) {
+  if (process.env.NODE_ENV !== 'test') return;
+  simulatedUserSaveFailure = enable;
+}
+
 export function saveUsers(users) {
+  if (process.env.NODE_ENV === 'test' && simulatedUserSaveFailure) {
+    simulatedUserSaveFailure = false;
+    return false;
+  }
+  const tempPath = path.join(DATA_DIR, `.users.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`);
+  const content = JSON.stringify(users, null, 2);
   try {
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
+    fs.writeFileSync(tempPath, content, 'utf8');
+    let replaced = false;
+    let attempts = 0;
+    let lastError = null;
+    while (!replaced && attempts < 5) {
+      try {
+        fs.renameSync(tempPath, USERS_FILE);
+        replaced = true;
+      } catch (renameErr) {
+        lastError = renameErr;
+        attempts++;
+        if (attempts >= 5) {
+          // Bỏ hoàn toàn copyFileSync đè lên file đích; giữ nguyên USERS_FILE gốc
+          try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch {}
+          console.error(`[ATOMIC WRITE FAILED] Không thể rename sang users.json sau ${attempts} lần thử. Giữ nguyên tệp gốc. Lỗi:`, lastError?.message || lastError);
+          return false;
+        } else {
+          const start = Date.now();
+          while (Date.now() - start < 20) {}
+        }
+      }
+    }
     return true;
   } catch (err) {
+    try {
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+    } catch {}
     console.error('Error saving users file:', err);
     return false;
   }
@@ -197,7 +191,6 @@ export function saveUsers(users) {
 export function getTokens() {
   try {
     if (!fs.existsSync(TOKENS_FILE)) {
-      saveTokens([]);
       return [];
     }
     const data = fs.readFileSync(TOKENS_FILE, 'utf8');
@@ -210,10 +203,36 @@ export function getTokens() {
 }
 
 export function saveTokens(tokens) {
+  const tempPath = path.join(DATA_DIR, `.tokens.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`);
+  const content = JSON.stringify(tokens, null, 2);
   try {
-    fs.writeFileSync(TOKENS_FILE, JSON.stringify(tokens, null, 2), 'utf8');
+    fs.writeFileSync(tempPath, content, 'utf8');
+    let replaced = false;
+    let attempts = 0;
+    let lastError = null;
+    while (!replaced && attempts < 5) {
+      try {
+        fs.renameSync(tempPath, TOKENS_FILE);
+        replaced = true;
+      } catch (renameErr) {
+        lastError = renameErr;
+        attempts++;
+        if (attempts >= 5) {
+          // Bỏ hoàn toàn copyFileSync đè lên file đích; giữ nguyên TOKENS_FILE gốc
+          try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch {}
+          console.error(`[ATOMIC WRITE FAILED] Không thể rename sang tokens.json sau ${attempts} lần thử. Giữ nguyên tệp gốc. Lỗi:`, lastError?.message || lastError);
+          return false;
+        } else {
+          const start = Date.now();
+          while (Date.now() - start < 20) {}
+        }
+      }
+    }
     return true;
   } catch (err) {
+    try {
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+    } catch {}
     console.error('Error saving tokens file:', err);
     return false;
   }
@@ -297,7 +316,10 @@ export function createUser({
   };
 
   users.push(newUser);
-  saveUsers(users);
+  const ok = saveUsers(users);
+  if (!ok) {
+    throw new Error('Lỗi ghi dữ liệu người dùng mới vào hệ thống lưu trữ.');
+  }
 
   // Giải phóng email trong danh sách deleted_users để tài khoản mới hoạt động bình thường
   unmarkDeletedEmail(cleanEmail);
@@ -314,7 +336,10 @@ export function updateUser(id, updates) {
   const existing = users[index];
   const updated = { ...existing, ...updates };
   users[index] = updated;
-  saveUsers(users);
+  const ok = saveUsers(users);
+  if (!ok) {
+    throw new Error('Lỗi ghi dữ liệu cập nhật người dùng vào hệ thống lưu trữ.');
+  }
   return updated;
 }
 
@@ -350,7 +375,10 @@ export function deleteUser(id, email) {
 
   // Xóa tài khoản khỏi danh sách
   users.splice(index, 1);
-  saveUsers(users);
+  const okUsers = saveUsers(users);
+  if (!okUsers) {
+    throw new Error('Lỗi ghi dữ liệu người dùng khi xóa.');
+  }
 
   // Thu hồi và xóa toàn bộ token khôi phục liên quan
   const tokens = getTokens();
@@ -358,12 +386,102 @@ export function deleteUser(id, email) {
     String(t.userId).trim() !== String(target.id).trim() && 
     (t.userEmail || '').trim().toLowerCase() !== target.email.toLowerCase()
   );
-  saveTokens(remainingTokens);
+  const okTokens = saveTokens(remainingTokens);
+  if (!okTokens) {
+    throw new Error('Lỗi lưu danh sách mã xác thực sau khi xóa người dùng.');
+  }
 
   // Ghi nhận vào danh sách đã xóa để không bao giờ tự sinh lại
   recordDeletedUser(target.id, target.email);
 
+  // Xóa dây chuyền dữ liệu nếu tài khoản là pet_owner:
+  // - Xóa các thú cưng thuộc sở hữu của chủ nuôi
+  // - Xóa các bản ghi liên quan (schedules, expenses, daily_logs, prescriptions, family_members, daily_habits, appointments, medical_records, lost_modes, health_data)
+  // - Nếu là vet_doctor: KHÔNG xóa thú cưng hoặc bệnh án của chủ nuôi.
+  if (target.role === 'pet_owner') {
+    cascadeDeleteOwnerData(target.id);
+  } else if (target.role === 'vet_doctor') {
+    // Với bác sĩ: Không xóa thú cưng hoặc bệnh án của chủ nuôi, chỉ gỡ phân công trong appointments
+    const appointments = getCollectionData('appointments', false);
+    let appModified = false;
+    const updatedApps = appointments.map(a => {
+      if (a.assignedVetId && String(a.assignedVetId).trim() === String(target.id).trim()) {
+        appModified = true;
+        return { ...a, assignedVetId: null, assignedVet: 'Đang xếp lịch' };
+      }
+      return a;
+    });
+    if (appModified) {
+      saveCollectionData('appointments', updatedApps);
+    }
+  }
+
   return target;
+}
+
+/**
+ * Xóa dây chuyền toàn bộ dữ liệu của chủ thú cưng khi bị xóa:
+ * Bảo đảm không để lại dữ liệu mồ côi (orphaned data) trong hệ thống
+ */
+export function cascadeDeleteOwnerData(ownerId) {
+  const cleanOwnerId = String(ownerId).trim();
+  const allPets = getCollectionData('pets', false);
+  const ownerPets = allPets.filter(p => String(p.ownerId).trim() === cleanOwnerId);
+  const ownerPetIds = new Set(ownerPets.map(p => String(p.id).trim()));
+
+  const operations = [];
+
+  // 1. Cập nhật danh sách pets: loại bỏ các thú cưng của owner này
+  const remainingPets = allPets.filter(p => String(p.ownerId).trim() !== cleanOwnerId);
+  operations.push({ collection: 'pets', data: remainingPets, isObject: false });
+
+  // 2. Dọn sạch các mảng dữ liệu nghiệp vụ liên quan
+  const arrayCollections = [
+    'schedules',
+    'expenses',
+    'daily_logs',
+    'prescriptions',
+    'family_members',
+    'daily_habits',
+    'appointments',
+    'medical_records'
+  ];
+
+  arrayCollections.forEach(col => {
+    let items = getCollectionData(col, false);
+    const filtered = items.filter(item => {
+      const matchOwner = item.ownerId && String(item.ownerId).trim() === cleanOwnerId;
+      const matchPet = item.petId && ownerPetIds.has(String(item.petId).trim());
+      return !matchOwner && !matchPet;
+    });
+    operations.push({ collection: col, data: filtered, isObject: false });
+  });
+
+  // 3. Dọn sạch object collections (lost_modes, health_data)
+  let lostModes = getCollectionData('lost_modes', true);
+  ownerPetIds.forEach(pId => {
+    if (lostModes[pId]) {
+      delete lostModes[pId];
+    }
+  });
+  operations.push({ collection: 'lost_modes', data: lostModes, isObject: true });
+
+  let healthData = getCollectionData('health_data', true);
+  ownerPetIds.forEach(pId => {
+    if (healthData[pId]) {
+      delete healthData[pId];
+    }
+    const k1 = `health_${pId}`;
+    if (healthData[k1]) {
+      delete healthData[k1];
+    }
+  });
+  operations.push({ collection: 'health_data', data: healthData, isObject: true });
+
+  const ok = saveMultipleCollections(operations);
+  if (!ok) {
+    throw new Error('Lỗi ghi dữ liệu dây chuyền khi xóa chủ nuôi. Toàn bộ thao tác đã được hoàn tác.');
+  }
 }
 
 // -------------------------------------------------------------
@@ -489,8 +607,11 @@ export function consumeResetTokenAndSetPassword(rawToken, newPassword) {
   });
 
   // Lưu đồng thời xuống đĩa
-  saveTokens(tokens);
-  saveUsers(users);
+  const okTokens = saveTokens(tokens);
+  const okUsers = saveUsers(users);
+  if (!okTokens || !okUsers) {
+    throw new Error('Lỗi ghi dữ liệu khi khôi phục mật khẩu.');
+  }
 
   const safeUser = { ...users[userIndex] };
   delete safeUser.password;

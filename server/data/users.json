@@ -3,7 +3,6 @@
     "id": "user_admin_01",
     "name": "Quản trị viên Hệ thống",
     "email": "admin@petcare.ai",
-    "password": "pbkdf2:220d266a8680931910179eacdca3e589:92859972c0dd6212b8cdbcd0784bbe7557a93b12daf4592d4b709a90a88850d08d26b92c7632df69da1e2d68f92d95dc6000f0f345132b86e794bac8c1524f11",
     "phone": "0901.000.888",
     "address": "Trụ sở chính PetCare AI, Hà Nội",
     "role": "system_admin",
@@ -11,27 +10,13 @@
     "vetStatus": null,
     "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
     "createdAt": "2026-01-01T08:00:00.000Z",
-    "passwordChangedAt": null
-  },
-  {
-    "id": "user_vet_pro",
-    "name": "BS. Hoàng Hải Nam (Pro Vet)",
-    "email": "tester@petcare.ai",
-    "password": "pbkdf2:cbe0471d9987d4fbf6307967f3ff0700:1f39800a04ee77e083a69a20014116db742b8480b6fda7d333dc14c48031e7a5535bece7704d7232387afdc1b7dfcf20b3aee7376083e2ae4e2f345b6eb05053",
-    "phone": "0988.789.999",
-    "address": "Tòa Landmark 81, P. 22, Q. Bình Thạnh, TP. Hồ Chí Minh",
-    "role": "vet_doctor",
-    "isLocked": false,
-    "vetStatus": "approved",
-    "avatar": "https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=400&auto=format&fit=crop&q=80",
-    "createdAt": "2026-02-01T08:00:00.000Z",
-    "passwordChangedAt": null
+    "passwordChangedAt": null,
+    "password": "pbkdf2:220d266a8680931910179eacdca3e589:92859972c0dd6212b8cdbcd0784bbe7557a93b12daf4592d4b709a90a88850d08d26b92c7632df69da1e2d68f92d95dc6000f0f345132b86e794bac8c1524f11"
   },
   {
     "id": "user_1791541299976_7ebbe5",
     "name": "Đinh Xuân Mạnh",
     "email": "manhdinh2907@gmail.com",
-    "password": "pbkdf2:bdcc9c896b5f5e9ca3bb4b7d271cad63:6aa33b3df9fdc47ab8ee3f94a5a5ae45d480b0640928d7c29ff452ad2892d7c7cbb1f05e2dcc3dd64d410ff5d37d9fd83e82e9ca899665775b68874b18d48c5a",
     "phone": "",
     "address": "Việt Nam",
     "role": "pet_owner",
@@ -40,6 +25,26 @@
     "mustChangePassword": false,
     "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=300&auto=format&fit=crop&q=80",
     "createdAt": "2026-10-09T10:21:40.033Z",
-    "passwordChangedAt": "2026-10-09T10:22:29.043Z"
+    "passwordChangedAt": "2026-10-14T10:29:58.631Z",
+    "password": "pbkdf2:103e96344e5da6cff71e23db037f796c:8b1124bdfd896cc387e2272f8d50252cafcdf4046bc031b6ab52d1573c30df8755d44333869ec664984b46eb7aa72d7cb0e2b92c02aacfed79b856e596f7e6fa"
+  },
+  {
+    "id": "user_vet_01",
+    "name": "BS. Nguyễn Văn A (Tester)",
+    "email": "tester@petcare.ai",
+    "phone": "0988.123.456",
+    "address": "Bệnh viện Thú y PetCare AI",
+    "role": "vet_doctor",
+    "isLocked": false,
+    "vetStatus": "approved",
+    "avatar": "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300&auto=format&fit=crop&q=80",
+    "createdAt": "2026-01-01T08:00:00.000Z",
+    "passwordChangedAt": null,
+    "mustChangePassword": false,
+    "password": "pbkdf2:007a13d863e96f10a73b076a456a8c7a:6d31384635c9b4608e9e0efd9b886cefc512c40bb1dcafae703c5097a02c19e915ac1e5edea619bddd48d18b3ba843fe6d7ae0b7673b7f362bcda01ee2c96e12",
+    "facilityId": "2vet",
+    "facilityIds": [
+      "2vet"
+    ]
   }
 ]

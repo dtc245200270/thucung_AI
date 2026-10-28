@@ -21,6 +21,7 @@ import {
   resetSystemData 
 } from '../../services/storageService';
 import { sound } from '../../services/soundService';
+import { getTodayVnDate } from '../../utils/dateUtils';
 
 export const AdminBackupView = ({
   currentAdmin = null,
@@ -33,14 +34,14 @@ export const AdminBackupView = ({
   const [importPreview, setImportPreview] = useState(null);
 
   // 1. Xuất sao lưu toàn hệ thống
-  const handleExportSystem = () => {
+  const handleExportSystem = async () => {
     try {
-      const jsonString = exportSystemData();
+      const jsonString = await exportSystemData();
       const blob = new Blob([jsonString], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `petcare_SYSTEM_BACKUP_${new Date().toISOString().split('T')[0]}.json`;
+      link.download = `petcare_SYSTEM_BACKUP_${getTodayVnDate()}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -72,7 +73,8 @@ export const AdminBackupView = ({
             petsCount: Array.isArray(parsed.pets) ? parsed.pets.length : 0,
             schedulesCount: Array.isArray(parsed.schedules) ? parsed.schedules.length : 0,
             expensesCount: Array.isArray(parsed.expenses) ? parsed.expenses.length : 0,
-            appointmentsCount: Array.isArray(parsed.appointments) ? parsed.appointments.length : 0
+            appointmentsCount: Array.isArray(parsed.appointments) ? parsed.appointments.length : 0,
+            medicalRecordsCount: Array.isArray(parsed.medicalRecords || parsed.medical_records) ? (parsed.medicalRecords || parsed.medical_records).length : 0
           });
           setIsImportConfirmOpen(true);
         } catch (err) {
@@ -89,9 +91,9 @@ export const AdminBackupView = ({
   };
 
   // 3. Thực hiện khôi phục hệ thống sau khi đã xác nhận
-  const handleConfirmImport = () => {
+  const handleConfirmImport = async () => {
     if (!pendingImportContent) return;
-    const res = importSystemData(pendingImportContent);
+    const res = await importSystemData(pendingImportContent);
     setIsImportConfirmOpen(false);
     setPendingImportContent(null);
     setImportPreview(null);
@@ -128,13 +130,13 @@ export const AdminBackupView = ({
     <div className="space-y-6 animate-in fade-in duration-300">
       
       {/* Banner Tiêu Đề */}
-      <div className="p-6 rounded-3xl bg-white/85 dark:bg-[#151622]/90 border border-slate-200/80 dark:border-white/[0.08] shadow-sm flex items-center justify-between gap-4">
+      <div className="p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-[#E2E8F0] dark:border-white/10 shadow-sm text-[#1E293B] dark:text-slate-100 flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <HardDrive className="w-5 h-5 text-indigo-500" />
+          <h2 className="text-xl font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
+            <HardDrive className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             <span>Sao Lưu, Khôi Phục & Quản Trị Dữ Liệu Toàn Hệ Thống</span>
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-xs text-[#475569] dark:text-slate-400 mt-0.5">
             Phân hệ dành riêng cho Quản trị viên hệ thống (system_admin). Tác động trực tiếp đến toàn bộ người dùng, thú cưng và lịch trình.
           </p>
         </div>
@@ -144,14 +146,14 @@ export const AdminBackupView = ({
       {importStatus && (
         <div className={`p-4 rounded-2xl border text-xs font-bold flex items-center justify-between gap-3 animate-in slide-in-from-top-2 duration-200 ${
           importStatus.type === 'error'
-            ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-300 dark:border-rose-500/30 text-rose-700 dark:text-rose-300'
-            : 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+            ? 'bg-rose-50 dark:bg-rose-500/20 border-rose-200 dark:border-rose-400/30 text-rose-700 dark:text-rose-200'
+            : 'bg-emerald-50 dark:bg-emerald-500/20 border-emerald-200 dark:border-emerald-400/30 text-emerald-700 dark:text-emerald-200'
         }`}>
           <div className="flex items-center gap-2">
             {importStatus.type === 'error' ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <Check className="w-4 h-4 shrink-0" />}
             <span>{importStatus.message}</span>
           </div>
-          <button onClick={() => setImportStatus(null)} className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10">
+          <button onClick={() => setImportStatus(null)} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/20">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -161,22 +163,22 @@ export const AdminBackupView = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         
         {/* 1. Xuất file sao lưu hệ thống */}
-        <div className="p-6 rounded-3xl bg-white/85 dark:bg-[#151622]/90 border border-slate-200/80 dark:border-white/[0.08] shadow-sm flex flex-col justify-between space-y-4">
+        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-[#E2E8F0] dark:border-white/10 shadow-sm text-[#1E293B] dark:text-slate-100 flex flex-col justify-between space-y-4">
           <div>
-            <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20 flex items-center justify-center mb-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-white/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-white/20 flex items-center justify-center mb-3 shadow-xs">
               <Download className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+            <h3 className="text-sm font-bold text-[#0F172A] dark:text-white">
               Sao Lưu Toàn Bộ Hệ Thống
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+            <p className="text-xs text-[#475569] dark:text-slate-400 mt-1 leading-relaxed">
               Tải tệp JSON chứa toàn bộ tài khoản người dùng (mật khẩu đã được ẩn), tất cả thú cưng, lịch trình, chi tiêu và lịch hẹn khám.
             </p>
           </div>
 
           <button
             onClick={handleExportSystem}
-            className="w-full py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-indigo-500/20 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+            className="w-full py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-indigo-500/25 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
           >
             <Download className="w-4 h-4" />
             <span>Tải Bản Sao Lưu JSON</span>
@@ -184,20 +186,20 @@ export const AdminBackupView = ({
         </div>
 
         {/* 2. Khôi phục từ file JSON */}
-        <div className="p-6 rounded-3xl bg-white/85 dark:bg-[#151622]/90 border border-slate-200/80 dark:border-white/[0.08] shadow-sm flex flex-col justify-between space-y-4">
+        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-[#E2E8F0] dark:border-white/10 shadow-sm text-[#1E293B] dark:text-slate-100 flex flex-col justify-between space-y-4">
           <div>
-            <div className="w-10 h-10 rounded-2xl bg-cyan-50 dark:bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-100 dark:border-cyan-500/20 flex items-center justify-center mb-3">
+            <div className="w-10 h-10 rounded-2xl bg-cyan-50 dark:bg-white/10 text-cyan-600 dark:text-cyan-400 border border-cyan-100 dark:border-white/20 flex items-center justify-center mb-3 shadow-xs">
               <Upload className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+            <h3 className="text-sm font-bold text-[#0F172A] dark:text-white">
               Khôi Phục Toàn Bộ Hệ Thống
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+            <p className="text-xs text-[#475569] dark:text-slate-400 mt-1 leading-relaxed">
               Nạp tệp JSON đã sao lưu trước đó. Hệ thống sẽ kiểm tra cấu trúc dữ liệu, kiểu giá trị và bảo vệ tài khoản admin trước khi áp dụng.
             </p>
           </div>
 
-          <label className="w-full py-2.5 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 text-center">
+          <label className="w-full py-2.5 rounded-2xl border border-cyan-200 dark:border-cyan-400/40 bg-cyan-50 dark:bg-cyan-500/20 hover:bg-cyan-100 dark:hover:bg-cyan-500/30 text-cyan-700 dark:text-cyan-200 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 text-center shadow-xs">
             <Upload className="w-4 h-4" />
             <span>Chọn Tệp JSON Khôi Phục</span>
             <input
@@ -210,22 +212,22 @@ export const AdminBackupView = ({
         </div>
 
         {/* 3. Đặt lại dữ liệu mẫu hệ thống */}
-        <div className="p-6 rounded-3xl bg-white/85 dark:bg-[#151622]/90 border border-slate-200/80 dark:border-white/[0.08] shadow-sm flex flex-col justify-between space-y-4">
+        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-[#E2E8F0] dark:border-white/10 shadow-sm text-[#1E293B] dark:text-slate-100 flex flex-col justify-between space-y-4">
           <div>
-            <div className="w-10 h-10 rounded-2xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-500/20 flex items-center justify-center mb-3">
+            <div className="w-10 h-10 rounded-2xl bg-rose-50 dark:bg-white/10 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-white/20 flex items-center justify-center mb-3 shadow-xs">
               <RotateCcw className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+            <h3 className="text-sm font-bold text-[#0F172A] dark:text-white">
               Đặt Lại Dữ Liệu Mẫu Hệ Thống
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+            <p className="text-xs text-[#475569] dark:text-slate-400 mt-1 leading-relaxed">
               Khôi phục các bảng nghiệp vụ (thú cưng, lịch tiêm, chi tiêu) về trạng thái mẫu chuẩn. <strong>Tuyệt đối không xóa tài khoản người dùng hoặc phiên đăng nhập.</strong>
             </p>
           </div>
 
           <button
             onClick={() => setIsResetConfirmOpen(true)}
-            className="w-full py-2.5 rounded-2xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+            className="w-full py-2.5 rounded-2xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
           >
             <RotateCcw className="w-4 h-4" />
             <span>Đặt Lại Dữ Liệu Nghiệp Vụ</span>

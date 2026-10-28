@@ -1,0 +1,658 @@
+{
+  "user_1791541299976_7ebbe5::pet-1792142788675": [
+    {
+      "id": "msg-1793184114820-ex4p1h",
+      "sender": "user",
+      "text": "Bé Mèo Kiểm Thử hiện tại nặng bao nhiêu kg?",
+      "sources": null,
+      "timestamp": "2026-10-28T10:41:54.820Z"
+    },
+    {
+      "id": "msg-1793184114822-uggsr3",
+      "sender": "assistant",
+      "text": "Chưa cập nhật.\n\n*Thông tin chỉ mang tính tham khảo, không thay thế khám thú y.*",
+      "sources": [],
+      "timestamp": "2026-10-28T10:41:54.822Z"
+    },
+    {
+      "id": "msg-1793184128173-9b6pqm",
+      "sender": "user",
+      "text": "Cho mèo ăn thưởng bao nhiêu là vừa?",
+      "sources": null,
+      "timestamp": "2026-10-28T10:42:08.173Z"
+    },
+    {
+      "id": "msg-1793184128175-w9y2qz",
+      "sender": "assistant",
+      "text": "Để biết lượng ăn thưởng cho mèo vừa phải, bạn cần xem xét các yếu tố sau:\n\n1. Loại thức ăn: Tùy thuộc vào loại thức ăn mèo đang ăn, lượng ăn thưởng có thể khác nhau.\n\n2. Tình trạng cơ thể: Mèo khỏe mạnh sẽ cần ăn thưởng nhiều hơn so với mèo có vấn đề sức khỏe.\n\n3. Cân nặng: Lượng ăn thưởng cũng phụ thuộc vào cân nặng của mèo.\n\n4. Thời gian: Mèo cần ăn thưởng ít hơn khi nó đã ăn xong bữa chính.\n\n5. Cân nhắc: Không nên cho mèo ăn thưởng quá nhiều, vì nó có thể làm mất cân đối khẩu phần chính.\n\n6. Thay thế: Nếu mèo không thích ăn thưởng, bạn có thể thay thế bằng thức ăn bổ sung khác.\n\nTuy nhiên, không nên cố gắng xác định lượng ăn thưởng chính xác từ cân nặng hoặc số gam chỉ từ cân nặng. Bạn nên tham khảo ý kiến của bác sĩ thú y hoặc chuyên gia dinh dưỡng để có kế hoạch phù hợp cho từng con mèo.\n\n*Thông tin chỉ mang tính tham khảo, không thay thế khám thú y.*",
+      "sources": [
+        {
+          "id": "SRC-AAHA-NUTRITION",
+          "org": "American Animal Hospital Association (AAHA)",
+          "title": "Prevention of Obesity — 2021 AAHA Nutrition and Weight Management Guidelines",
+          "url": "https://www.aaha.org/resources/2021-aaha-nutrition-and-weight-management-guidelines/prevention-of-obesity/"
+        },
+        {
+          "id": "SRC-CORNELL-DENTAL",
+          "org": "Cornell University College of Veterinary Medicine",
+          "title": "Feline Dental Disease",
+          "url": "https://www.vet.cornell.edu/departments-centers-and-institutes/cornell-feline-health-center/health-information/feline-health-topics/feline-dental-disease"
+        }
+      ],
+      "timestamp": "2026-10-28T10:42:08.175Z"
+    },
+    {
+      "id": "msg-1793185958494-m10x4u",
+      "sender": "user",
+      "text": "Cho mèo ăn thưởng bao nhiêu là vừa?",
+      "sources": null,
+      "timestamp": "2026-10-28T11:12:38.494Z"
+    },
+    {
+      "id": "msg-1793185958496-wofax2",
+      "sender": "assistant",
+      "text": "Để biết lượng ăn thưởng phù hợp cho mèo, bạn cần xem xét:\n\n- Loại thức ăn: Nếu mèo đang ăn chính thức, hãy dựa vào khẩu phần chính.\n- Tình trạng cơ thể: Mèo khỏe mạnh nên có thể ăn thưởng hơn so với mèo yếu ớt.\n- Nguồn năng lượng: Nếu mèo đang hoạt động nhiều, cần tăng lượng ăn thưởng.\n\nNếu mèo đang ăn chính thức, bạn có thể dựa vào khẩu phần chính để tính lượng ăn thưởng. Tuy nhiên, không nên vượt quá 10% tổng năng lượng hằng ngày để tránh làm mất cân đối khẩu phần chính.\n\n*Thông tin chỉ mang tính tham khảo, không thay thế khám thú y.*",
+      "sources": [
+        {
+          "id": "SRC-AAHA-NUTRITION",
+          "org": "American Animal Hospital Association (AAHA)",
+          "title": "Prevention of Obesity — 2021 AAHA Nutrition and Weight Management Guidelines",
+          "url": "https://www.aaha.org/resources/2021-aaha-nutrition-and-weight-management-guidelines/prevention-of-obesity/"
+        },
+        {
+          "id": "SRC-CORNELL-DENTAL",
+          "org": "Cornell University College of Veterinary Medicine",
+          "title": "Feline Dental Disease",
+          "url": "https://www.vet.cornell.edu/departments-centers-and-institutes/cornell-feline-health-center/health-information/feline-health-topics/feline-dental-disease"
+        }
+      ],
+      "timestamp": "2026-10-28T11:12:38.496Z"
+    },
+    {
+      "id": "msg-1793189328456-5t7g1v",
+      "sender": "user",
+      "text": "Bé hiện nặng bao nhiêu?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:08:48.456Z"
+    },
+    {
+      "id": "msg-1793189328459-ru54r6",
+      "sender": "assistant",
+      "text": "Tôi xin lỗi, nhưng bạn chưa cung cấp thông tin về cân nặng của bé mèo. Để trả lời câu hỏi này, tôi cần biết:\n\n1. Cân nặng hồ sơ: Bạn có cập nhật số cân nặng của bé mèo không?\n2. Lịch sử cân đo trước đó: Nếu có lịch sử cân đo, bạn cũng cần cung cấp cho tôi.\n\nNếu bạn chưa cập nhật thông tin về cân nặng hoặc lịch sử cân đo, tôi sẽ khó khăn hơn trong việc trả lời câu hỏi này. Bạn hãy liên hệ với bác sĩ thú y để được tư vấn thêm.",
+      "sources": [
+        {
+          "id": "SRC-AAHA-NUTRITION",
+          "org": "American Animal Hospital Association (AAHA)",
+          "title": "Prevention of Obesity — 2021 AAHA Nutrition and Weight Management Guidelines",
+          "url": "https://www.aaha.org/resources/2021-aaha-nutrition-and-weight-management-guidelines/prevention-of-obesity/"
+        }
+      ],
+      "timestamp": "2026-10-28T12:08:48.459Z"
+    },
+    {
+      "id": "msg-1793189368399-4qp53l",
+      "sender": "user",
+      "text": "Bé có đơn thuốc nào?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:09:28.399Z"
+    },
+    {
+      "id": "msg-1793189368402-oaby50",
+      "sender": "assistant",
+      "text": "Theo thông tin bạn cung cấp, hiện tại không có bất kỳ đơn thuốc nào được lưu trong hệ thống của bạn. Nếu bạn cần thêm thông tin về việc chăm sóc hoặc y tế cho bé mèo, hãy liên hệ với bác sĩ thú y để nhận sự tư vấn phù hợp nhất.",
+      "sources": [
+        {
+          "id": "SRC-FDA-MEDICINES",
+          "org": "U.S. Food and Drug Administration (FDA)",
+          "title": "Get the Facts about Pain Relievers for Pets",
+          "url": "https://www.fda.gov/animal-veterinary/animal-health-literacy/get-facts-about-pain-relievers-pets"
+        }
+      ],
+      "timestamp": "2026-10-28T12:09:28.402Z"
+    },
+    {
+      "id": "msg-1793191000307-y66z0i",
+      "sender": "user",
+      "text": "Bé hiện nặng bao nhiêu? Bé có đơn thuốc nào?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:36:40.307Z"
+    },
+    {
+      "id": "msg-1793191000312-0qqe75",
+      "sender": "assistant",
+      "text": "Hồ sơ của **Mèo Kiểm Thử** hiện **chưa ghi nhận cân nặng**. Bạn có thể cập nhật cân nặng của bé tại mục Quản lý thú cưng để tiện theo dõi thể trạng.",
+      "sources": [
+        {
+          "id": "SRC-PET-PROFILE",
+          "title": "Hồ sơ thú cưng (Mèo Kiểm Thử)",
+          "organization": "Hệ thống hồ sơ PetCare",
+          "type": "pet_profile"
+        }
+      ],
+      "timestamp": "2026-10-28T12:36:40.312Z"
+    }
+  ],
+  "user_1791541299976_7ebbe5::general": [
+    {
+      "id": "msg-1793188149046-g6wp26",
+      "sender": "user",
+      "text": "Cho mèo ăn thưởng bao nhiêu là vừa?",
+      "sources": null,
+      "timestamp": "2026-10-28T11:49:09.046Z"
+    },
+    {
+      "id": "msg-1793188149049-sfvnol",
+      "sender": "assistant",
+      "text": "Để biết lượng thức ăn cho mèo ăn thưởng, bạn nên tham khảo ý kiến của Bác sĩ Thú y hoặc chuyên gia thú y. Tuy nhiên, một gợi ý chung là không nên cho quá nhiều thức ăn bổ sung vào khẩu phần chính để tránh làm mất cân đối dinh dưỡng.\n\nNếu muốn tăng lượng thức ăn cho mèo, bạn cần thay đổi chế độ ăn của nó từ nguồn thực phẩm chính và đảm bảo rằng lượng thức ăn này được cung cấp một cách an toàn.",
+      "sources": [
+        {
+          "id": "SRC-AAHA-NUTRITION",
+          "org": "American Animal Hospital Association (AAHA)",
+          "title": "Prevention of Obesity — 2021 AAHA Nutrition and Weight Management Guidelines",
+          "url": "https://www.aaha.org/resources/2021-aaha-nutrition-and-weight-management-guidelines/prevention-of-obesity/"
+        },
+        {
+          "id": "SRC-AVMA-CAT",
+          "org": "American Veterinary Medical Association (AVMA)",
+          "title": "Selecting a pet cat",
+          "url": "https://www.avma.org/resources/pet-owners/petcare/selecting-pet-cat"
+        }
+      ],
+      "timestamp": "2026-10-28T11:49:09.049Z"
+    },
+    {
+      "id": "msg-1793188936601-33zlld",
+      "sender": "user",
+      "text": "Dùng kem đánh răng của người cho mèo được không?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:02:16.601Z"
+    },
+    {
+      "id": "msg-1793188936604-z5zunh",
+      "sender": "assistant",
+      "text": "Không nên sử dụng kem đánh răng của người cho mèo. Kem đánh răng thường chứa các hóa chất có thể gây hại đến sức khỏe răng miệng, hô hấp và tiêu hóa của mèo.\n\nNếu bạn muốn giúp mèo làm quen với việc chải răng, hãy thay thế bằng bàn chải và kem hoặc gel dành riêng cho mèo. Hôi miệng, chảy dãi hoặc khó ăn có thể liên quan đến bệnh răng miệng cần khám. Nếu nướu đang viêm hoặc đau, bạn nên hỏi bác sĩ trước khi chải; không cố chải vùng đau.\n\nNếu đã dùng thuốc giảm đau thay thế, hãy liên hệ với thú y ngay và cung cấp tên thuốc, hàm lượng, lượng đã dùng và thời điểm dùng để được tư vấn.",
+      "sources": [
+        {
+          "id": "SRC-CORNELL-DENTAL",
+          "org": "Cornell University College of Veterinary Medicine",
+          "title": "Feline Dental Disease",
+          "url": "https://www.vet.cornell.edu/departments-centers-and-institutes/cornell-feline-health-center/health-information/feline-health-topics/feline-dental-disease"
+        },
+        {
+          "id": "SRC-FDA-MEDICINES",
+          "org": "U.S. Food and Drug Administration (FDA)",
+          "title": "Get the Facts about Pain Relievers for Pets",
+          "url": "https://www.fda.gov/animal-veterinary/animal-health-literacy/get-facts-about-pain-relievers-pets"
+        }
+      ],
+      "timestamp": "2026-10-28T12:02:16.604Z"
+    },
+    {
+      "id": "msg-1793188960233-7craan",
+      "sender": "user",
+      "text": "Vậy nếu nướu bé đang đau thì có nên cố chải không?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:02:40.233Z"
+    },
+    {
+      "id": "msg-1793188960237-3thyi2",
+      "sender": "assistant",
+      "text": "Nếu nướu của mèo đang viêm hoặc đau, bạn cần tránh việc chải răng. Hãy hỏi bác sĩ thú y trước khi làm điều này để đảm bảo rằng bạn đang sử dụng phương pháp đúng cách và an toàn cho con vật của mình.",
+      "sources": [
+        {
+          "id": "SRC-CORNELL-DENTAL",
+          "org": "Cornell University College of Veterinary Medicine",
+          "title": "Feline Dental Disease",
+          "url": "https://www.vet.cornell.edu/departments-centers-and-institutes/cornell-feline-health-center/health-information/feline-health-topics/feline-dental-disease"
+        },
+        {
+          "id": "SRC-FDA-MEDICINES",
+          "org": "U.S. Food and Drug Administration (FDA)",
+          "title": "Get the Facts about Pain Relievers for Pets",
+          "url": "https://www.fda.gov/animal-veterinary/animal-health-literacy/get-facts-about-pain-relievers-pets"
+        }
+      ],
+      "timestamp": "2026-10-28T12:02:40.237Z"
+    },
+    {
+      "id": "msg-1793188985087-c11wwb",
+      "sender": "user",
+      "text": "Có phải chó mèo nào cũng tẩy giun mỗi tháng?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:03:05.087Z"
+    },
+    {
+      "id": "msg-1793188985091-c0797h",
+      "sender": "assistant",
+      "text": "Không, việc tẩy giun cho chó và mèo không giống nhau. Đối với chó, bạn nên tuân theo lịch sử tiêm chủng của cơ sở thú y hoặc bác sĩ thú y địa phương để có kế hoạch phù hợp nhất. Trong khi đó, đối với mèo, cần khám sức khỏe định kỳ để xác định thời điểm thích hợp cho việc tẩy giun.\n\nNếu bạn không biết lịch sử tiêm chủng cụ thể của chó hay mèo hoặc chưa có hồ sơ tiêm chủng, hãy liên hệ với cơ sở thú y gần nhất để được tư vấn.",
+      "sources": [
+        {
+          "id": "SRC-ESCCAP-WORMS",
+          "org": "European Scientific Counsel Companion Animal Parasites (ESCCAP)",
+          "title": "Scheme for individual deworming of dogs",
+          "url": "https://www.esccap.org/deworming-dogs/"
+        },
+        {
+          "id": "SRC-AVMA-CAT",
+          "org": "American Veterinary Medical Association (AVMA)",
+          "title": "Selecting a pet cat",
+          "url": "https://www.avma.org/resources/pet-owners/petcare/selecting-pet-cat"
+        }
+      ],
+      "timestamp": "2026-10-28T12:03:05.091Z"
+    },
+    {
+      "id": "msg-1793189002883-6yvj4w",
+      "sender": "user",
+      "text": "Cho tôi lịch vaccine chính xác cho thỏ.",
+      "sources": null,
+      "timestamp": "2026-10-28T12:03:22.883Z"
+    },
+    {
+      "id": "msg-1793189002888-keio1c",
+      "sender": "assistant",
+      "text": "Hiện tại tài liệu tham khảo chính thống trong hệ thống chưa có quy định hoặc hướng dẫn chuyên sâu cho loài này. Vui lòng tham vấn trực tiếp Bác sĩ Thú y tại phòng khám để có chỉ định an toàn và phù hợp cho bé.",
+      "sources": [],
+      "timestamp": "2026-10-28T12:03:22.888Z"
+    },
+    {
+      "id": "msg-1793189043146-doo6v1",
+      "sender": "user",
+      "text": "Mèo rặn tiểu liên tục mà không ra, đợi mai được không?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:04:03.146Z"
+    },
+    {
+      "id": "msg-1793189043149-uerk05",
+      "sender": "assistant",
+      "text": "Nếu bạn thấy mèo của mình đang rặn tiểu liên tục nhưng không có nước tiểu, điều này có thể là dấu hiệu của một số vấn đề sức khỏe nghiêm trọng. Trong trường hợp này, việc đưa mèo đi khám ngay lập tức là cần thiết.\n\nMột số nguyên nhân có thể bao gồm:\n\n1. Đường tiết niệu bị tắc nghẽn\n2. Bệnh viêm đường tiết niệu \n3. Vi khuẩn hoặc vi rút gây bệnh\n\nĐể đảm bảo sức khỏe của mèo, bạn nên liên hệ với bác sĩ thú y để được tư vấn và điều trị kịp thời.\n\nNếu không có nước tiểu trong vài ngày liên tục, việc này cần được kiểm tra ngay lập tức bởi một chuyên gia thú y.",
+      "sources": [
+        {
+          "id": "SRC-CORNELL-URINARY",
+          "org": "Cornell University College of Veterinary Medicine",
+          "title": "Feline Lower Urinary Tract Disease",
+          "url": "https://www.vet.cornell.edu/departments-centers-and-institutes/cornell-feline-health-center/health-information/feline-health-topics/feline-lower-urinary-tract-disease"
+        },
+        {
+          "id": "SRC-CORNELL-BREATHING",
+          "org": "Cornell University College of Veterinary Medicine",
+          "title": "Dyspnea (Difficulty Breathing)",
+          "url": "https://www.vet.cornell.edu/departments-centers-and-institutes/cornell-feline-health-center/health-information/feline-health-topics/dyspnea-difficulty-breathing"
+        }
+      ],
+      "timestamp": "2026-10-28T12:04:03.149Z"
+    },
+    {
+      "id": "msg-1793189076330-ay6435",
+      "sender": "user",
+      "text": "Cho mèo ăn thưởng bao nhiêu là vừa?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:04:36.330Z"
+    },
+    {
+      "id": "msg-1793189076333-y1t7r1",
+      "sender": "assistant",
+      "text": "Trong trường hợp của bạn, không có thông tin cụ thể về cân nặng hoặc tình trạng sức khỏe của mèo. Tuy nhiên, theo hướng dẫn từ đoạn 1 mà bạn cung cấp:\n\n- Đồ ăn thưởng và thức ăn bổ sung cần được tính vào tổng năng lượng hằng ngày.\n- Phần bổ sung không vượt quá 10% tổng năng lượng để tránh làm mất cân đối khẩu phần chính.\n\nNếu mèo của bạn đang có vấn đề về sức khỏe, hãy liên hệ với bác sĩ thú y để được tư vấn cụ thể.",
+      "sources": [
+        {
+          "id": "SRC-AAHA-NUTRITION",
+          "org": "American Animal Hospital Association (AAHA)",
+          "title": "Prevention of Obesity — 2021 AAHA Nutrition and Weight Management Guidelines",
+          "url": "https://www.aaha.org/resources/2021-aaha-nutrition-and-weight-management-guidelines/prevention-of-obesity/"
+        },
+        {
+          "id": "SRC-AVMA-CAT",
+          "org": "American Veterinary Medical Association (AVMA)",
+          "title": "Selecting a pet cat",
+          "url": "https://www.avma.org/resources/pet-owners/petcare/selecting-pet-cat"
+        }
+      ],
+      "timestamp": "2026-10-28T12:04:36.333Z"
+    },
+    {
+      "id": "msg-1793190201402-l5m29w",
+      "sender": "user",
+      "text": "Bé nặng bao nhiêu kg?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:23:21.402Z"
+    },
+    {
+      "id": "msg-1793190201405-uyszzm",
+      "sender": "assistant",
+      "text": "Bạn đang ở chế độ Hỏi đáp chung nên tôi chưa xác định được bé thú cưng bạn muốn tra cứu. Vui lòng chọn bé (ví dụ: Cún Kiểm Thử hoặc Mèo Kiểm Thử) ở danh sách phía trên để tôi tra cứu thông tin chính xác cho bạn nhé!",
+      "sources": [],
+      "timestamp": "2026-10-28T12:23:21.405Z"
+    },
+    {
+      "id": "msg-1793190245267-vdxrjb",
+      "sender": "user",
+      "text": "Bé nặng bao nhiêu kg?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:24:05.267Z"
+    },
+    {
+      "id": "msg-1793190245270-zaev3n",
+      "sender": "assistant",
+      "text": "Bạn đang ở chế độ Hỏi đáp chung nên tôi chưa xác định được bé thú cưng bạn muốn tra cứu. Vui lòng chọn bé (ví dụ: Cún Kiểm Thử hoặc Mèo Kiểm Thử) ở danh sách phía trên để tôi tra cứu thông tin chính xác cho bạn nhé!",
+      "sources": [],
+      "timestamp": "2026-10-28T12:24:05.270Z"
+    },
+    {
+      "id": "msg-1793190512909-c2j307",
+      "sender": "user",
+      "text": "Bé nặng bao nhiêu kg?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:28:32.909Z"
+    },
+    {
+      "id": "msg-1793190512911-mtl069",
+      "sender": "assistant",
+      "text": "Bạn đang ở chế độ Hỏi đáp chung nên tôi chưa xác định được bé thú cưng bạn muốn tra cứu. Vui lòng chọn bé (ví dụ: Cún Kiểm Thử hoặc Mèo Kiểm Thử) ở danh sách phía trên để tôi tra cứu thông tin chính xác cho bạn nhé!",
+      "sources": [],
+      "timestamp": "2026-10-28T12:28:32.911Z"
+    }
+  ],
+  "diag_test_user::general": [
+    {
+      "id": "msg-1793187611398-lqrn7v",
+      "sender": "user",
+      "text": "Dùng kem đánh răng của người cho mèo được không?",
+      "sources": null,
+      "timestamp": "2026-10-28T11:40:11.398Z"
+    },
+    {
+      "id": "msg-1793187611402-0arr0i",
+      "sender": "assistant",
+      "text": "Chưa có thông tin phù hợp trong tài liệu được cung cấp.\n\n*Thông tin chỉ mang tính tham khảo, không thay thế khám thú y.*",
+      "sources": [
+        {
+          "id": "SRC-CORNELL-DENTAL",
+          "org": "Cornell University College of Veterinary Medicine",
+          "title": "Feline Dental Disease",
+          "url": "https://www.vet.cornell.edu/departments-centers-and-institutes/cornell-feline-health-center/health-information/feline-health-topics/feline-dental-disease"
+        },
+        {
+          "id": "SRC-FDA-MEDICINES",
+          "org": "U.S. Food and Drug Administration (FDA)",
+          "title": "Get the Facts about Pain Relievers for Pets",
+          "url": "https://www.fda.gov/animal-veterinary/animal-health-literacy/get-facts-about-pain-relievers-pets"
+        }
+      ],
+      "timestamp": "2026-10-28T11:40:11.402Z"
+    }
+  ],
+  "user_1791541299976_7ebbe5::pet-1792128958474": [
+    {
+      "id": "msg-1793190201411-95bwye",
+      "sender": "user",
+      "text": "Mèo nhà tôi nặng bao nhiêu kg?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:23:21.411Z"
+    },
+    {
+      "id": "msg-1793190201412-4rjez9",
+      "sender": "assistant",
+      "text": "Bạn đang chọn hồ sơ của **Cún Kiểm Thử** (Chó), nhưng câu hỏi của bạn đang nhắc đến **mèo**. Để đảm bảo thông tin chính xác, bạn vui lòng chuyển sang hồ sơ của bé tương ứng ở thanh chọn phía trên nhé!",
+      "sources": [],
+      "timestamp": "2026-10-28T12:23:21.412Z"
+    },
+    {
+      "id": "msg-1793190201416-2qutzg",
+      "sender": "user",
+      "text": "Bé có lịch nhắc tái khám khi nào?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:23:21.416Z"
+    },
+    {
+      "id": "msg-1793190201418-k9dpq7",
+      "sender": "assistant",
+      "text": "**Cún Kiểm Thử** có các lịch nhắc và ca khám sắp tới như sau:\n\n• **chải lông hàng tuần**: lúc **09:00** ngày **03/11/2026**\n    Ghi chú: chải lông nhẹ nhàng, kiểm thử lặp lại hàng tuần\n\n• **Nhắc tái khám kiểm thử – Cún Kiểm Thử**: lúc **09:00** ngày **04/11/2026** *(Chỉ định bởi: BS. Nguyễn Văn A (Tester))*\n    Ghi chú: Kiểm thử liên thông từ bác sĩ sang người nuôi, ca BK-1793164543433. Không phải chỉ định khám thực tế.",
+      "sources": [
+        {
+          "id": "SRC-PET-SCHEDULE",
+          "title": "Lịch chăm sóc & Lịch hẹn (Cún Kiểm Thử)",
+          "organization": "Hệ thống lịch PetCare",
+          "type": "pet_schedule"
+        }
+      ],
+      "timestamp": "2026-10-28T12:23:21.418Z"
+    },
+    {
+      "id": "msg-1793190245274-9r4i5m",
+      "sender": "user",
+      "text": "Mèo nhà tôi nặng bao nhiêu kg?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:24:05.274Z"
+    },
+    {
+      "id": "msg-1793190245276-mlrlvc",
+      "sender": "assistant",
+      "text": "Bạn đang chọn hồ sơ của **Cún Kiểm Thử** (Chó), nhưng câu hỏi của bạn đang nhắc đến **mèo**. Để đảm bảo thông tin chính xác, bạn vui lòng chuyển sang hồ sơ của bé tương ứng ở thanh chọn phía trên nhé!",
+      "sources": [],
+      "timestamp": "2026-10-28T12:24:05.276Z"
+    },
+    {
+      "id": "msg-1793190245279-1i49ga",
+      "sender": "user",
+      "text": "Bé có lịch nhắc tái khám khi nào?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:24:05.279Z"
+    },
+    {
+      "id": "msg-1793190245280-j8rljv",
+      "sender": "assistant",
+      "text": "**Cún Kiểm Thử** có các lịch nhắc và ca khám sắp tới như sau:\n\n• **chải lông hàng tuần**: lúc **09:00** ngày **03/11/2026**\n    Ghi chú: chải lông nhẹ nhàng, kiểm thử lặp lại hàng tuần\n\n• **Nhắc tái khám kiểm thử – Cún Kiểm Thử**: lúc **09:00** ngày **04/11/2026** *(Chỉ định bởi: BS. Nguyễn Văn A (Tester))*\n    Ghi chú: Kiểm thử liên thông từ bác sĩ sang người nuôi, ca BK-1793164543433. Không phải chỉ định khám thực tế.",
+      "sources": [
+        {
+          "id": "SRC-PET-SCHEDULE",
+          "title": "Lịch chăm sóc & Lịch hẹn (Cún Kiểm Thử)",
+          "organization": "Hệ thống lịch PetCare",
+          "type": "pet_schedule"
+        }
+      ],
+      "timestamp": "2026-10-28T12:24:05.281Z"
+    },
+    {
+      "id": "msg-1793190512915-d1i0pr",
+      "sender": "user",
+      "text": "Mèo nhà tôi nặng bao nhiêu kg?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:28:32.915Z"
+    },
+    {
+      "id": "msg-1793190512916-8usmc0",
+      "sender": "assistant",
+      "text": "Bạn đang chọn hồ sơ của **Cún Kiểm Thử** (Chó), nhưng câu hỏi của bạn đang nhắc đến **mèo**. Để đảm bảo thông tin chính xác, bạn vui lòng chuyển sang hồ sơ của bé tương ứng ở thanh chọn phía trên nhé!",
+      "sources": [],
+      "timestamp": "2026-10-28T12:28:32.916Z"
+    },
+    {
+      "id": "msg-1793190512919-5e2rd9",
+      "sender": "user",
+      "text": "Bé có lịch nhắc tái khám khi nào?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:28:32.919Z"
+    },
+    {
+      "id": "msg-1793190512922-v5yjpb",
+      "sender": "assistant",
+      "text": "**Cún Kiểm Thử** có các lịch nhắc và ca khám sắp tới như sau:\n\n• **chải lông hàng tuần**: lúc **09:00** ngày **03/11/2026**\n    Ghi chú: chải lông nhẹ nhàng, kiểm thử lặp lại hàng tuần\n\n• **Nhắc tái khám kiểm thử – Cún Kiểm Thử**: lúc **09:00** ngày **04/11/2026** *(Chỉ định bởi: BS. Nguyễn Văn A (Tester))*\n    Ghi chú: Kiểm thử liên thông từ bác sĩ sang người nuôi, ca BK-1793164543433. Không phải chỉ định khám thực tế.",
+      "sources": [
+        {
+          "id": "SRC-PET-SCHEDULE",
+          "title": "Lịch chăm sóc & Lịch hẹn (Cún Kiểm Thử)",
+          "organization": "Hệ thống lịch PetCare",
+          "type": "pet_schedule"
+        }
+      ],
+      "timestamp": "2026-10-28T12:28:32.922Z"
+    },
+    {
+      "id": "msg-1793190901868-gk42y1",
+      "sender": "user",
+      "text": "Bé hiện nặng bao nhiêu?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:35:01.868Z"
+    },
+    {
+      "id": "msg-1793190901871-5doebf",
+      "sender": "assistant",
+      "text": "Theo hồ sơ thú cưng của **Cún Kiểm Thử**, cân nặng ghi nhận là **5.6 kg** (lần cập nhật gần nhất: ngày 16/10/2026).\n\n• Lịch sử các lần cân đo trước: 5.2 kg (ngày 16/10/2026), 4.8 kg (ngày 16/10/2026), 5.6 kg (ngày 16/10/2026).\n\n*(Lưu ý: Đây là số đo đã lưu trong hồ sơ hệ thống, không phải số đo mới cân hôm nay).*",
+      "sources": [
+        {
+          "id": "SRC-PET-PROFILE",
+          "title": "Hồ sơ thú cưng — Cân nặng (Cún Kiểm Thử)",
+          "organization": "Hệ thống hồ sơ PetCare",
+          "type": "pet_profile"
+        }
+      ],
+      "timestamp": "2026-10-28T12:35:01.871Z"
+    },
+    {
+      "id": "msg-1793190918123-hs5ewt",
+      "sender": "user",
+      "text": "Bé có nhắc tái khám khi nào?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:35:18.123Z"
+    },
+    {
+      "id": "msg-1793190918126-xn2uhw",
+      "sender": "assistant",
+      "text": "**Cún Kiểm Thử** có các lịch nhắc và ca khám sắp tới như sau:\n\n• **chải lông hàng tuần**: lúc **09:00** ngày **03/11/2026**\n    Ghi chú: chải lông nhẹ nhàng, kiểm thử lặp lại hàng tuần\n\n• **Nhắc tái khám kiểm thử – Cún Kiểm Thử**: lúc **09:00** ngày **04/11/2026** *(Chỉ định bởi: BS. Nguyễn Văn A (Tester))*\n    Ghi chú: Kiểm thử liên thông từ bác sĩ sang người nuôi, ca BK-1793164543433. Không phải chỉ định khám thực tế.",
+      "sources": [
+        {
+          "id": "SRC-PET-SCHEDULE",
+          "title": "Lịch chăm sóc & Lịch hẹn (Cún Kiểm Thử)",
+          "organization": "Hệ thống lịch PetCare",
+          "type": "pet_schedule"
+        }
+      ],
+      "timestamp": "2026-10-28T12:35:18.126Z"
+    },
+    {
+      "id": "msg-1793190938037-thrv95",
+      "sender": "user",
+      "text": "Bé có đơn thuốc nào?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:35:38.037Z"
+    },
+    {
+      "id": "msg-1793190938042-uollfr",
+      "sender": "assistant",
+      "text": "Hồ sơ của **Cún Kiểm Thử** có đơn thuốc đã phát hành như sau:\n\n• **Đơn thuốc: THUỐC KIỂM THỬ A – KHÔNG SỬ DỤNG**\n  Bác sĩ kê đơn: **BS. Nguyễn Văn A (Tester)** (ngày 28/10/2026)\n  - **THUỐC KIỂM THỬ A – KHÔNG SỬ DỤNG**: Liều 1 đơn vị kiểm thử/lần, 2 lần/ngày, đường Uống, dùng trong 3 ngày.\n    Hướng dẫn: Dữ liệu kiểm thử phần mềm, không dùng điều trị cho thú cưng.\n  *(Trạng thái: Đang trong liệu trình điều trị — còn khoảng 3 ngày).*",
+      "sources": [
+        {
+          "id": "SRC-PET-PRESCRIPTION",
+          "title": "Đơn thuốc điện tử (Cún Kiểm Thử)",
+          "organization": "Bệnh án & Đơn thuốc PetCare",
+          "type": "pet_prescription"
+        }
+      ],
+      "timestamp": "2026-10-28T12:35:38.042Z"
+    },
+    {
+      "id": "msg-1793190982557-zjxff7",
+      "sender": "user",
+      "text": "Bé hiện nặng bao nhiêu? Bé có đơn thuốc nào?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:36:22.557Z"
+    },
+    {
+      "id": "msg-1793190982561-mgdp78",
+      "sender": "assistant",
+      "text": "Theo hồ sơ thú cưng của **Cún Kiểm Thử**, cân nặng ghi nhận là **5.6 kg** (lần cập nhật gần nhất: ngày 16/10/2026).\n\n• Lịch sử các lần cân đo trước: 5.2 kg (ngày 16/10/2026), 4.8 kg (ngày 16/10/2026), 5.6 kg (ngày 16/10/2026).\n\n*(Lưu ý: Đây là số đo đã lưu trong hồ sơ hệ thống, không phải số đo mới cân hôm nay).*",
+      "sources": [
+        {
+          "id": "SRC-PET-PROFILE",
+          "title": "Hồ sơ thú cưng — Cân nặng (Cún Kiểm Thử)",
+          "organization": "Hệ thống hồ sơ PetCare",
+          "type": "pet_profile"
+        }
+      ],
+      "timestamp": "2026-10-28T12:36:22.561Z"
+    }
+  ],
+  "test-eval-non-regress::general": [
+    {
+      "id": "msg-1793190209368-hrqxi5",
+      "sender": "user",
+      "text": "Dùng kem đánh răng của người cho mèo được không?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:23:29.368Z"
+    },
+    {
+      "id": "msg-1793190209371-bbseak",
+      "sender": "assistant",
+      "text": "Không nên sử dụng kem đánh răng của người cho mèo. Kem đánh răng thường chứa các hóa chất có thể gây hại cho miệng của thú cưng, đặc biệt là đối với những loài như mèo có lợi khuẩn trong miệng tự nhiên. Sử dụng bàn chải và kem hoặc gel dành riêng cho mèo để chăm sóc răng miệng an toàn hơn.",
+      "sources": [
+        {
+          "id": "SRC-CORNELL-DENTAL",
+          "org": "Cornell University College of Veterinary Medicine",
+          "title": "Feline Dental Disease",
+          "url": "https://www.vet.cornell.edu/departments-centers-and-institutes/cornell-feline-health-center/health-information/feline-health-topics/feline-dental-disease"
+        },
+        {
+          "id": "SRC-FDA-MEDICINES",
+          "org": "U.S. Food and Drug Administration (FDA)",
+          "title": "Get the Facts about Pain Relievers for Pets",
+          "url": "https://www.fda.gov/animal-veterinary/animal-health-literacy/get-facts-about-pain-relievers-pets"
+        }
+      ],
+      "timestamp": "2026-10-28T12:23:29.371Z"
+    },
+    {
+      "id": "msg-1793190250414-jxz5no",
+      "sender": "user",
+      "text": "Dùng kem đánh răng của người cho mèo được không?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:24:10.414Z"
+    },
+    {
+      "id": "msg-1793190250418-t6ypy4",
+      "sender": "assistant",
+      "text": "Không nên sử dụng kem đánh răng của người cho mèo. Kem đánh răng thường chứa các hóa chất có thể gây hại cho miệng của thú cưng, đặc biệt là đối với những loài như mèo có lợi khuẩn trong miệng tự nhiên. Sử dụng bàn chải và kem hoặc gel dành riêng cho mèo để chăm sóc răng miệng an toàn hơn.",
+      "sources": [
+        {
+          "id": "SRC-CORNELL-DENTAL",
+          "org": "Cornell University College of Veterinary Medicine",
+          "title": "Feline Dental Disease",
+          "url": "https://www.vet.cornell.edu/departments-centers-and-institutes/cornell-feline-health-center/health-information/feline-health-topics/feline-dental-disease"
+        },
+        {
+          "id": "SRC-FDA-MEDICINES",
+          "org": "U.S. Food and Drug Administration (FDA)",
+          "title": "Get the Facts about Pain Relievers for Pets",
+          "url": "https://www.fda.gov/animal-veterinary/animal-health-literacy/get-facts-about-pain-relievers-pets"
+        }
+      ],
+      "timestamp": "2026-10-28T12:24:10.418Z"
+    },
+    {
+      "id": "msg-1793190518347-8ahhp2",
+      "sender": "user",
+      "text": "Dùng kem đánh răng của người cho mèo được không?",
+      "sources": null,
+      "timestamp": "2026-10-28T12:28:38.347Z"
+    },
+    {
+      "id": "msg-1793190518350-jul9v7",
+      "sender": "assistant",
+      "text": "Không nên sử dụng kem đánh răng của người cho mèo. Kem đánh răng thường chứa các hóa chất có thể gây hại cho miệng của thú cưng, đặc biệt là đối với những loài như mèo có lợi khuẩn trong miệng tự nhiên. Sử dụng bàn chải và kem hoặc gel dành riêng cho mèo để chăm sóc răng miệng an toàn hơn.",
+      "sources": [
+        {
+          "id": "SRC-CORNELL-DENTAL",
+          "org": "Cornell University College of Veterinary Medicine",
+          "title": "Feline Dental Disease",
+          "url": "https://www.vet.cornell.edu/departments-centers-and-institutes/cornell-feline-health-center/health-information/feline-health-topics/feline-dental-disease"
+        },
+        {
+          "id": "SRC-FDA-MEDICINES",
+          "org": "U.S. Food and Drug Administration (FDA)",
+          "title": "Get the Facts about Pain Relievers for Pets",
+          "url": "https://www.fda.gov/animal-veterinary/animal-health-literacy/get-facts-about-pain-relievers-pets"
+        }
+      ],
+      "timestamp": "2026-10-28T12:28:38.350Z"
+    }
+  ]
+}

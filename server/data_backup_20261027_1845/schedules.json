@@ -1,0 +1,18 @@
+[
+  {
+    "petId": "pet-1792128958474",
+    "title": "chải lông hàng tuần",
+    "type": "grooming",
+    "date": "2026-11-03",
+    "time": "09:00",
+    "location": "",
+    "repeat": "weekly",
+    "notes": "chải lông nhẹ nhàng, kiểm thử lặp lại hàng tuần",
+    "petName": "Cún Kiểm Thử",
+    "id": "sch-1793101059519",
+    "ownerId": "user_1791541299976_7ebbe5",
+    "isVerified": false,
+    "source": "owner_declared",
+    "createdAt": "2026-10-27T11:37:39.524Z"
+  }
+]

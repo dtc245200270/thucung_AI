@@ -1,0 +1,50 @@
+[
+  {
+    "id": "mr-final-1793094736739",
+    "petId": "pet-test-1793094736704",
+    "vetId": "user_vet_01",
+    "isFinal": true,
+    "soap": {
+      "subjective": "Sốt cao",
+      "assessment": "Viêm phế quản cấp"
+    },
+    "ownerId": "user_1793094736360_14bcde",
+    "createdAt": "2026-10-27T09:52:16.743Z",
+    "authorId": "user_vet_01",
+    "authorName": "BS. Nguyễn Văn A (Tester)",
+    "status": "published",
+    "history": [
+      {
+        "version": 1,
+        "amendedAt": "2026-10-27T09:52:16.761Z",
+        "amendedBy": "user_vet_01",
+        "amendedByName": "BS. Nguyễn Văn A (Tester)",
+        "reason": "Cập nhật diễn biến ngày 2",
+        "addendumNote": "Bé đã hạ sốt sau khi dùng kháng sinh",
+        "previousState": {}
+      }
+    ],
+    "lastAmendedAt": "2026-10-27T09:52:16.761Z"
+  },
+  {
+    "id": "mr-draft-1793094736726",
+    "petId": "pet-test-1793094736704",
+    "vetId": "user_vet_01",
+    "isFinal": false,
+    "soap": {
+      "subjective": "Bé mệt",
+      "objective": "Nhiệt độ 38.5",
+      "assessment": "Viêm da",
+      "plan": "Thuốc thoa"
+    },
+    "ownerId": "user_1793094736360_14bcde",
+    "createdAt": "2026-10-27T09:52:16.729Z",
+    "authorId": "user_vet_01",
+    "authorName": "BS. Nguyễn Văn A (Tester)",
+    "status": "draft"
+  },
+  {
+    "id": "rec-err1-1793094737585",
+    "test": true
+  }
+]

@@ -138,7 +138,7 @@ def create_document():
         p.paragraph_format.space_after = Pt(4)
         p.paragraph_format.keep_with_next = True
         run = p.add_run(text)
-        run.bold = True
+        run.bold = True 
         run.italic = True
         run.font.name = 'Times New Roman'
         run.font.size = Pt(13)

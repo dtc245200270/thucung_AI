@@ -4,6 +4,7 @@ import {
   Calendar, DollarSign, Pill, ArrowRight, AlertCircle, RefreshCw 
 } from 'lucide-react';
 import { sound } from '../../services/soundService';
+import { getTodayVnDate } from '../../utils/dateUtils';
 
 export default function AiMedicalOcrModal({ 
   isOpen = true, 
@@ -12,7 +13,7 @@ export default function AiMedicalOcrModal({
   pets = [], 
   onOcrComplete 
 }) {
-  const [selectedPetId, setSelectedPetId] = useState(pets[0]?.id || 'p1');
+  const [selectedPetId, setSelectedPetId] = useState(pets[0]?.id || '');
   const [ocrType, setOcrType] = useState('vaccine_book'); // 'vaccine_book', 'prescription_invoice'
   const [imagePreview, setImagePreview] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -29,7 +30,7 @@ export default function AiMedicalOcrModal({
     vaccineName: '',
     manufacturer: '',
     batchNumber: '',
-    injectedDate: new Date().toISOString().split('T')[0],
+    injectedDate: getTodayVnDate(),
     nextDueDate: '',
     nextVisitDate: '',
     vetClinic: '',
@@ -44,8 +45,8 @@ export default function AiMedicalOcrModal({
     confidence: 100,
     vetClinic: '',
     vetDoctor: '',
-    treatmentDate: new Date().toISOString().split('T')[0],
-    issueDate: new Date().toISOString().split('T')[0],
+    treatmentDate: getTodayVnDate(),
+    issueDate: getTodayVnDate(),
     diagnosis: '',
     followUpDate: '',
     nextVisitDate: '',

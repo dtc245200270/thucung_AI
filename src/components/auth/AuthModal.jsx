@@ -63,8 +63,8 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess, onSuccess, initialMo
   };
 
   const handleQuickDemoLogin = () => {
-    setEmail('demo@petcare.ai');
-    setPassword('Owner@123');
+    setEmail('manhdinh2907@gmail.com');
+    setPassword('123456');
     sound?.playClick?.();
   };
 
@@ -242,7 +242,7 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess, onSuccess, initialMo
                       onClick={handleQuickDemoLogin}
                       className="text-xs font-bold text-emerald-400 hover:text-emerald-300 cursor-pointer"
                     >
-                      🐶 Điền nhanh tài khoản Chủ nuôi Demo
+                      🐶 Điền nhanh tài khoản Chủ nuôi (Đinh Xuân Mạnh)
                     </button>
                   </div>
                 )}

@@ -1,65 +1,7 @@
+import { getTodayVnDate, addDaysLocal } from '../utils/dateUtils';
+
 // Mock data ban đầu phong phú và chuẩn thú y
-export const INITIAL_PETS = [
-  {
-    id: 'pet-1',
-    name: 'Mochi',
-    species: 'dog',
-    breed: 'Golden Retriever',
-    gender: 'male',
-    birthDate: '2023-08-15',
-    weight: 24.5, // kg
-    color: 'Vàng kem',
-    microchip: '98200036412',
-    isNeutered: true,
-    avatar: 'https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=600&q=80',
-    notes: 'Rất thích bơi, hơi nhát tiếng sấm sét. Dị ứng nhẹ với thịt bò.',
-    weightHistory: [
-      { date: '2025-10-15', weight: 22.0 },
-      { date: '2025-12-20', weight: 23.2 },
-      { date: '2026-02-15', weight: 24.0 },
-      { date: '2026-04-10', weight: 24.5 },
-    ]
-  },
-  {
-    id: 'pet-2',
-    name: 'Luna',
-    species: 'cat',
-    breed: 'Mèo Anh Lông Ngắn (BSH)',
-    gender: 'female',
-    birthDate: '2024-03-10',
-    weight: 4.2, // kg
-    color: 'Xám xanh (Blue)',
-    microchip: 'VN-9820008871',
-    isNeutered: true,
-    avatar: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=600&q=80',
-    notes: 'Thích nằm trên nóc tủ lạnh, thích ăn pate cá hồi. Đã tiêm ngừa dại đủ mũi.',
-    weightHistory: [
-      { date: '2025-09-10', weight: 3.6 },
-      { date: '2025-11-25', weight: 3.9 },
-      { date: '2026-01-15', weight: 4.1 },
-      { date: '2026-03-30', weight: 4.2 },
-    ]
-  },
-  {
-    id: 'pet-3',
-    name: 'Bánh Bao',
-    species: 'rabbit',
-    breed: 'Thỏ Minilop',
-    gender: 'male',
-    birthDate: '2024-11-05',
-    weight: 1.6, // kg
-    color: 'Trắng đốm nâu',
-    microchip: 'VN-9820001905',
-    isNeutered: false,
-    avatar: 'https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?auto=format&fit=crop&w=600&q=80',
-    notes: 'Rất háu ăn cỏ Timothy, cần chải lông tơ 2 ngày/lần.',
-    weightHistory: [
-      { date: '2025-12-05', weight: 1.2 },
-      { date: '2026-02-10', weight: 1.5 },
-      { date: '2026-04-01', weight: 1.6 },
-    ]
-  }
-];
+export const INITIAL_PETS = [];
 
 // Cơ sở dữ liệu Vắc-xin chuẩn y khoa theo từng cá thể & loài thú cưng
 export const petVaccineDatabase = {
@@ -186,160 +128,73 @@ export const petDewormDatabase = {
   ]
 };
 
-// Helper nhận dạng khóa của thú cưng: mochi | luna | banhbao
+// Helper lấy khóa của thú cưng
 export const getPetKey = (pet) => {
-  if (!pet) return 'mochi';
-  const name = (pet.name || '').toLowerCase();
-  const id = (pet.id || '').toLowerCase();
-  if (name.includes('mochi') || id === 'mochi' || id === 'pet-1') return 'mochi';
-  if (name.includes('luna') || id === 'luna' || id === 'pet-2') return 'luna';
-  if (name.includes('bánh bao') || name.includes('banh bao') || id === 'banhbao' || id === 'pet-3') return 'banhbao';
-  if (pet.species === 'cat' || pet.species === 'mèo') return 'luna';
-  if (pet.species === 'rabbit' || pet.species === 'thỏ') return 'banhbao';
-  return 'mochi';
+  if (!pet) return '';
+  return String(pet.id || '').trim();
 };
 
 // Helper tính ngày linh động tương đối theo hôm nay
-const getOffsetDate = (days) => {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split('T')[0];
-};
+const getOffsetDate = (days) => addDaysLocal(getTodayVnDate(), days);
 
-export const INITIAL_SCHEDULES = [
-  {
-    id: 'sch-1',
-    petId: 'pet-1',
-    title: 'Tiêm phòng dại Rabisin & Vắc-xin 7 bệnh nhắc lại - Mochi',
-    type: 'vaccine', // vaccine | deworm | grooming | vet | medicine
-    date: '2026-09-26', // Hôm nay
-    time: '09:30',
-    location: 'Bệnh viện thú y PetHealth, Hà Nội',
-    completed: false,
-    notes: 'Mang theo sổ tiêm chủng của Mochi. Nhịn ăn sáng 2 tiếng trước khi tiêm.',
-    repeat: 'yearly' // none | weekly | monthly | quarterly | yearly
-  },
-  {
-    id: 'sch-2',
-    petId: 'pet-2',
-    title: 'Nhỏ gáy phòng ve rận & giun sán Broadline - Luna',
-    type: 'deworm',
-    date: '2026-09-27',
-    time: '19:00',
-    location: 'Tại nhà',
-    completed: false,
-    notes: 'Không tắm cho mèo trước và sau khi nhỏ thuốc 48 tiếng.',
-    repeat: 'monthly'
-  },
-  {
-    id: 'sch-3',
-    petId: 'pet-3',
-    title: 'Khám kiểm tra mài răng cửa & cắt móng định kỳ - Bánh Bao',
-    type: 'vet',
-    date: '2026-09-29',
-    time: '10:00',
-    location: 'Phòng khám thú y Sammi Animal Clinic',
-    completed: false,
-    notes: 'Kiểm tra khớp cắn và răng cửa xem có mọc lệch gây đau miệng không.',
-    repeat: 'quarterly'
-  },
-  {
-    id: 'sch-4',
-    petId: 'pet-1',
-    title: 'Tắm sục khoáng ozone, cắt tỉa lông & spa móng - Mochi',
-    type: 'grooming',
-    date: '2026-09-28',
-    time: '14:00',
-    location: 'Paddy Pet Care & Spa',
-    completed: false,
-    notes: 'Cạo sạch lông kẽ ngón chân và vệ sinh tuyến hôi.',
-    repeat: 'monthly'
-  },
-  {
-    id: 'sch-5',
-    petId: 'pet-2',
-    title: 'Siêu âm tim màu & Xét nghiệm sinh hóa máu định kỳ - Luna',
-    type: 'vet',
-    date: '2026-09-29',
-    time: '15:30',
-    location: 'Phòng khám thú y 2Vet Hospital',
-    completed: false,
-    notes: 'Nhịn ăn 6 tiếng trước giờ lấy mẫu để kiểm tra chức năng thận.',
-    repeat: 'yearly'
-  },
-  {
-    id: 'sch-6',
-    petId: 'pet-1',
-    title: 'Uống viên tẩy giun định kỳ Drontal Plus (2.5 viên) - Mochi',
-    type: 'deworm',
-    date: '2026-09-30',
-    time: '08:00',
-    location: 'Tại nhà',
-    completed: false,
-    notes: 'Mochi uống 2.5 viên theo đúng thể trọng 24.5kg, uống sau bữa ăn sáng.',
-    repeat: 'quarterly'
-  },
-  {
-    id: 'sch-7',
-    petId: 'pet-3',
-    title: 'Bổ sung men vi sinh tiêu hóa & cỏ Alfalfa dưỡng lông - Bánh Bao',
-    type: 'medicine',
-    date: '2026-09-27',
-    time: '08:30',
-    location: 'Tại nhà',
-    completed: false,
-    notes: 'Trộn 1/2 muỗng vào thức ăn hạt buổi sáng để phòng ngừa chướng hơi dạ dày.',
-    repeat: 'monthly'
-  },
-  {
-    id: 'sch-8',
-    petId: 'pet-1',
-    title: 'Nhỏ gáy phòng ve rận & ghẻ tai (Bravecto) - Mochi',
-    type: 'deworm',
-    date: '2026-09-28',
-    time: '19:30',
-    location: 'Tại nhà',
-    completed: false,
-    notes: 'Sử dụng Bravecto hoặc Nexgard / Frontline. Không tắm cho bé trong vòng 48h.',
-    repeat: 'monthly'
-  }
-];
+export const INITIAL_SCHEDULES = [];
 
 export const SCHEDULE_TYPES = {
   vaccine: {
-    label: 'Tiêm phòng Vắc-xin',
+    label: 'Tiêm phòng',
     icon: 'Syringe',
     color: 'emerald',
-    bgLight: 'bg-emerald-50 border-emerald-200 text-emerald-700',
+    bgLight: 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-800/50 dark:text-emerald-300',
     badge: 'bg-emerald-100 text-emerald-800'
   },
   deworm: {
-    label: 'Tẩy giun / Nhỏ gáy',
+    label: 'Tẩy giun / Phòng ký sinh trùng',
     icon: 'Pill',
     color: 'amber',
-    bgLight: 'bg-amber-50 border-amber-200 text-amber-700',
+    bgLight: 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/40 dark:border-amber-800/50 dark:text-amber-300',
     badge: 'bg-amber-100 text-amber-800'
   },
   grooming: {
-    label: 'Spa / Tắm / Cắt tỉa',
+    label: 'Vệ sinh / Làm đẹp',
     icon: 'Sparkles',
     color: 'purple',
-    bgLight: 'bg-purple-50 border-purple-200 text-purple-700',
+    bgLight: 'bg-purple-50 border-purple-200 text-purple-700 dark:bg-purple-950/40 dark:border-purple-800/50 dark:text-purple-300',
     badge: 'bg-purple-100 text-purple-800'
   },
   vet: {
-    label: 'Khám thú y',
+    label: 'Nhắc khám / Tái khám',
     icon: 'Stethoscope',
     color: 'blue',
-    bgLight: 'bg-blue-50 border-blue-200 text-blue-700',
+    bgLight: 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950/40 dark:border-blue-800/50 dark:text-blue-300',
     badge: 'bg-blue-100 text-blue-800'
   },
   medicine: {
-    label: 'Uống thuốc / Trị liệu',
+    label: 'Uống thuốc / Điều trị',
     icon: 'Activity',
     color: 'rose',
-    bgLight: 'bg-rose-50 border-rose-200 text-rose-700',
+    bgLight: 'bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-950/40 dark:border-rose-800/50 dark:text-rose-300',
     badge: 'bg-rose-100 text-rose-800'
+  },
+  feeding: {
+    label: 'Ăn uống',
+    icon: 'Utensils',
+    color: 'orange',
+    bgLight: 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-950/40 dark:border-orange-800/50 dark:text-orange-300',
+    badge: 'bg-orange-100 text-orange-800'
+  },
+  exercise: {
+    label: 'Vận động / Vui chơi',
+    icon: 'Footprints',
+    color: 'teal',
+    bgLight: 'bg-teal-50 border-teal-200 text-teal-700 dark:bg-teal-950/40 dark:border-teal-800/50 dark:text-teal-300',
+    badge: 'bg-teal-100 text-teal-800'
+  },
+  other: {
+    label: 'Khác',
+    icon: 'HelpCircle',
+    color: 'slate',
+    bgLight: 'bg-slate-100 border-slate-200 text-slate-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300',
+    badge: 'bg-slate-100 text-slate-800'
   }
 };
 
@@ -384,147 +239,29 @@ export const EXPENSE_CATEGORIES = {
   other: { label: 'Chi phí khác', icon: 'Receipt', color: 'bg-slate-100 text-slate-800' }
 };
 
-export const INITIAL_EXPENSES = [
-  {
-    id: 'exp-1',
-    petId: 'pet-1',
-    petName: 'Mochi',
-    category: 'food',
-    title: 'Bao thức ăn Royal Canin Maxi Puppy 15kg',
-    amount: 1850000, // VND
-    date: '2026-04-01',
-    notes: 'Mua tại Pet Mart kèm mã giảm giá 10%'
-  },
-  {
-    id: 'exp-2',
-    petId: 'pet-1',
-    petName: 'Mochi',
-    category: 'medical',
-    title: 'Khám kiểm tra tai & thuốc nhỏ trị viêm tai',
-    amount: 450000,
-    date: '2026-03-25',
-    notes: 'Phòng khám Sammi'
-  },
-  {
-    id: 'exp-3',
-    petId: 'pet-2',
-    petName: 'Luna',
-    category: 'food',
-    title: 'Thùng Pate Ciao & hạt Orijen Cat & Kitten',
-    amount: 920000,
-    date: '2026-03-28',
-    notes: 'Luna rất thích vị cá ngừ'
-  },
-  {
-    id: 'exp-4',
-    petId: 'pet-2',
-    petName: 'Luna',
-    category: 'hygiene',
-    title: '2 Bao Cát đậu nành Tofu Cature 7L',
-    amount: 320000,
-    date: '2026-04-05',
-    notes: 'Khử mùi tốt, không bụi'
-  },
-  {
-    id: 'exp-5',
-    petId: 'pet-1',
-    petName: 'Mochi',
-    category: 'grooming',
-    title: 'Combo tắm spa, sấy lông, vệ sinh tai móng',
-    amount: 350000,
-    date: '2026-03-15',
-    notes: 'Tiệm Paddy Spa'
-  },
-  {
-    id: 'exp-6',
-    petId: 'pet-3',
-    petName: 'Bánh Bao',
-    category: 'food',
-    title: 'Cỏ Timothy nhập khẩu & Thức ăn nén cho Thỏ',
-    amount: 280000,
-    date: '2026-03-20',
-    notes: 'Gói 2.5kg'
-  }
-];
+export const INITIAL_EXPENSES = [];
 
 // Nhật ký sinh hoạt hàng ngày
-export const INITIAL_DAILY_LOGS = [
-  {
-    id: 'log-1',
-    petId: 'pet-1',
-    date: new Date().toISOString().split('T')[0],
-    poopStatus: 'normal', // normal | soft | diarrhea | constipated
-    peeStatus: 'normal', // normal | dark | frequent | painful
-    walkMinutes: 45,
-    mealStatus: 'good', // good | picky | refused
-    mood: 'happy', // happy | calm | anxious | lethargic
-    notes: 'Mochi chơi đùa rất hăng say ở công viên, ăn hết sạch phần ăn.'
-  },
-  {
-    id: 'log-2',
-    petId: 'pet-2',
-    date: new Date().toISOString().split('T')[0],
-    poopStatus: 'normal',
-    peeStatus: 'normal',
-    walkMinutes: 0,
-    mealStatus: 'good',
-    mood: 'calm',
-    notes: 'Luna ngủ nhiều trên sofa, uống khoảng 150ml nước từ máy phun.'
-  }
-];
+export const INITIAL_DAILY_LOGS = [];
 
 // Đơn thuốc đang điều trị
-export const INITIAL_PRESCRIPTIONS = [
-  {
-    id: 'pres-1',
-    petId: 'pet-1',
-    medicineName: 'Men vi sinh Biotic Pet & Kháng viêm dị ứng',
-    dosage: '1 gói/ngày, chia 2 lần sáng/tối',
-    startDate: '2026-04-08',
-    durationDays: 7,
-    prescribedBy: 'BS. Tuấn - BV Thú y PetHealth',
-    purpose: 'Hỗ trợ đường ruột và giảm ngứa do dị ứng nhẹ',
-    notes: 'Pha trực tiếp vào pate hoặc nước ấm sau khi ăn'
-  },
-  {
-    id: 'pres-2',
-    petId: 'pet-2',
-    medicineName: 'Gel dinh dưỡng Nourse & Dầu cá Hồi hồi phục lông',
-    dosage: '3cm gel/ngày',
-    startDate: '2026-04-01',
-    durationDays: 30,
-    prescribedBy: 'BS. Lan - Phòng khám Sammi',
-    purpose: 'Bổ sung Omega 3 & Taurine giúp mượt lông',
-    notes: 'Cho liếm trực tiếp trên ngón tay'
-  }
-];
+export const INITIAL_PRESCRIPTIONS = [];
 
 // Danh bạ cứu hộ & bệnh viện thú y uy tín
 export const PET_SERVICES = [
   {
     id: 'srv-1',
-    name: 'Bệnh Viện Thú Y PetHealth 24/7',
+    name: 'Bệnh viện Thú y 2Vet Hospital',
     type: 'hospital',
-    address: 'Số 240 Âu Cơ, Tây Hồ, Hà Nội',
-    phone: '024 2242 8882',
-    hotline: '1900 6868',
+    address: '335 Kim Ngưu, Hai Bà Trưng, Hà Nội',
+    phone: '098 335 8126',
+    hotline: '098 335 8126',
     is247: true,
-    rating: 4.9,
-    services: ['Cấp cứu 24/7', 'Phẫu thuật', 'X-Quang & Siêu âm', 'Xét nghiệm máu']
+    rating: 5.0,
+    services: ['Cấp cứu 24/7', 'Phẫu thuật ngoại khoa', 'X-Quang & Siêu âm', 'Xét nghiệm sinh hóa máu', 'Khám nội trú']
   },
   {
     id: 'srv-2',
-    name: 'Phòng Khám Thú Y Sammi Pet Clinic',
-    type: 'clinic',
-    address: '159 Nguyễn Đình Chiểu, Quận 3, TP.HCM',
-    phone: '028 3930 1234',
-    hotline: '0903 123 456',
-    is247: false,
-    rating: 4.8,
-    services: ['Tiêm phòng vắc-xin', 'Khám da liễu', 'Nha khoa thú cưng', 'Điều trị nội trú']
-  },
-  {
-    id: 'srv-3',
     name: 'Paddy Spa & Pet Grooming Lounge',
     type: 'spa',
     address: '88 Trần Não, P. An Khánh, TP. Thủ Đức',
@@ -537,111 +274,10 @@ export const PET_SERVICES = [
 ];
 
 // Thành viên gia đình cùng đồng chăm sóc (Co-Parenting)
-export const INITIAL_FAMILY_MEMBERS = [
-  {
-    id: 'mem-1',
-    name: 'Nguyễn Văn Hải (Bố)',
-    role: 'owner', // owner | caregiver | vet
-    roleLabel: 'Chủ sở hữu',
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80',
-    phone: '0912 345 678',
-    assignedPetIds: ['pet-1', 'pet-2', 'pet-3']
-  },
-  {
-    id: 'mem-2',
-    name: 'Trần Thu Trang (Mẹ)',
-    role: 'caregiver',
-    roleLabel: 'Người chăm sóc chính',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=120&q=80',
-    phone: '0987 654 321',
-    assignedPetIds: ['pet-1', 'pet-2', 'pet-3']
-  },
-  {
-    id: 'mem-3',
-    name: 'BS. Lê Minh Tuấn',
-    role: 'vet',
-    roleLabel: 'Bác sĩ thú y phụ trách',
-    avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=120&q=80',
-    phone: '024 2242 8882',
-    assignedPetIds: ['pet-1', 'pet-2']
-  }
-];
+export const INITIAL_FAMILY_MEMBERS = [];
 
 // Thói quen & Công việc hàng ngày (Daily Habits & Streak)
-export const INITIAL_DAILY_HABITS = [
-  {
-    id: 'habit-1',
-    petId: 'pet-1',
-    title: 'Cho Mochi ăn hạt bữa sáng (180g)',
-    timeSlot: 'morning',
-    timeOfDay: 'morning',
-    scheduledTime: '07:00',
-    completed: true,
-    completedBy: 'Nguyễn Văn Hải (Bố)',
-    completedAt: '07:15',
-    streak: 14
-  },
-  {
-    id: 'habit-2',
-    petId: 'pet-1',
-    title: 'Đi dạo công viên & ném bóng 30p',
-    timeSlot: 'noon',
-    timeOfDay: 'noon',
-    scheduledTime: '08:30',
-    completed: true,
-    completedBy: 'Nguyễn Văn Hải (Bố)',
-    completedAt: '08:45',
-    streak: 12
-  },
-  {
-    id: 'habit-4',
-    petId: 'pet-2',
-    title: 'Thay nước & cho Luna ăn Pate Ciao',
-    timeSlot: 'morning',
-    timeOfDay: 'morning',
-    scheduledTime: '08:45',
-    completed: true,
-    completedBy: 'Trần Thu Trang (Mẹ)',
-    completedAt: '09:00',
-    streak: 21
-  },
-  {
-    id: 'habit-6',
-    petId: 'pet-3',
-    title: 'Châm cỏ Timothy & làm sạch bình bi (Bánh Bao)',
-    timeSlot: 'morning',
-    timeOfDay: 'morning',
-    scheduledTime: '10:00',
-    completed: true,
-    completedBy: 'Bé Minh (Con trai)',
-    completedAt: '10:15',
-    streak: 15
-  },
-  {
-    id: 'habit-3',
-    petId: 'pet-1',
-    title: 'Cho uống men tiêu hóa Biotic sau bữa tối',
-    timeSlot: 'evening',
-    timeOfDay: 'evening',
-    scheduledTime: '20:00',
-    completed: false,
-    completedBy: null,
-    completedAt: null,
-    streak: 9
-  },
-  {
-    id: 'habit-5',
-    petId: 'pet-2',
-    title: 'Dọn và sàng cát vệ sinh cho Luna',
-    timeSlot: 'evening',
-    timeOfDay: 'evening',
-    scheduledTime: '20:30',
-    completed: false,
-    completedBy: null,
-    completedAt: null,
-    streak: 18
-  }
-];
+export const INITIAL_DAILY_HABITS = [];
 
 // Đường cong tăng trưởng chuẩn của các giống loài (Growth Curves Standard)
 export const BREED_GROWTH_STANDARDS = {

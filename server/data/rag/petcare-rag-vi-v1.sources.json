@@ -1,0 +1,44 @@
+[
+  {
+    "id": "SRC-AAHA-NUTRITION",
+    "org": "American Animal Hospital Association (AAHA)",
+    "title": "Prevention of Obesity — 2021 AAHA Nutrition and Weight Management Guidelines",
+    "url": "https://www.aaha.org/resources/2021-aaha-nutrition-and-weight-management-guidelines/prevention-of-obesity/"
+  },
+  {
+    "id": "SRC-CORNELL-DENTAL",
+    "org": "Cornell University College of Veterinary Medicine",
+    "title": "Feline Dental Disease",
+    "url": "https://www.vet.cornell.edu/departments-centers-and-institutes/cornell-feline-health-center/health-information/feline-health-topics/feline-dental-disease"
+  },
+  {
+    "id": "SRC-ESCCAP-WORMS",
+    "org": "European Scientific Counsel Companion Animal Parasites (ESCCAP)",
+    "title": "Scheme for individual deworming of dogs",
+    "url": "https://www.esccap.org/deworming-dogs/"
+  },
+  {
+    "id": "SRC-CORNELL-BREATHING",
+    "org": "Cornell University College of Veterinary Medicine",
+    "title": "Dyspnea (Difficulty Breathing)",
+    "url": "https://www.vet.cornell.edu/departments-centers-and-institutes/cornell-feline-health-center/health-information/feline-health-topics/dyspnea-difficulty-breathing"
+  },
+  {
+    "id": "SRC-CORNELL-URINARY",
+    "org": "Cornell University College of Veterinary Medicine",
+    "title": "Feline Lower Urinary Tract Disease",
+    "url": "https://www.vet.cornell.edu/departments-centers-and-institutes/cornell-feline-health-center/health-information/feline-health-topics/feline-lower-urinary-tract-disease"
+  },
+  {
+    "id": "SRC-AVMA-CAT",
+    "org": "American Veterinary Medical Association (AVMA)",
+    "title": "Selecting a pet cat",
+    "url": "https://www.avma.org/resources/pet-owners/petcare/selecting-pet-cat"
+  },
+  {
+    "id": "SRC-FDA-MEDICINES",
+    "org": "U.S. Food and Drug Administration (FDA)",
+    "title": "Get the Facts about Pain Relievers for Pets",
+    "url": "https://www.fda.gov/animal-veterinary/animal-health-literacy/get-facts-about-pain-relievers-pets"
+  }
+]

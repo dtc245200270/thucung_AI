@@ -1,0 +1,110 @@
+[
+  {
+    "id": "AUDIT-1793094892457-6tqs",
+    "timestamp": "2026-10-27T09:54:52.457Z",
+    "action": "USER_CREATE",
+    "actorId": "user_admin_01",
+    "actorName": "Quản trị viên Hệ thống",
+    "actorEmail": "admin@petcare.ai",
+    "targetType": "USER",
+    "targetId": "user_1793094892407_5fc7ac",
+    "details": "Tạo tài khoản mới: Chủ nuôi 2 MỤC 1 (owner_muc1_1793094892408_cma3@petcare.ai), vai trò: pet_owner",
+    "result": "SUCCESS"
+  },
+  {
+    "id": "AUDIT-1793094892299-6gta",
+    "timestamp": "2026-10-27T09:54:52.299Z",
+    "action": "USER_CREATE",
+    "actorId": "user_admin_01",
+    "actorName": "Quản trị viên Hệ thống",
+    "actorEmail": "admin@petcare.ai",
+    "targetType": "USER",
+    "targetId": "user_1793094892247_f681db",
+    "details": "Tạo tài khoản mới: Chủ nuôi 1 MỤC 1 (owner_muc1_1793094892245_caqg@petcare.ai), vai trò: pet_owner",
+    "result": "SUCCESS"
+  },
+  {
+    "id": "AUDIT-1793094739238-izme",
+    "timestamp": "2026-10-27T09:52:19.238Z",
+    "action": "USER_CREATE",
+    "actorId": "user_admin_01",
+    "actorName": "Quản trị viên Hệ thống",
+    "actorEmail": "admin@petcare.ai",
+    "targetType": "USER",
+    "targetId": "user_1793094739184_d2c8c2",
+    "details": "Tạo tài khoản mới: Chủ Nuôi Test Mục 3 (owner_muc3_1793094739178@petcare.ai), vai trò: pet_owner",
+    "result": "SUCCESS"
+  },
+  {
+    "id": "AUDIT-1793094738640-afzu",
+    "timestamp": "2026-10-27T09:52:18.640Z",
+    "action": "USER_CREATE",
+    "actorId": "user_admin_01",
+    "actorName": "Quản trị viên Hệ thống",
+    "actorEmail": "admin@petcare.ai",
+    "targetType": "USER",
+    "targetId": "user_1793094738588_7cb5d0",
+    "details": "Tạo tài khoản mới: Chủ Nuôi Test M2 (owner_test_1793094738583@petcare.ai), vai trò: pet_owner",
+    "result": "SUCCESS"
+  },
+  {
+    "id": "AUDIT-1793094738048-a8k3",
+    "timestamp": "2026-10-27T09:52:18.049Z",
+    "action": "USER_CREATE",
+    "actorId": "user_admin_01",
+    "actorName": "Quản trị viên Hệ thống",
+    "actorEmail": "admin@petcare.ai",
+    "targetType": "USER",
+    "targetId": "user_1793094737996_80629f",
+    "details": "Tạo tài khoản mới: Chủ nuôi 2 MỤC 1 (owner_muc1_1793094737993_t0z9@petcare.ai), vai trò: pet_owner",
+    "result": "SUCCESS"
+  },
+  {
+    "id": "AUDIT-1793094737886-lgyp",
+    "timestamp": "2026-10-27T09:52:17.887Z",
+    "action": "USER_CREATE",
+    "actorId": "user_admin_01",
+    "actorName": "Quản trị viên Hệ thống",
+    "actorEmail": "admin@petcare.ai",
+    "targetType": "USER",
+    "targetId": "user_1793094737831_243426",
+    "details": "Tạo tài khoản mới: Chủ nuôi 1 MỤC 1 (owner_muc1_1793094737826_g507@petcare.ai), vai trò: pet_owner",
+    "result": "SUCCESS"
+  },
+  {
+    "id": "AUDIT-1793094737410-wzp4",
+    "timestamp": "2026-10-27T09:52:17.410Z",
+    "action": "USER_CREATE",
+    "actorId": "user_admin_01",
+    "actorName": "Quản trị viên Hệ thống",
+    "actorEmail": "admin@petcare.ai",
+    "targetType": "USER",
+    "targetId": "user_1793094737359_76aba3",
+    "details": "Tạo tài khoản mới: Chủ Nuôi Nghiệm Thu (owner_reg_1793094737357@petcare.ai), vai trò: pet_owner",
+    "result": "SUCCESS"
+  },
+  {
+    "id": "AUDIT-1793094736585-95p7",
+    "timestamp": "2026-10-27T09:52:16.585Z",
+    "action": "USER_CREATE",
+    "actorId": "user_admin_01",
+    "actorName": "Quản trị viên Hệ thống",
+    "actorEmail": "admin@petcare.ai",
+    "targetType": "USER",
+    "targetId": "user_1793094736532_08497b",
+    "details": "Tạo tài khoản mới: Test Must Change (mustchange_1793094736523@petcare.ai), vai trò: pet_owner",
+    "result": "SUCCESS"
+  },
+  {
+    "id": "AUDIT-1793094736412-wer3",
+    "timestamp": "2026-10-27T09:52:16.412Z",
+    "action": "USER_CREATE",
+    "actorId": "user_admin_01",
+    "actorName": "Quản trị viên Hệ thống",
+    "actorEmail": "admin@petcare.ai",
+    "targetType": "USER",
+    "targetId": "user_1793094736360_14bcde",
+    "details": "Tạo tài khoản mới: Chủ Nuôi QA Test (test_owner_1793094736355@petcare.ai), vai trò: pet_owner",
+    "result": "SUCCESS"
+  }
+]

@@ -1,5 +1,6 @@
 import { getSettings, getSchedules, getPrescriptions } from './storageService.js';
 import { matchSmartSimulatedConsultation } from './aiKnowledgeBase.js';
+import { getTodayVnDate, getVnDateString, addDaysLocal } from '../utils/dateUtils.js';
 
 /**
  * Xây dựng Multi-tier System Prompt nạp sâu bệnh án, dị ứng, vắc-xin và đơn thuốc
@@ -24,17 +25,19 @@ export const buildVetSystemPrompt = (petContext) => {
       console.warn('Could not load pet medical details for context injection', e);
     }
 
-    // Tính tuổi
-    let ageStr = 'Trưởng thành';
+    // Tính tuổi (không mặc định trưởng thành hay 12 tháng khi thiếu ngày sinh)
+    let ageStr = petContext.age ? `${petContext.age} tuổi` : 'Chưa cập nhật ngày sinh (chưa rõ độ tuổi)';
     if (petContext.birthDate) {
       const bDate = new Date(petContext.birthDate);
-      const diffMonths = Math.floor((new Date() - bDate) / (1000 * 60 * 60 * 24 * 30.4375));
-      if (diffMonths < 12) {
-        ageStr = `${diffMonths} tháng tuổi`;
-      } else {
-        const years = Math.floor(diffMonths / 12);
-        const remMonths = diffMonths % 12;
-        ageStr = remMonths > 0 ? `${years} tuổi ${remMonths} tháng` : `${years} tuổi`;
+      if (!isNaN(bDate.getTime())) {
+        const diffMonths = Math.floor((new Date() - bDate) / (1000 * 60 * 60 * 24 * 30.4375));
+        if (diffMonths < 12) {
+          ageStr = `${diffMonths} tháng tuổi`;
+        } else {
+          const years = Math.floor(diffMonths / 12);
+          const remMonths = diffMonths % 12;
+          ageStr = remMonths > 0 ? `${years} tuổi ${remMonths} tháng` : `${years} tuổi`;
+        }
       }
     }
 
@@ -44,10 +47,10 @@ export const buildVetSystemPrompt = (petContext) => {
 - Loài: ${petContext.species === 'dog' ? 'Chó' : petContext.species === 'cat' ? 'Mèo' : petContext.species === 'rabbit' ? 'Thỏ' : petContext.species}
 - Giống thuần chủng: ${petContext.breed || 'Chưa rõ giống'}
 - Độ tuổi: ${ageStr} (Sinh ngày: ${petContext.birthDate || 'Chưa cập nhật'})
-- Cân nặng hiện tại: ${petContext.weight} kg
+- Cân nặng hiện tại: ${petContext.weight != null ? `${petContext.weight} kg` : 'Chưa cập nhật'}
 - Tình trạng triệt sản: ${petContext.isNeutered ? 'Đã triệt sản' : 'Chưa triệt sản'}
-- Số vi mạch (Microchip): ${petContext.microchip || 'Chưa cấy'}
-- Tiền sử bệnh án & Dị ứng: ${petContext.notes || 'Bình thường, chưa ghi nhận dị ứng'}
+- Số vi mạch (Microchip): ${petContext.microchip || 'Chưa ghi nhận'}
+- Tiền sử bệnh án & Dị ứng: ${petContext.notes?.trim() || 'Chưa có thông tin tiền sử bệnh án và dị ứng (chưa xác định, cần bác sĩ hỏi tiền sử trước khi kê thuốc)'}
 ${recentSchedules.length > 0 ? `- Lịch vắc-xin / chăm sóc gần nhất: ${recentSchedules.map(s => `${s.title} (${s.date})`).join(', ')}` : ''}
 ${recentPrescriptions.length > 0 ? `- Đơn thuốc y bạ đang điều trị: ${recentPrescriptions.map(p => `${p.medicineName} [Liều: ${p.dosage}]`).join(', ')}` : ''}
 ==========================================================
@@ -92,20 +95,44 @@ export const smartSimulatedAiConsultation = (userMessage, petContext = null) => 
  */
 export const generateAiCarePlan = (pet) => {
   const plans = [];
-  const today = new Date();
+  const today = getTodayVnDate();
   
-  let ageInMonths = 12;
+  let ageInMonths = null;
   if (pet.birthDate) {
     const bDate = new Date(pet.birthDate);
-    const diffTime = Math.abs(today - bDate);
-    ageInMonths = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 30.4375));
+    const todayDate = new Date(today);
+    if (!isNaN(bDate.getTime())) {
+      const diffTime = Math.abs(todayDate - bDate);
+      ageInMonths = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 30.4375));
+    }
   }
 
   const addDays = (d, days) => {
-    const res = new Date(d);
-    res.setDate(res.getDate() + days);
-    return res.toISOString().split('T')[0];
+    return addDaysLocal(getVnDateString(d), days);
   };
+
+  // Mục 5: Loại bỏ suy diễn dữ liệu chưa nhập - Không mặc định 12 tháng/trưởng thành khi thiếu ngày sinh
+  if (ageInMonths === null) {
+    plans.push({
+      title: `Khám lâm sàng & Tư vấn phác đồ tiêm chủng cho ${pet.name}`,
+      type: 'health_check',
+      date: addDays(today, 3),
+      time: '09:00',
+      location: 'Phòng khám thú y',
+      repeat: 'none',
+      notes: 'Thú cưng chưa cập nhật ngày sinh. Cần bác sĩ khám xác định thể trạng và ước tính độ tuổi trước khi lập phác đồ tiêm phòng cụ thể.'
+    });
+    plans.push({
+      title: `Tẩy giun định kỳ an toàn cho ${pet.name}`,
+      type: 'deworming',
+      date: addDays(today, 7),
+      time: '08:30',
+      location: 'Tại nhà',
+      repeat: 'monthly',
+      notes: 'Tẩy giun định kỳ an toàn. Lưu ý cân thú cưng trước khi cho uống thuốc để dùng đúng liều lượng.'
+    });
+    return plans;
+  }
 
   const isDog = pet.species === 'dog';
   const isCat = pet.species === 'cat';
@@ -177,7 +204,7 @@ export const generateAiCarePlan = (pet) => {
       time: '08:00',
       location: 'Tại nhà',
       repeat: 'quarterly',
-      notes: `Uống theo trọng lượng hiện tại (${pet.weight || '20'}kg). Cho uống vào buổi sáng.`
+      notes: pet.weight ? `Uống theo trọng lượng hiện tại (${pet.weight}kg). Cho uống vào buổi sáng.` : 'Cần cân trọng lượng thực tế của thú cưng trước khi chia liều lượng thuốc tẩy giun.'
     });
     plans.push({
       title: `Tắm spa, cắt tỉa lông & vệ sinh móng cho ${pet.name}`,
@@ -274,9 +301,25 @@ export const generateAiCarePlan = (pet) => {
 
 /**
  * AI Tính toán nhu cầu Năng lượng Dinh dưỡng (Calorie & Nutrition)
+ * Không tự sinh cân nặng giả khi người dùng chưa nhập
  */
 export const calculatePetNutrition = (pet) => {
-  const weight = Number(pet.weight) || (pet.species === 'cat' ? 4 : 15);
+  if (!pet || pet.weight == null || pet.weight === '' || isNaN(Number(pet.weight)) || Number(pet.weight) <= 0) {
+    return {
+      rer: null,
+      calories: null,
+      dailyCalories: null,
+      dryFoodGrams: null,
+      waterMl: null,
+      mealsPerDay: null,
+      hasMissingWeight: true,
+      proteinRecommendation: pet?.species === 'cat' ? 'Tối thiểu 30-35% (Mèo ăn thịt bắt buộc - cần Taurine)' : 'Tối thiểu 22-26% (Chó)',
+      toxicFoods: ['Socola', 'Hành tây & Tỏi', 'Nho tươi & Nho khô', 'Đường nhân tạo Xylitol', 'Bơ (Avocado)', 'Cà phê & Trà', 'Xương gà nấu chín nhọn'],
+      message: 'Chưa cập nhật cân nặng. Vui lòng cập nhật cân nặng để tính toán nhu cầu dinh dưỡng chính xác.'
+    };
+  }
+
+  const weight = Number(pet.weight);
   const rer = Math.round(70 * Math.pow(weight, 0.75));
 
   let factor = 1.4;
@@ -297,6 +340,7 @@ export const calculatePetNutrition = (pet) => {
     dailyCalories,
     dryFoodGrams,
     waterMl,
+    hasMissingWeight: false,
     mealsPerDay: weight > 10 ? '2 bữa/ngày' : '2-3 bữa/ngày',
     proteinRecommendation: pet.species === 'cat' ? 'Tối thiểu 30-35% (Mèo ăn thịt bắt buộc - cần Taurine)' : 'Tối thiểu 22-26% (Chó)',
     toxicFoods: ['Socola', 'Hành tây & Tỏi', 'Nho tươi & Nho khô', 'Đường nhân tạo Xylitol', 'Bơ (Avocado)', 'Cà phê & Trà', 'Xương gà nấu chín nhọn']
@@ -305,18 +349,37 @@ export const calculatePetNutrition = (pet) => {
 
 /**
  * AI Phân tích Tài chính & Chi tiêu (Expense AI Analyst)
+ * Không tự đánh giá cân bằng hoặc sinh ngân sách khi chưa có chi tiêu
  */
-export const analyzePetExpense = (expenses, pet) => {
-  const total = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+export const analyzePetExpense = (expenses = [], pet = null) => {
+  const validExpenses = Array.isArray(expenses) ? expenses : [];
+  const total = validExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   
+  if (validExpenses.length === 0 || total === 0) {
+    return {
+      totalSpent: 0,
+      byCategory: {},
+      foodPercent: 0,
+      medicalPercent: 0,
+      estMonthlyBudget: pet?.monthlyBudget != null ? Number(pet.monthlyBudget) : null,
+      hasExpenses: false,
+      advice: 'Chưa có khoản chi tiêu nào được ghi nhận. Vui lòng thêm các khoản chi thật để hệ thống phân tích.',
+      tips: [
+        'Đăng ký thành viên tại phòng khám thân thiết để được giảm 10-15% phí tiêm chủng.',
+        'Tự tắm và chải lông tại nhà xen kẽ giữa các lần spa để giảm chi phí grooming.',
+        'Sử dụng cát vệ sinh hữu cơ có thể xả bồn cầu để tiết kiệm chi phí túi đựng rác.'
+      ]
+    };
+  }
+
   // Nhóm theo danh mục
-  const byCategory = expenses.reduce((acc, e) => {
+  const byCategory = validExpenses.reduce((acc, e) => {
     acc[e.category] = (acc[e.category] || 0) + (Number(e.amount) || 0);
     return acc;
   }, {});
 
-  const foodPercent = total > 0 ? Math.round(((byCategory.food || 0) / total) * 100) : 0;
-  const medicalPercent = total > 0 ? Math.round((((byCategory.medical || 0) + (byCategory.vaccine || 0)) / total) * 100) : 0;
+  const foodPercent = Math.round(((byCategory.food || 0) / total) * 100);
+  const medicalPercent = Math.round((((byCategory.medical || 0) + (byCategory.vaccine || 0)) / total) * 100);
 
   let advice = 'Chi tiêu của bạn cho thú cưng đang ở mức rất cân bằng và hợp lý.';
   if (foodPercent > 70) {
@@ -325,7 +388,7 @@ export const analyzePetExpense = (expenses, pet) => {
     advice = 'Chi phí thú y và thuốc đang khá cao. Hãy chú trọng phòng bệnh chủ động bằng việc nhỏ gáy ve rận định kỳ và bổ sung men vi sinh để giảm thiểu tần suất đi khám.';
   }
 
-  const estMonthlyBudget = pet ? (pet.species === 'dog' ? 1200000 : 750000) : 1000000;
+  const estMonthlyBudget = pet?.monthlyBudget != null ? Number(pet.monthlyBudget) : null;
 
   return {
     totalSpent: total,
@@ -333,6 +396,7 @@ export const analyzePetExpense = (expenses, pet) => {
     foodPercent,
     medicalPercent,
     estMonthlyBudget,
+    hasExpenses: true,
     advice,
     tips: [
       'Đăng ký thành viên tại phòng khám thân thiết để được giảm 10-15% phí tiêm chủng.',

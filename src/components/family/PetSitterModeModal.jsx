@@ -146,7 +146,7 @@ export default function PetSitterModeModal({ isOpen, onClose, pets = [], prescri
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
                 <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 font-medium">
                   <strong>⚠️ Ghi chú / Dị ứng:</strong>{' '}
-                  {currentPet?.notes?.trim() || 'Không có ghi chú dị ứng đặc biệt'}
+                  {currentPet?.notes?.trim() || 'Chưa có ghi chú dị ứng / sức khỏe'}
                 </div>
                 <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-800 dark:text-blue-300 font-medium">
                   <strong>ℹ️ Thông tin:</strong> Giới tính: {currentPet?.gender === 'female' ? 'Cái' : 'Đực'} {currentPet?.isNeutered ? '• Đã triệt sản' : ''}
@@ -177,7 +177,7 @@ export default function PetSitterModeModal({ isOpen, onClose, pets = [], prescri
                 </span>
                 <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-medium">
                   <Stethoscope className="w-3 h-3" />
-                  Microchip: {currentPet?.microchip || 'Chưa gắn chip'}
+                  Microchip: {currentPet?.microchip || 'Chưa ghi nhận'}
                 </span>
               </div>
             </div>

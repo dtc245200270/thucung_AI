@@ -1,0 +1,134 @@
+[
+  {
+    "appointmentId": "BK-1793103632301",
+    "petId": "pet-1792128958474",
+    "ownerId": "user_1791541299976_7ebbe5",
+    "authorId": "user_vet_01",
+    "authorName": "BS. Nguyễn Văn A (Tester)",
+    "vetId": "user_vet_01",
+    "soap": {
+      "subjective": "Lý do khám: Kiểm thử mới sau sửa lịch khám",
+      "objective": "",
+      "assessment": "",
+      "plan": "Kiểm thử đơn thuốc liên thông, không phải chỉ định điều trị thực tế.",
+      "temp": "",
+      "heartRate": "",
+      "respiratoryRate": "",
+      "weight": "",
+      "planMedications": [
+        {
+          "id": "med-1793174035718-xtqm",
+          "name": "\tTHUỐC KIỂM THỬ A – KHÔNG SỬ DỤNG",
+          "dose": "\t1 đơn vị kiểm thử/lần",
+          "route": "Uống",
+          "freq": "2 lần/ngày",
+          "days": "3",
+          "instructions": "Dữ liệu kiểm thử phần mềm, không dùng điều trị cho thú cưng."
+        }
+      ]
+    },
+    "assessment": "",
+    "plan": "Kiểm thử đơn thuốc liên thông, không phải chỉ định điều trị thực tế.",
+    "prescriptions": [
+      {
+        "id": "med-1793174035718-xtqm",
+        "name": "\tTHUỐC KIỂM THỬ A – KHÔNG SỬ DỤNG",
+        "dose": "\t1 đơn vị kiểm thử/lần",
+        "route": "Uống",
+        "freq": "2 lần/ngày",
+        "days": "3",
+        "instructions": "Dữ liệu kiểm thử phần mềm, không dùng điều trị cho thú cưng."
+      }
+    ],
+    "isFinal": true,
+    "status": "published",
+    "updatedAt": "2026-10-28T07:58:58.845Z",
+    "id": "med-1793174255186",
+    "createdAt": "2026-10-28T07:57:35.186Z",
+    "subjective": "Lý do khám: Kiểm thử mới sau sửa lịch khám",
+    "objective": "",
+    "reason": "Kiểm thử mới sau sửa lịch khám",
+    "chiefComplaint": "Kiểm thử mới sau sửa lịch khám",
+    "facility": "Bệnh viện Thú y 2Vet Hospital",
+    "facilityId": "2vet",
+    "vetName": "BS. Nguyễn Văn A (Tester)",
+    "doctor": "BS. Nguyễn Văn A (Tester)",
+    "notes": "Kiểm thử đơn thuốc liên thông, không phải chỉ định điều trị thực tế.",
+    "confirmedAt": "2026-10-28T07:58:58.845Z",
+    "confirmedBy": "BS. Nguyễn Văn A (Tester)"
+  },
+  {
+    "appointmentId": "BK-1793164543433",
+    "petId": "pet-1792128958474",
+    "ownerId": "user_1791541299976_7ebbe5",
+    "authorId": "user_vet_01",
+    "authorName": "BS. Nguyễn Văn A (Tester)",
+    "vetId": "user_vet_01",
+    "soap": {
+      "subjective": "\tKiểm thử thủ công chức năng lưu nháp SOAP, không phải bệnh án thực tế.",
+      "objective": "",
+      "assessment": "",
+      "plan": "Bản nháp kiểm thử, chưa ban hành hướng dẫn điều trị.",
+      "temp": "",
+      "heartRate": "",
+      "respiratoryRate": "",
+      "weight": "",
+      "planMedications": []
+    },
+    "assessment": "",
+    "plan": "Bản nháp kiểm thử, chưa ban hành hướng dẫn điều trị.",
+    "prescriptions": [],
+    "isFinal": true,
+    "status": "published",
+    "updatedAt": "2026-10-28T06:59:55.387Z",
+    "id": "med-1793170593954",
+    "createdAt": "2026-10-28T06:56:33.954Z",
+    "notes": "Bản nháp kiểm thử, chưa ban hành hướng dẫn điều trị.",
+    "confirmedAt": "2026-10-28T06:59:55.387Z",
+    "confirmedBy": "BS. Nguyễn Văn A (Tester)"
+  },
+  {
+    "id": "mr-final-1793094736739",
+    "petId": "pet-test-1793094736704",
+    "vetId": "user_vet_01",
+    "isFinal": true,
+    "soap": {
+      "subjective": "Sốt cao",
+      "assessment": "Viêm phế quản cấp"
+    },
+    "ownerId": "user_1793094736360_14bcde",
+    "createdAt": "2026-10-27T09:52:16.743Z",
+    "authorId": "user_vet_01",
+    "authorName": "BS. Nguyễn Văn A (Tester)",
+    "status": "published",
+    "history": [
+      {
+        "version": 1,
+        "amendedAt": "2026-10-27T09:52:16.761Z",
+        "amendedBy": "user_vet_01",
+        "amendedByName": "BS. Nguyễn Văn A (Tester)",
+        "reason": "Cập nhật diễn biến ngày 2",
+        "addendumNote": "Bé đã hạ sốt sau khi dùng kháng sinh",
+        "previousState": {}
+      }
+    ],
+    "lastAmendedAt": "2026-10-27T09:52:16.761Z"
+  },
+  {
+    "id": "mr-draft-1793094736726",
+    "petId": "pet-test-1793094736704",
+    "vetId": "user_vet_01",
+    "isFinal": false,
+    "soap": {
+      "subjective": "Bé mệt",
+      "objective": "Nhiệt độ 38.5",
+      "assessment": "Viêm da",
+      "plan": "Thuốc thoa"
+    },
+    "ownerId": "user_1793094736360_14bcde",
+    "createdAt": "2026-10-27T09:52:16.729Z",
+    "authorId": "user_vet_01",
+    "authorName": "BS. Nguyễn Văn A (Tester)",
+    "status": "draft"
+  }
+]

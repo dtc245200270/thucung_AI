@@ -1,0 +1,182 @@
+[
+  {
+    "id": "PC-KB-001",
+    "title": "Dinh dưỡng và đồ ăn thưởng cho chó mèo",
+    "species": [
+      "dog",
+      "cat"
+    ],
+    "keywords": [
+      "dinh dưỡng",
+      "béo phì",
+      "ăn thưởng",
+      "snack",
+      "khẩu phần"
+    ],
+    "sourceIds": [
+      "SRC-AAHA-NUTRITION"
+    ],
+    "version": "1.0.0",
+    "sourceCheckedAt": "2026-10-28",
+    "reviewStatus": "source_checked_for_course_demo",
+    "enabled": true,
+    "content": "Đồ ăn thưởng và thức ăn bổ sung cần được tính vào tổng năng lượng hằng ngày. AAHA khuyến nghị phần bổ sung không vượt quá 10% tổng năng lượng để tránh làm mất cân đối khẩu phần chính. Không suy ra số gam thức ăn chỉ từ cân nặng: cần xét loại thức ăn, tình trạng cơ thể và nhu cầu từng con. Khi muốn thay khẩu phần hoặc giảm cân, trao đổi với bác sĩ thú y để có kế hoạch phù hợp."
+  },
+  {
+    "id": "PC-KB-002",
+    "title": "Chăm sóc răng miệng cho mèo",
+    "species": [
+      "cat"
+    ],
+    "keywords": [
+      "răng",
+      "nướu",
+      "đánh răng",
+      "hôi miệng",
+      "kem đánh răng"
+    ],
+    "sourceIds": [
+      "SRC-CORNELL-DENTAL"
+    ],
+    "version": "1.0.0",
+    "sourceCheckedAt": "2026-10-28",
+    "reviewStatus": "source_checked_for_course_demo",
+    "enabled": true,
+    "content": "Chải răng thường xuyên giúp hạn chế tích tụ mảng bám ở mèo. Dùng bàn chải và kem hoặc gel dành riêng cho mèo; không dùng kem đánh răng của người. Cho mèo làm quen từ từ thay vì ép. Hôi miệng, chảy dãi hoặc khó ăn có thể liên quan bệnh răng miệng và cần khám. Nếu nướu đang viêm hoặc đau, hỏi bác sĩ trước khi chải; không cố chải vùng đau.",
+    "updatedAt": "2026-10-28T12:29:18.644Z"
+  },
+  {
+    "id": "PC-KB-003",
+    "title": "Vì sao không áp dụng một lịch tẩy giun cho mọi thú cưng",
+    "species": [
+      "dog",
+      "cat"
+    ],
+    "keywords": [
+      "tẩy giun",
+      "ký sinh trùng",
+      "lịch tẩy giun",
+      "ăn sống",
+      "săn bắt"
+    ],
+    "sourceIds": [
+      "SRC-ESCCAP-WORMS"
+    ],
+    "version": "1.0.0",
+    "sourceCheckedAt": "2026-10-28",
+    "reviewStatus": "source_checked_for_course_demo",
+    "enabled": true,
+    "content": "Kiểm soát giun cần dựa vào nguy cơ của từng thú cưng, không có một lịch chung đúng cho tất cả. Bác sĩ cân nhắc môi trường sống, nguy cơ địa phương, việc săn bắt hoặc ăn thịt sống và tiền sử phơi nhiễm. Hãy cung cấp lịch dùng sản phẩm gần nhất và hỏi bác sĩ về xét nghiệm, phòng ngừa phù hợp. Không tự chọn sản phẩm hoặc liều theo câu trả lời chatbot; hướng dẫn theo bối cảnh châu Âu không thay thế đánh giá tại Việt Nam."
+  },
+  {
+    "id": "PC-KB-004",
+    "title": "Mèo khó thở cần được đánh giá khẩn cấp",
+    "species": [
+      "cat"
+    ],
+    "keywords": [
+      "khó thở",
+      "thở gắng sức",
+      "há miệng thở",
+      "hô hấp",
+      "cấp cứu"
+    ],
+    "sourceIds": [
+      "SRC-CORNELL-BREATHING"
+    ],
+    "version": "1.0.0",
+    "sourceCheckedAt": "2026-10-28",
+    "reviewStatus": "source_checked_for_course_demo",
+    "enabled": true,
+    "content": "Khó thở ở mèo có nhiều nguyên nhân và không thể xác định chỉ qua chat hoặc một tấm ảnh. Mèo có dấu hiệu khó thở cần được bác sĩ thú y đánh giá ngay vì chậm xử trí có thể nguy hiểm đến tính mạng. Liên hệ cơ sở thú y có khả năng tiếp nhận cấp cứu; không chờ chatbot chẩn đoán hay tự thử thuốc tại nhà. Không kết luận mèo bị hen, bệnh tim hoặc bệnh khác chỉ từ mô tả."
+  },
+  {
+    "id": "PC-KB-005",
+    "title": "Mèo rặn tiểu nhưng ít hoặc không có nước tiểu",
+    "species": [
+      "cat"
+    ],
+    "keywords": [
+      "bí tiểu",
+      "rặn tiểu",
+      "không tiểu được",
+      "khay cát",
+      "tắc niệu đạo"
+    ],
+    "sourceIds": [
+      "SRC-CORNELL-URINARY"
+    ],
+    "version": "1.0.0",
+    "sourceCheckedAt": "2026-10-28",
+    "reviewStatus": "source_checked_for_course_demo",
+    "enabled": true,
+    "content": "Đi khay cát nhiều lần, rặn, đau hoặc chỉ ra ít hay không có nước tiểu có thể gặp khi đường tiểu bị tắc. Nghi ngờ tắc niệu đạo là tình huống cấp cứu, cần liên hệ và đưa mèo đi thú y ngay. Không chờ qua đêm để theo dõi hoặc chỉ đổi thức ăn. Các dấu hiệu đường tiểu có nhiều nguyên nhân; chatbot không thể xác định nguyên nhân hoặc kê điều trị. Việc kiểm tra và xét nghiệm thuộc bác sĩ."
+  },
+  {
+    "id": "PC-KB-006",
+    "title": "Môi trường sống và làm quen cho mèo",
+    "species": [
+      "cat"
+    ],
+    "keywords": [
+      "mèo mới",
+      "làm quen",
+      "đồ chơi",
+      "cào móng",
+      "khay vệ sinh"
+    ],
+    "sourceIds": [
+      "SRC-AVMA-CAT"
+    ],
+    "version": "1.0.0",
+    "sourceCheckedAt": "2026-10-28",
+    "reviewStatus": "source_checked_for_course_demo",
+    "enabled": true,
+    "content": "Mèo cần chỗ nghỉ, thức ăn, nước, khu vệ sinh và cơ hội chơi, khám phá, cào móng phù hợp. Khi đưa mèo mới về nhà có thú cưng khác, cho làm quen từ từ, có giám sát và khoảng thời gian tách riêng. Dây hoặc ruy băng không phải đồ chơi an toàn nếu mèo nuốt phải. Chuẩn bị đồ chơi thích hợp và trao đổi bác sĩ khi việc làm quen gặp khó khăn."
+  },
+  {
+    "id": "PC-KB-007",
+    "title": "Khám phòng ngừa và lịch vaccine của mèo",
+    "species": [
+      "cat"
+    ],
+    "keywords": [
+      "vaccine",
+      "tiêm chủng",
+      "khám định kỳ",
+      "phòng bệnh",
+      "sổ tiêm"
+    ],
+    "sourceIds": [
+      "SRC-AVMA-CAT"
+    ],
+    "version": "1.0.0",
+    "sourceCheckedAt": "2026-10-28",
+    "reviewStatus": "source_checked_for_course_demo",
+    "enabled": true,
+    "content": "Mèo cần khám thú y định kỳ. Chương trình vaccine và chăm sóc phòng ngừa nên được bác sĩ lựa chọn theo lối sống và nguy cơ bệnh tại khu vực. Cung cấp tuổi nếu biết và hồ sơ tiêm đã có; không tự coi thông tin chưa rõ là đã tiêm hoặc chưa tiêm. Tài liệu này không quy định tuổi bắt đầu, khoảng cách các mũi hay yêu cầu pháp lý ở Việt Nam; cần hỏi cơ sở thú y về trường hợp cụ thể."
+  },
+  {
+    "id": "PC-KB-008",
+    "title": "Không tự dùng thuốc giảm đau của người cho chó mèo",
+    "species": [
+      "dog",
+      "cat"
+    ],
+    "keywords": [
+      "thuốc người",
+      "giảm đau",
+      "ibuprofen",
+      "paracetamol",
+      "acetaminophen"
+    ],
+    "sourceIds": [
+      "SRC-FDA-MEDICINES"
+    ],
+    "version": "1.0.0",
+    "sourceCheckedAt": "2026-10-28",
+    "reviewStatus": "source_checked_for_course_demo",
+    "enabled": true,
+    "content": "Không tự cho chó mèo dùng thuốc giảm đau của người hoặc thuốc còn thừa được kê cho con khác. Thuốc phù hợp với người hay thú cưng khác vẫn có thể gây hại cho con đang cần chăm sóc. Hãy liên hệ bác sĩ trước khi dùng thuốc; chatbot không cung cấp liều ibuprofen, paracetamol hoặc thuốc giảm đau thay thế. Nếu đã cho uống, liên hệ thú y ngay và cung cấp tên thuốc, hàm lượng, lượng đã dùng và thời điểm dùng."
+  }
+]

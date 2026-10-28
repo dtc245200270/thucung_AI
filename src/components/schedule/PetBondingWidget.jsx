@@ -16,24 +16,25 @@ import {
 } from 'lucide-react';
 import { sound } from '../../services/soundService';
 import { normalizePetHealthKey } from '../../services/storageService';
+import { getTodayVnDate } from '../../utils/dateUtils.js';
 
-import { PET_PSYCHOLOGY_DATABASE } from '../bonding/PetBondingView';
+import { getPetReferenceData } from '../../constants/petBehaviorReference';
 
-export const PET_BONDING_DATA = PET_PSYCHOLOGY_DATABASE;
-export const petPersonalityData = PET_PSYCHOLOGY_DATABASE;
+export const PET_BONDING_DATA = {};
+export const petPersonalityData = {};
 
 const BONDING_STORAGE_KEY = 'petcare_bonding_tasks_v2';
 
 export default function PetBondingWidget({ pet, petKey }) {
   // Chuẩn hóa key thú cưng đang chọn
-  const activeKey = normalizePetHealthKey(petKey || pet?.id || pet?.name || 'mochi');
-  const petProfile = PET_PSYCHOLOGY_DATABASE[activeKey] || PET_PSYCHOLOGY_DATABASE.mochi;
-  const currentTask = petProfile.todayBondingTask || petProfile.todayTask || petProfile.task || {};
+  const activeKey = normalizePetHealthKey(petKey || pet?.id || pet?.name || '');
+  // Get reference data for this pet
+  const refData = getPetReferenceData(pet?.species || '');
+  const currentTask = refData.quests && refData.quests.length > 0 ? refData.quests[0] : { title: 'Tương tác nhẹ nhàng', duration: 300, id: 'q1' };
 
-
-  // Ngày hôm nay dạng YYYY-MM-DD
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
-  const taskStorageId = `${todayStr}_${petProfile.id}_${currentTask.id}`;
+  // Ngày hôm nay dạng YYYY-MM-DD theo Asia/Ho_Chi_Minh
+  const todayStr = useMemo(() => getTodayVnDate(), []);
+  const taskStorageId = `${todayStr}_${pet?.id || 'guest'}_${currentTask.id}`;
 
   // State hoàn thành nhiệm vụ (lưu trữ theo ngày & từng bé)
   const [isCompleted, setIsCompleted] = useState(() => {
@@ -264,7 +265,7 @@ export default function PetBondingWidget({ pet, petKey }) {
         <div className="mt-3 space-y-1">
           <div className="flex justify-between items-center text-[10px] text-slate-600 dark:text-slate-300 font-bold">
             <span className="flex items-center gap-1">
-              <span>Thước đo Oxytocin & Tình Cảm</span>
+              <span>Tiến độ gắn kết hôm nay</span>
               <span className="text-rose-500">❤️</span>
             </span>
             <span className="font-mono">{currentBondingScore}/100</span>

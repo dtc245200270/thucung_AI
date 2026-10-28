@@ -1,0 +1,40 @@
+[
+  {
+    "id": "pres-1793174255186",
+    "medicalRecordId": "med-1793174255186",
+    "appointmentId": "BK-1793103632301",
+    "petId": "pet-1792128958474",
+    "ownerId": "user_1791541299976_7ebbe5",
+    "vetId": "user_vet_01",
+    "prescribedBy": "BS. Nguyễn Văn A (Tester)",
+    "vetName": "BS. Nguyễn Văn A (Tester)",
+    "diagnosis": "Đơn thuốc điều trị theo bệnh án SOAP",
+    "title": "Đơn thuốc: THUỐC KIỂM THỬ A – KHÔNG SỬ DỤNG",
+    "medications": [
+      {
+        "name": "THUỐC KIỂM THỬ A – KHÔNG SỬ DỤNG",
+        "dose": "1 đơn vị kiểm thử/lần",
+        "dosage": "1 đơn vị kiểm thử/lần",
+        "route": "Uống",
+        "freq": "2 lần/ngày",
+        "startDate": "2026-10-28",
+        "days": 3,
+        "durationDays": 3,
+        "instructions": "Dữ liệu kiểm thử phần mềm, không dùng điều trị cho thú cưng.",
+        "usage": "Dữ liệu kiểm thử phần mềm, không dùng điều trị cho thú cưng.",
+        "quantity": ""
+      }
+    ],
+    "medicineName": "THUỐC KIỂM THỬ A – KHÔNG SỬ DỤNG",
+    "dosage": "THUỐC KIỂM THỬ A – KHÔNG SỬ DỤNG: 1 đơn vị kiểm thử/lần",
+    "startDate": "2026-10-28",
+    "durationDays": 3,
+    "purpose": "Điều trị theo chỉ định bác sĩ",
+    "notes": "Kiểm thử đơn thuốc liên thông, không phải chỉ định điều trị thực tế.",
+    "isFinal": true,
+    "status": "published",
+    "confirmedAt": "2026-10-28T07:58:58.845Z",
+    "createdAt": "2026-10-28T07:58:58.845Z",
+    "updatedAt": "2026-10-28T07:58:58.845Z"
+  }
+]

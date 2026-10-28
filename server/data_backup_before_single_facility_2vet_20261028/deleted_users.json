@@ -1,0 +1,27 @@
+[
+  {
+    "id": "user_owner_demo_01",
+    "email": "demo@petcare.ai",
+    "deletedAt": "2026-10-28T03:10:47.131Z"
+  },
+  {
+    "id": "user_1793094736360_14bcde",
+    "email": "test_owner_1793094736355@petcare.ai",
+    "deletedAt": "2026-10-28T03:10:47.131Z"
+  },
+  {
+    "id": "user_1793094736532_08497b",
+    "email": "mustchange_1793094736523@petcare.ai",
+    "deletedAt": "2026-10-28T03:10:47.131Z"
+  },
+  {
+    "id": "user_1793094737359_76aba3",
+    "email": "owner_reg_1793094737357@petcare.ai",
+    "deletedAt": "2026-10-28T03:10:47.131Z"
+  },
+  {
+    "id": "user_1793094739184_d2c8c2",
+    "email": "owner_muc3_1793094739178@petcare.ai",
+    "deletedAt": "2026-10-28T03:10:47.131Z"
+  }
+]

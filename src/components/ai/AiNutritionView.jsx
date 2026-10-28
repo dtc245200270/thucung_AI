@@ -121,20 +121,20 @@ export const AiNutritionView = ({ pets = [] }) => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* Protein & Nutrition Guide */}
-            <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+            <div className="bg-white dark:bg-slate-900/80 border border-[#E2E8F0] dark:border-white/10 rounded-3xl shadow-sm p-6 space-y-4 text-[#1E293B] dark:text-slate-100">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-emerald-600" />
-                <h3 className="text-base font-bold text-slate-900">
+                <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <h3 className="text-base font-bold text-[#0F172A] dark:text-white">
                   Lưu Ý Dinh Dưỡng Cho {selectedPet.name} ({selectedPet.breed})
                 </h3>
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-100 text-xs space-y-1.5">
-                <div className="font-bold text-emerald-900">Tiêu chuẩn Protein:</div>
-                <div className="text-emerald-800">{nutrition.proteinRecommendation}</div>
+              <div className="p-3.5 rounded-2xl bg-[#F8FAFC] dark:bg-white/5 border border-[#E2E8F0] dark:border-white/10 text-xs space-y-1.5">
+                <div className="font-bold text-indigo-600 dark:text-indigo-300">Tiêu chuẩn Protein:</div>
+                <div className="text-[#1E293B] dark:text-slate-200">{nutrition.proteinRecommendation}</div>
               </div>
 
-              <div className="space-y-2 text-xs text-slate-600">
+              <div className="space-y-2 text-xs text-[#475569] dark:text-slate-300">
                 <p>• <strong>Bổ sung Omega 3 & 6:</strong> Giúp lông bóng mượt, giảm rụng lông và hạn chế viêm da dị ứng.</p>
                 <p>• <strong>Kiểm soát cân nặng:</strong> Thường xuyên cân 2-4 tuần/lần để điều chỉnh tăng/giảm 10% lượng thức ăn nếu bé có dấu hiệu béo phì hoặc sút cân.</p>
                 <p>• <strong>Chuyển đổi thức ăn:</strong> Khi đổi loại hạt mới, hãy trộn theo tỉ lệ 25% - 50% - 75% trong 7 ngày để tránh rối loạn tiêu hóa.</p>
@@ -142,19 +142,19 @@ export const AiNutritionView = ({ pets = [] }) => {
             </div>
 
             {/* TOXIC FOODS WARNING */}
-            <div className="bg-white rounded-3xl p-6 border border-rose-200 shadow-xs space-y-4">
-              <div className="flex items-center gap-2 text-rose-700">
+            <div className="bg-white dark:bg-slate-900/80 border border-[#E2E8F0] dark:border-white/10 rounded-3xl shadow-sm p-6 space-y-4 text-[#1E293B] dark:text-slate-100">
+              <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
                 <ShieldAlert className="w-5 h-5" />
-                <h3 className="text-base font-bold">Thực Phẩm Tuyệt Đối Cấm Cho Thú Cưng Ăn</h3>
+                <h3 className="text-base font-bold text-[#0F172A] dark:text-white">Thực Phẩm Tuyệt Đối Cấm Cho Thú Cưng Ăn</h3>
               </div>
 
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[#475569] dark:text-slate-300">
                 Những thực phẩm dưới đây chứa độc tố có thể gây suy thận cấp, vỡ hồng cầu hoặc tử vong nhanh chóng:
               </p>
 
               <div className="grid grid-cols-2 gap-2">
                 {nutrition.toxicFoods.map((food, idx) => (
-                  <div key={idx} className="p-2.5 rounded-xl bg-rose-50 border border-rose-100 text-xs font-bold text-rose-900 flex items-center gap-2">
+                  <div key={idx} className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-xs font-bold text-rose-800 dark:text-rose-300 flex items-center gap-2">
                     <span className="text-sm">⛔</span>
                     <span>{food}</span>
                   </div>

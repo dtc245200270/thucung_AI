@@ -4,6 +4,7 @@ import {
   Smartphone, MessageSquare, Download, Sparkles, Check, AlertTriangle 
 } from 'lucide-react';
 import { sound } from '../../services/soundService';
+import { generateIcsCalendar, getTodayVnDate } from '../../utils/dateUtils.js';
 
 export default function OmniChannelAlertModal({ isOpen, onClose, schedules = [], onActionConfirm }) {
   const [activeChannel, setActiveChannel] = useState('telegram'); // 'telegram', 'zalo', 'webpush'
@@ -20,35 +21,14 @@ export default function OmniChannelAlertModal({ isOpen, onClose, schedules = [],
 
   const handleDownloadICS = () => {
     sound.playSuccess();
-    // Generate valid iCalendar (.ics) format
-    const icsContent = [
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'PRODID:-//PetCare AI Pro//Smart Pet Calendar//VI',
-      'CALSCALE:GREGORIAN',
-      'METHOD:PUBLISH',
-      ...schedules.map(sch => {
-        const cleanDate = (sch.date || '2026-09-21').replace(/-/g, '');
-        const cleanTime = (sch.time || '09:00').replace(/:/g, '') + '00';
-        return [
-          'BEGIN:VEVENT',
-          `UID:${sch.id || Date.now()}@petcare.ai`,
-          `DTSTAMP:${cleanDate}T${cleanTime}Z`,
-          `DTSTART:${cleanDate}T${cleanTime}`,
-          `SUMMARY:🐾 [PetCare AI] ${sch.title}`,
-          `DESCRIPTION:Nhắc nhở tự động cho bé thú cưng. Vui lòng cho bé dùng đúng hạn.`,
-          'STATUS:CONFIRMED',
-          'END:VEVENT'
-        ].join('\r\n');
-      }),
-      'END:VCALENDAR'
-    ].join('\r\n');
+    // Generate valid iCalendar (.ics) format khóa múi giờ Asia/Ho_Chi_Minh
+    const icsContent = generateIcsCalendar(schedules, []);
 
     const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `petcare-schedules-${new Date().toISOString().slice(0, 10)}.ics`);
+    link.setAttribute('download', `petcare-schedules-${getTodayVnDate()}.ics`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

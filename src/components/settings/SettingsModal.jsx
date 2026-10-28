@@ -20,6 +20,7 @@ import {
   resetUserData 
 } from '../../services/storageService';
 import { sound } from '../../services/soundService';
+import { getTodayVnDate } from '../../utils/dateUtils';
 
 export const SettingsModal = ({
   isOpen,
@@ -46,7 +47,7 @@ export const SettingsModal = ({
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `petcare_user_${currentUserId}_${new Date().toISOString().split('T')[0]}.json`;
+      link.download = `petcare_user_${currentUserId}_${getTodayVnDate()}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

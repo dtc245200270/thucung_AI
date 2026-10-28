@@ -4,8 +4,8 @@ const BASE_URL = 'http://localhost:5000';
 
 async function req(endpoint, opts = {}) {
   const res = await fetch(`${BASE_URL}${endpoint}`, {
-    headers: { 'Content-Type': 'application/json', ...opts.headers },
-    ...opts
+    ...opts,
+    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) }
   });
   const data = await res.json().catch(() => ({}));
   return { status: res.status, ok: res.ok, data };
@@ -22,7 +22,9 @@ async function runTests() {
   });
   assert.strictEqual(adminLoginRes.status, 200, 'Đăng nhập admin phải thành công');
   const adminId = adminLoginRes.data.user.id;
-  console.log(`✅ [1] Đăng nhập Admin thành công (ID: ${adminId})`);
+  const adminToken = adminLoginRes.data.token;
+  assert.ok(adminToken, 'Admin phải nhận token');
+  console.log(`✅ [1] Đăng nhập Admin thành công (ID: ${adminId}) với JWT Token`);
 
   // ── BƯỚC 2: Tạo tài khoản chủ nuôi ───────────────────────────────────
   const testEmail = `luong_test_${Date.now()}@petcare.ai`;
@@ -30,8 +32,8 @@ async function runTests() {
 
   const createRes = await req('/api/auth/admin/create-user', {
     method: 'POST',
+    headers: { Authorization: `Bearer ${adminToken}` },
     body: JSON.stringify({
-      callerId: adminId,
       name: 'Lương Kiểm Thử',
       email: testEmail,
       phone: '0912.888.777',
@@ -57,8 +59,8 @@ async function runTests() {
   // ── BƯỚC 4: Admin xóa tài khoản ──────────────────────────────────────
   const deleteRes = await req('/api/auth/admin/delete-user', {
     method: 'POST',
+    headers: { Authorization: `Bearer ${adminToken}` },
     body: JSON.stringify({
-      callerId: adminId,
       targetUserId: createdId,
       targetEmail: testEmail,
       confirmEmail: testEmail
@@ -69,7 +71,9 @@ async function runTests() {
   console.log(`✅ [4] Admin xóa tài khoản ${testEmail} thành công`);
 
   // ── BƯỚC 5: Xác nhận tài khoản không còn tồn tại trên server ─────────
-  const usersAfterDelete = await req('/api/auth/users');
+  const usersAfterDelete = await req('/api/auth/users', {
+    headers: { Authorization: `Bearer ${adminToken}` }
+  });
   assert(usersAfterDelete.ok, 'GET /api/auth/users phải thành công');
   const stillExists = usersAfterDelete.data.some(u => u.email === testEmail);
   assert(!stillExists, 'Tài khoản phải bị loại khỏi danh sách sau khi xóa');
@@ -87,8 +91,8 @@ async function runTests() {
   const recreatePassword = 'NewPassword@456';
   const recreateRes = await req('/api/auth/admin/create-user', {
     method: 'POST',
+    headers: { Authorization: `Bearer ${adminToken}` },
     body: JSON.stringify({
-      callerId: adminId,
       name: 'Lương Kiểm Thử (Tái Tạo)',
       email: testEmail,
       phone: '0912.999.888',
@@ -114,8 +118,8 @@ async function runTests() {
   // ── BƯỚC 9: Tạo trùng email khi đang tồn tại phải bị từ chối ─────────
   const dupRes = await req('/api/auth/admin/create-user', {
     method: 'POST',
+    headers: { Authorization: `Bearer ${adminToken}` },
     body: JSON.stringify({
-      callerId: adminId,
       name: 'Người Trùng Email',
       email: testEmail,
       phone: '0000000000',
@@ -128,7 +132,6 @@ async function runTests() {
   console.log(`✅ [9] Tạo trùng email bị từ chối: "${dupRes.data?.error}"`);
 
   // ── BƯỚC 10: Kiểm tra backend offline response ────────────────────────
-  // (Chỉ kiểm tra cấu trúc response hợp lệ, không tắt backend thật trong test)
   const healthRes = await req('/api/health');
   assert.strictEqual(healthRes.status, 200, 'Backend phải đang chạy');
   console.log(`✅ [10] Backend hoạt động bình thường: ${healthRes.data?.status}`);
@@ -136,8 +139,8 @@ async function runTests() {
   // ── BƯỚC 11: Dọn dẹp sau kiểm thử ────────────────────────────────────
   const cleanupRes = await req('/api/auth/admin/delete-user', {
     method: 'POST',
+    headers: { Authorization: `Bearer ${adminToken}` },
     body: JSON.stringify({
-      callerId: adminId,
       targetUserId: recreatedId,
       targetEmail: testEmail,
       confirmEmail: testEmail
@@ -147,7 +150,9 @@ async function runTests() {
   console.log(`✅ [11] Dọn dẹp hoàn tất - database trở về trạng thái sạch`);
 
   // ── Xác nhận trạng thái cuối ──────────────────────────────────────────
-  const finalUsers = await req('/api/auth/users');
+  const finalUsers = await req('/api/auth/users', {
+    headers: { Authorization: `Bearer ${adminToken}` }
+  });
   const finalEmails = finalUsers.data.map(u => u.email);
   assert(!finalEmails.includes(testEmail), 'Email kiểm thử phải đã bị dọn sạch');
   assert(finalEmails.includes('admin@petcare.ai'), 'Admin phải vẫn tồn tại');

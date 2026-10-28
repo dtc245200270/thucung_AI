@@ -28,7 +28,6 @@ export const INITIAL_SYSTEM_ADMIN = {
   id: 'user_admin_01',
   name: 'Quản trị viên Hệ thống',
   email: 'admin@petcare.ai',
-  password: 'Admin@123456',
   phone: '0901.000.888',
   address: 'Trụ sở chính PetCare AI, Hà Nội',
   role: ROLES.SYSTEM_ADMIN,
@@ -39,36 +38,36 @@ export const INITIAL_SYSTEM_ADMIN = {
   createdAt: '2026-01-01T08:00:00.000Z'
 };
 
-// 2. Bác sĩ thú y mẫu (Approved Vet Doctor Seed)
+// 2. Bác sĩ thú y kiểm thử chuẩn hệ thống (Approved Vet Doctor Seed)
 export const INITIAL_VET_DOCTOR = {
-  id: 'user_vet_pro',
-  name: 'BS. Hoàng Hải Nam (Pro Vet)',
+  id: 'user_vet_01',
+  name: 'BS. Nguyễn Văn A (Tester)',
   email: 'tester@petcare.ai',
-  password: 'Doctor@123',
-  phone: '0988.789.999',
-  address: 'Tòa Landmark 81, P. 22, Q. Bình Thạnh, TP. Hồ Chí Minh',
+  phone: '0988.123.456',
+  address: 'Bệnh viện Thú y PetCare AI',
   role: ROLES.VET_DOCTOR,
   isLocked: false,
   vetStatus: VET_STATUS.APPROVED,
   mustChangePassword: false,
-  avatar: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=400&auto=format&fit=crop&q=80',
-  createdAt: '2026-02-01T08:00:00.000Z'
+  avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300&auto=format&fit=crop&q=80',
+  createdAt: '2026-01-01T08:00:00.000Z',
+  facilityId: null,
+  facilityIds: []
 };
 
-// 3. Chủ nuôi mẫu (Pet Owner Demo Seed)
+// 3. Chủ nuôi chính (Pet Owner)
 export const INITIAL_PET_OWNER = {
-  id: 'user_owner_demo',
+  id: 'user_1791541299976_7ebbe5',
   name: 'Đinh Xuân Mạnh',
-  email: 'demo@petcare.ai',
-  password: 'Owner@123',
-  phone: '0912.345.678',
-  address: 'Cầu Giấy, Hà Nội',
+  email: 'manhdinh2907@gmail.com',
+  phone: '',
+  address: 'Việt Nam',
   role: ROLES.PET_OWNER,
   isLocked: false,
   vetStatus: null,
   mustChangePassword: false,
-  avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150',
-  createdAt: '2026-03-01T08:00:00.000Z'
+  avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=300&auto=format&fit=crop&q=80',
+  createdAt: '2026-10-09T10:21:40.033Z'
 };
 
 const getStored = (key, fallback) => {
@@ -87,6 +86,16 @@ const setStored = (key, value) => {
   } catch (error) {
     console.error(`Error saving ${key}:`, error);
   }
+};
+
+export const getAuthHeaders = () => {
+  const rawToken = typeof localStorage !== 'undefined' 
+    ? (localStorage.getItem('petcare_auth_token') || localStorage.getItem('petcare_token')) 
+    : null;
+  const token = (rawToken && rawToken !== 'null' && rawToken !== 'undefined' && rawToken.trim() !== '') ? rawToken.trim() : null;
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
 };
 
 // Chuẩn hóa một bản ghi user từ dữ liệu cũ sang định dạng bảo mật RBAC v2
@@ -113,7 +122,6 @@ const normalizeUserRecord = (user) => {
     id: cleanId,
     name: (user.name || 'Người dùng PetCare').trim(),
     email: (user.email || '').trim().toLowerCase(),
-    password: user.password || 'User@123456',
     phone: user.phone || '',
     address: user.address || 'Việt Nam',
     role,
@@ -123,12 +131,12 @@ const normalizeUserRecord = (user) => {
     avatar: user.avatar || (
       role === ROLES.SYSTEM_ADMIN
         ? INITIAL_SYSTEM_ADMIN.avatar
-        : role === ROLES.VET_DOCTOR
-        ? INITIAL_VET_DOCTOR.avatar
-        : INITIAL_PET_OWNER.avatar
+        : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150'
     ),
     createdAt: user.createdAt || new Date().toISOString(),
-    passwordChangedAt: user.passwordChangedAt || null
+    passwordChangedAt: user.passwordChangedAt || null,
+    facilityId: user.facilityId || null,
+    facilityIds: Array.isArray(user.facilityIds) ? user.facilityIds : (user.facilityId ? [user.facilityId] : [])
   };
 };
 
@@ -153,49 +161,28 @@ export const getUsers = () => {
 
   let users = getStored(AUTH_STORAGE_KEYS.USERS, null);
 
-  // Lần đầu tiên (chưa có dữ liệu nào trong storage): khởi tạo với tài khoản seed
-  if (users === null) {
-    const defaultSeeds = [INITIAL_SYSTEM_ADMIN, INITIAL_VET_DOCTOR, INITIAL_PET_OWNER];
-    const allowedSeeds = defaultSeeds.filter(s => !isSeedDeleted(s.id));
-    setStored(AUTH_STORAGE_KEYS.USERS, allowedSeeds);
-    return allowedSeeds;
+  if (users === null || !Array.isArray(users)) {
+    return [];
   }
 
-  if (!Array.isArray(users)) {
-    return [INITIAL_SYSTEM_ADMIN];
-  }
+  // Lọc bỏ tài khoản đã bị xóa theo ID và loại bỏ mock doctor cũ
+  const activeUsers = users.filter(u => {
+    if (isUserDeleted(u.id)) return false;
+    if (u.id === 'user_vet_pro' || (u.name && u.name.includes('Hoàng Hải Nam'))) return false;
+    return true;
+  });
 
-  // Lọc bỏ tài khoản đã bị xóa theo ID
-  const activeUsers = users.filter(u => !isUserDeleted(u.id));
-
-  // Chuẩn hóa và đảm bảo admin luôn tồn tại
+  // Chuẩn hóa người dùng mà không tự động seed admin
   let normalized = activeUsers.map(normalizeUserRecord).filter(Boolean);
-  let updated = false;
 
-  // Chỉ đảm bảo SYSTEM_ADMIN seed luôn tồn tại nếu chưa bị xóa
-  if (!isSeedDeleted(INITIAL_SYSTEM_ADMIN.id)) {
-    const hasAdmin = normalized.some(u => u.email.toLowerCase() === INITIAL_SYSTEM_ADMIN.email.toLowerCase());
-    if (!hasAdmin) {
-      normalized.unshift(INITIAL_SYSTEM_ADMIN);
-      updated = true;
-    } else {
-      // Đảm bảo admin không bị mất role
-      const adminIdx = normalized.findIndex(u => u.email.toLowerCase() === INITIAL_SYSTEM_ADMIN.email.toLowerCase());
-      if (adminIdx !== -1 && normalized[adminIdx].role !== ROLES.SYSTEM_ADMIN) {
-        normalized[adminIdx].role = ROLES.SYSTEM_ADMIN;
-        updated = true;
-      }
-    }
-  }
-
-  if (updated || normalized.length !== users.length) {
+  if (normalized.length !== users.length) {
     setStored(AUTH_STORAGE_KEYS.USERS, normalized);
   }
 
   return normalized;
 };
 
-// Lấy thông tin phiên đăng nhập hiện tại
+// Lấy thông tin phiên đăng nhập hiện tại (kiểm tra trạng thái isLocked thời gian thực)
 export const getCurrentUser = () => {
   try {
     const isAuth = localStorage.getItem('petcare_is_authenticated') === 'true';
@@ -205,36 +192,87 @@ export const getCurrentUser = () => {
                     getStored('petcare_current_user', null);
     if (!session) return null;
 
-    // Xác thực lại trạng thái thực tế trong kho người dùng (kiểm tra khóa tài khoản thời gian thực)
+    // Đối chiếu trực tiếp với danh sách người dùng mới nhất từ kho dữ liệu nếu có
     const users = getUsers();
-    const liveUser = users.find(u => u.id === session.id || u.email.toLowerCase() === (session.email || '').toLowerCase());
-    if (!liveUser) {
-      logout();
-      return null;
-    }
+    const sessionId = session.id ? String(session.id).trim() : '';
+    const sessionEmail = session.email ? session.email.toLowerCase().trim() : '';
 
-    if (liveUser.isLocked) {
-      logout();
-      return null;
-    }
+    if (Array.isArray(users) && users.length > 0) {
+      const liveUser = users.find(u => 
+        (sessionId && u.id && String(u.id).trim() === sessionId) ||
+        (sessionEmail && u.email && u.email.toLowerCase().trim() === sessionEmail)
+      );
 
-    // Vô hiệu hóa phiên đăng nhập cũ nếu mật khẩu đã bị đổi sau thời điểm xác thực của phiên
-    if (liveUser.passwordChangedAt && session.authTime) {
-      const changedTime = new Date(liveUser.passwordChangedAt).getTime();
-      const sessionTime = new Date(session.authTime).getTime();
-      if (sessionTime < changedTime) {
-        console.warn('[PetCare Auth] Phiên đăng nhập đã bị hủy do mật khẩu tài khoản đã thay đổi.');
+      // [SECURITY FIX] CHỈ KHI tìm thấy bản ghi người dùng VÀ có bằng chứng rõ ràng isLocked === true:
+      // mới gọi logout() thu hồi phiên đăng nhập
+      if (liveUser && Boolean(liveUser.isLocked)) {
+        console.warn('[PetCare Auth] Tài khoản đang đăng nhập đã bị khóa bởi Quản trị viên (xác nhận từ kho người dùng).');
         logout();
         return null;
       }
+
+      // Vô hiệu hóa phiên đăng nhập cũ nếu mật khẩu đã bị đổi sau thời điểm xác thực của phiên
+      if (liveUser && liveUser.passwordChangedAt && session.authTime) {
+        const changedTime = new Date(liveUser.passwordChangedAt).getTime();
+        const sessionTime = new Date(session.authTime).getTime();
+        if (sessionTime < changedTime) {
+          console.warn('[PetCare Auth] Phiên đăng nhập đã bị hủy do mật khẩu tài khoản đã thay đổi.');
+          logout();
+          return null;
+        }
+      }
+
+      if (liveUser) {
+        const sanitizedSession = { ...liveUser, authTime: session.authTime || new Date().toISOString() };
+        delete sanitizedSession.password;
+        return sanitizedSession;
+      }
     }
 
-    // Luôn phản ánh đúng role và vetStatus mới nhất của tài khoản
-    const sanitizedSession = { ...liveUser, authTime: session.authTime || new Date().toISOString() };
+    // Nếu kho users rỗng hoặc chưa tải xong hoặc không tìm thấy bản ghi trong snapshot cục bộ:
+    // KHÔNG TỰ Ý ĐĂNG XUẤT HOẶC COI LÀ TÀI KHOẢN BỊ KHÓA!
+    // Trả về thông tin session đã được backend xác thực khi đăng nhập
+    const sanitizedSession = { ...session };
     delete sanitizedSession.password;
     return sanitizedSession;
-  } catch {
+  } catch (err) {
+    console.error('[PetCare Auth] Lỗi khi xác thực phiên đăng nhập:', err);
     return null;
+  }
+};
+
+// Xóa sạch toàn bộ cache dữ liệu nghiệp vụ của phiên làm việc cũ
+export const purgeSessionCache = () => {
+  try {
+    const keysToRemove = [
+      'petcare_pets_v1',
+      'petcare_schedules_v1',
+      'petcare_home_routines',
+      'petcare_expenses_v1',
+      'petcare_daily_logs_v1',
+      'petcare_prescriptions_v1',
+      'petcare_family_members_v1',
+      'petcare_daily_habits_v1',
+      'petcare_appointments_v1',
+      'petcare_active_appointments',
+      'petcare_medical_records_v1',
+      'petcare_lost_modes_v1',
+      'petcare_pets_health_data',
+      'petcare_pets_health_v1',
+      'petcare_weight_tracker_histories',
+      'petcare_active_user',
+      'petcare_current_user',
+      'petcare_current_portal',
+      'petcare_token',
+      'petcare_auth_token',
+      'petcare_is_authenticated',
+      AUTH_STORAGE_KEYS.SESSION
+    ];
+    keysToRemove.forEach(k => {
+      try { localStorage.removeItem(k); } catch {}
+    });
+  } catch (err) {
+    console.error('Lỗi dọn dẹp cache phiên:', err);
   }
 };
 
@@ -263,13 +301,32 @@ export const login = async (email, password, rememberMe = true) => {
     if (response.ok && data.success && data.user) {
       sessionUser = { ...data.user, authTime: data.authTime || new Date().toISOString() };
       
+      // 1. Dọn dẹp cache của bất kỳ phiên trước nào để đảm bảo cách ly phiên 100%
+      purgeSessionCache();
+
+      // 2. Lưu token mới vào cả petcare_auth_token và petcare_token
       if (data.token) {
         localStorage.setItem('petcare_auth_token', data.token);
+        localStorage.setItem('petcare_token', data.token);
       }
 
-      // Đồng bộ thông tin người dùng mới nhất từ server vào local snapshot
+      // 3. Lưu phiên làm việc mới
+      setStored(AUTH_STORAGE_KEYS.SESSION, sessionUser);
+      setStored(AUTH_STORAGE_KEYS.REMEMBER, Boolean(rememberMe));
+      try {
+        localStorage.setItem('petcare_active_user', JSON.stringify(sessionUser));
+        localStorage.setItem('petcare_current_user', JSON.stringify(sessionUser));
+        localStorage.setItem('petcare_is_authenticated', 'true');
+        if (rememberMe) {
+          localStorage.setItem('petcare_remembered_email', cleanEmail);
+        } else {
+          localStorage.removeItem('petcare_remembered_email');
+        }
+      } catch {}
+
+      // 4. Đồng bộ thông tin người dùng vừa đăng nhập vào local snapshot
       const localUsers = getUsers();
-      const idx = localUsers.findIndex(u => u.email.toLowerCase() === cleanEmail);
+      const idx = localUsers.findIndex(u => (u.email || '').toLowerCase() === cleanEmail);
       if (idx !== -1) {
         localUsers[idx] = { ...localUsers[idx], ...data.user };
       } else {
@@ -298,20 +355,6 @@ export const login = async (email, password, rememberMe = true) => {
     throw err;
   }
 
-  // Lưu phiên làm việc
-  setStored(AUTH_STORAGE_KEYS.SESSION, sessionUser);
-  setStored(AUTH_STORAGE_KEYS.REMEMBER, Boolean(rememberMe));
-  try {
-    localStorage.setItem('petcare_active_user', JSON.stringify(sessionUser));
-    localStorage.setItem('petcare_current_user', JSON.stringify(sessionUser));
-    localStorage.setItem('petcare_is_authenticated', 'true');
-    if (rememberMe) {
-      localStorage.setItem('petcare_remembered_email', cleanEmail);
-    } else {
-      localStorage.removeItem('petcare_remembered_email');
-    }
-  } catch {}
-
   sound?.playSuccess?.();
   return sessionUser;
 };
@@ -321,53 +364,60 @@ export const register = async () => {
   throw new Error('Chức năng tự đăng ký đã bị tắt. Tài khoản được quản trị viên cấp. Vui lòng liên hệ quản trị viên để được hỗ trợ.');
 };
 
-// Đăng xuất
+// Đăng xuất và dọn dẹp phiên làm việc cùng cache dữ liệu cá nhân
 export const logout = () => {
-  localStorage.removeItem(AUTH_STORAGE_KEYS.SESSION);
-  localStorage.removeItem('petcare_active_user');
-  localStorage.removeItem('petcare_current_user');
-  localStorage.removeItem('petcare_is_authenticated');
-  localStorage.removeItem('petcare_current_portal');
-  localStorage.removeItem('petcare_auth_token');
+  purgeSessionCache();
+  try {
+    localStorage.removeItem(AUTH_STORAGE_KEYS.REMEMBER);
+  } catch {}
   sound?.playClick?.();
   return null;
 };
 
-// Cập nhật thông tin cá nhân (Profile)
-export const updateProfile = (profileData) => {
+// Cập nhật thông tin cá nhân (Profile) lưu bền vững lên máy chủ
+export const updateProfile = async (profileData) => {
   const current = getCurrentUser();
   if (!current) throw new Error('Chưa đăng nhập');
 
-  const users = getUsers();
-  const index = users.findIndex(u => u.id === current.id);
-  if (index === -1) throw new Error('Không tìm thấy tài khoản người dùng.');
+  let response;
+  try {
+    response = await fetch('/api/auth/profile', {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(profileData)
+    });
+  } catch (err) {
+    throw new Error('Không thể kết nối đến máy chủ để cập nhật hồ sơ.');
+  }
 
-  const existing = users[index];
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.success || !data.user) {
+    throw new Error(data.error || 'Cập nhật thông tin cá nhân không thành công.');
+  }
 
-  const updatedUser = {
-    ...existing,
-    name: typeof profileData.name === 'string' && profileData.name.trim() ? profileData.name.trim() : existing.name,
-    phone: typeof profileData.phone === 'string' ? profileData.phone.trim() : existing.phone,
-    address: typeof profileData.address === 'string' ? profileData.address.trim() : existing.address,
-    avatar: typeof profileData.avatar === 'string' && profileData.avatar.trim() ? profileData.avatar.trim() : existing.avatar
-  };
+  const serverUser = data.user;
+  delete serverUser.password;
 
-  users[index] = updatedUser;
-  setStored(AUTH_STORAGE_KEYS.USERS, users);
-
-  const sessionUser = { ...updatedUser, authTime: current.authTime || new Date().toISOString() };
-  delete sessionUser.password;
+  const sessionUser = { ...serverUser, authTime: current.authTime || new Date().toISOString() };
   setStored(AUTH_STORAGE_KEYS.SESSION, sessionUser);
   try {
     localStorage.setItem('petcare_active_user', JSON.stringify(sessionUser));
     localStorage.setItem('petcare_current_user', JSON.stringify(sessionUser));
   } catch {}
 
+  const users = getUsers();
+  const index = users.findIndex(u => u.id === current.id);
+  if (index !== -1) {
+    users[index] = { ...users[index], ...serverUser };
+    delete users[index].password;
+    setStored(AUTH_STORAGE_KEYS.USERS, users);
+  }
+
   sound?.playSuccess?.();
   return sessionUser;
 };
 
-// Đổi mật khẩu (Xác minh chính xác mật khẩu hiện tại)
+// Đổi mật khẩu (Xác minh chính xác mật khẩu hiện tại trên server)
 export const changePassword = async (currentPassword, newPassword) => {
   const current = getCurrentUser();
   if (!current) throw new Error('Chưa đăng nhập');
@@ -376,42 +426,33 @@ export const changePassword = async (currentPassword, newPassword) => {
     throw new Error('Mật khẩu mới phải chứa ít nhất 6 ký tự.');
   }
 
-  let serverSuccess = false;
+  let response;
   try {
-    const response = await fetch('/api/auth/change-password', {
+    response = await fetch('/api/auth/change-password', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ userId: current.id, currentPassword, newPassword })
     });
-    const data = await response.json().catch(() => ({}));
-    if (response.ok && data.success) {
-      serverSuccess = true;
-    } else if (response.status === 400 || response.status === 401 || response.status === 404) {
-      throw new Error(data.error || 'Không thể đổi mật khẩu.');
-    }
   } catch (err) {
-    if (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('NetworkError') && !err.message.includes('Load failed')) {
-      throw err;
-    }
+    throw new Error('Không thể kết nối đến máy chủ để đổi mật khẩu.');
   }
 
-  const users = getUsers();
-  const user = users.find(u => u.id === current.id);
-  if (!user) throw new Error('Không tìm thấy tài khoản người dùng.');
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Mật khẩu hiện tại không chính xác hoặc không thể đổi mật khẩu.');
+  }
 
-  if (!serverSuccess && user.password !== currentPassword) {
-    throw new Error('Mật khẩu hiện tại không chính xác.');
+  if (data.token) {
+    localStorage.setItem('petcare_auth_token', data.token);
   }
 
   const nowStr = new Date().toISOString();
-  user.password = newPassword;
-  user.passwordChangedAt = nowStr;
-  setStored(AUTH_STORAGE_KEYS.USERS, users);
-
-  // Cập nhật authTime cho phiên hiện tại để không bị vô hiệu hóa chính mình
+  // Cập nhật authTime cho phiên hiện tại để duy trì phiên
   const session = getStored(AUTH_STORAGE_KEYS.SESSION, null);
   if (session) {
     session.authTime = nowStr;
+    session.passwordChangedAt = nowStr;
+    delete session.password;
     setStored(AUTH_STORAGE_KEYS.SESSION, session);
     try {
       localStorage.setItem('petcare_active_user', JSON.stringify(session));
@@ -523,19 +564,7 @@ export const resetPassword = async (token, newPassword) => {
     throw new Error(data.error || 'Không thể đặt lại mật khẩu. Vui lòng thử lại.');
   }
 
-  // Đồng bộ mật khẩu mới vào kho người dùng client nếu người dùng có trong local
-  try {
-    const users = getUsers();
-    const target = users.find(u => u.id === data.userId);
-    if (target) {
-      target.password = newPassword;
-      target.passwordChangedAt = new Date().toISOString();
-      setStored(AUTH_STORAGE_KEYS.USERS, users);
-    }
-  } catch (e) {
-    console.warn('Sync local user on reset password:', e);
-  }
-
+  // Không lưu mật khẩu hoặc hash vào trình duyệt
   sound?.playSuccess?.();
   return data;
 };
@@ -554,8 +583,8 @@ export const verifySystemAdmin = (callerId) => {
   return caller;
 };
 
-// Admin sửa thông tin tài khoản (Chỉ sửa trường cho phép)
-export const adminUpdateUser = (callerId, targetUserId, fields) => {
+// Admin sửa thông tin tài khoản (Chỉ sửa trường cho phép & đồng bộ Backend)
+export const adminUpdateUser = async (callerId, targetUserId, fields) => {
   verifySystemAdmin(callerId);
   const users = getUsers();
   const index = users.findIndex(u => u.id === targetUserId);
@@ -567,8 +596,37 @@ export const adminUpdateUser = (callerId, targetUserId, fields) => {
     name: typeof fields.name === 'string' && fields.name.trim() ? fields.name.trim() : existing.name,
     phone: typeof fields.phone === 'string' ? fields.phone.trim() : existing.phone,
     address: typeof fields.address === 'string' ? fields.address.trim() : existing.address,
-    avatar: typeof fields.avatar === 'string' && fields.avatar.trim() ? fields.avatar.trim() : existing.avatar
+    avatar: typeof fields.avatar === 'string' && fields.avatar.trim() ? fields.avatar.trim() : existing.avatar,
+    facilityId: fields.facilityId !== undefined ? (fields.facilityId || null) : existing.facilityId,
+    facilityIds: fields.facilityIds !== undefined 
+      ? fields.facilityIds 
+      : (fields.facilityId ? [fields.facilityId] : (fields.facilityId === '' || fields.facilityId === null ? [] : existing.facilityIds))
   };
+
+  // Đồng bộ lên backend API
+  try {
+    const headers = getAuthHeaders();
+    const res = await fetch(`/api/auth/users/${encodeURIComponent(targetUserId)}/update`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        name: updatedUser.name,
+        phone: updatedUser.phone,
+        address: updatedUser.address,
+        avatar: updatedUser.avatar,
+        facilityId: updatedUser.facilityId,
+        facilityIds: updatedUser.facilityIds
+      })
+    });
+    if (res.ok) {
+      const data = await res.json().catch(() => null);
+      if (data?.user) {
+        Object.assign(updatedUser, data.user);
+      }
+    }
+  } catch (apiErr) {
+    console.warn('[Admin] Lỗi cập nhật backend:', apiErr.message);
+  }
 
   users[index] = updatedUser;
   setStored(AUTH_STORAGE_KEYS.USERS, users);
@@ -576,8 +634,8 @@ export const adminUpdateUser = (callerId, targetUserId, fields) => {
   return updatedUser;
 };
 
-// Admin Khóa / Mở khóa tài khoản
-export const adminToggleLockUser = (callerId, targetUserId) => {
+// Admin Khóa / Mở khóa tài khoản (Đồng bộ Backend & Local thời gian thực)
+export const adminToggleLockUser = async (callerId, targetUserId) => {
   verifySystemAdmin(callerId);
   const users = getUsers();
   const index = users.findIndex(u => u.id === targetUserId);
@@ -598,16 +656,29 @@ export const adminToggleLockUser = (callerId, targetUserId) => {
     }
   }
 
-  target.isLocked = !target.isLocked;
-  users[index] = target;
+  // Đồng bộ với Backend API
+  const res = await fetch(`/api/auth/users/${targetUserId}/toggle-lock`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ callerId })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || 'Máy chủ từ chối yêu cầu khóa/mở khóa tài khoản.');
+  }
+
+  const updatedTarget = { ...data };
+  delete updatedTarget.password;
+
+  users[index] = updatedTarget;
   setStored(AUTH_STORAGE_KEYS.USERS, users);
 
   sound?.playSuccess?.();
-  return target;
+  return updatedTarget;
 };
 
 // Admin Duyệt hoặc Từ chối bác sĩ thú y
-export const adminApproveVetDoctor = (callerId, targetUserId, isApproved) => {
+export const adminApproveVetDoctor = async (callerId, targetUserId, isApproved) => {
   verifySystemAdmin(callerId);
   const users = getUsers();
   const index = users.findIndex(u => u.id === targetUserId);
@@ -618,19 +689,39 @@ export const adminApproveVetDoctor = (callerId, targetUserId, isApproved) => {
     throw new Error('Tài khoản này không đăng ký vai trò Bác sĩ thú y.');
   }
 
-  target.vetStatus = isApproved ? VET_STATUS.APPROVED : VET_STATUS.REJECTED;
-  users[index] = target;
+  // Đồng bộ với Backend API
+  const res = await fetch(`/api/auth/users/${targetUserId}/approve-vet`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ callerId, isApproved: Boolean(isApproved) })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || 'Máy chủ từ chối yêu cầu phê duyệt bác sĩ.');
+  }
+
+  const updatedTarget = { ...data };
+  delete updatedTarget.password;
+
+  users[index] = updatedTarget;
   setStored(AUTH_STORAGE_KEYS.USERS, users);
 
   sound?.playSuccess?.();
-  return target;
+  return updatedTarget;
 };
 
-// Admin Đổi vai trò tài khoản (Có kiểm tra bảo vệ Admin cuối cùng)
-export const adminChangeUserRole = (callerId, targetUserId, newRole) => {
+// Admin Đổi vai trò tài khoản (Chặn leo thang đặc quyền SYSTEM_ADMIN, chỉ cho phép giữa PET_OWNER và VET_DOCTOR)
+export const adminChangeUserRole = async (callerId, targetUserId, newRole) => {
   verifySystemAdmin(callerId);
-  if (!Object.values(ROLES).includes(newRole)) {
-    throw new Error('Vai trò không hợp lệ trong hệ thống.');
+
+  // RÀNG BUỘC BẢO MẬT 1: Tuyệt đối không cho phép gán hoặc leo thang quyền SYSTEM_ADMIN
+  if (newRole === ROLES.SYSTEM_ADMIN || newRole === 'system_admin') {
+    throw new Error('Bảo mật: Tuyệt đối không được phép thăng quyền lên Quản trị viên hệ thống!');
+  }
+
+  // RÀNG BUỘC BẢO MẬT 2: Chỉ cho phép chuyển đổi vai trò giữa pet_owner và vet_doctor
+  if (newRole !== ROLES.PET_OWNER && newRole !== ROLES.VET_DOCTOR) {
+    throw new Error('Vai trò không hợp lệ. Chỉ cho phép chuyển đổi giữa Chủ nuôi và Bác sĩ thú y.');
   }
 
   const users = getUsers();
@@ -639,12 +730,29 @@ export const adminChangeUserRole = (callerId, targetUserId, newRole) => {
 
   const target = users[index];
 
-  // Quy tắc an toàn: Không cho hạ quyền quản trị viên hệ thống hoạt động cuối cùng
-  if (target.role === ROLES.SYSTEM_ADMIN && newRole !== ROLES.SYSTEM_ADMIN) {
-    const activeAdmins = users.filter(u => u.role === ROLES.SYSTEM_ADMIN && !u.isLocked);
-    if (activeAdmins.length <= 1) {
-      throw new Error('Không thể hạ quyền Quản trị viên hệ thống hoạt động cuối cùng!');
+  // RÀNG BUỘC BẢO MẬT 3: Tuyệt đối không cho phép thay đổi vai trò của Quản trị viên hệ thống
+  if (target.role === ROLES.SYSTEM_ADMIN || target.role === 'system_admin') {
+    throw new Error('Không thể thay đổi vai trò của Quản trị viên hệ thống!');
+  }
+
+  // Đồng bộ với Backend API
+  try {
+    const response = await fetch(`/api/auth/users/${targetUserId}/change-role`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ callerId, role: newRole })
+    });
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || 'Máy chủ từ chối yêu cầu thay đổi vai trò.');
     }
+  } catch (err) {
+    // Nếu là lỗi nghiệp vụ từ server (400, 403, 404), throw ngay lập tức
+    if (!err.message.includes('Failed to fetch') && !err.message.includes('NetworkError') && !err.message.includes('Load failed')) {
+      throw err;
+    }
+    // Nếu backend offline, ghi nhận cảnh báo và duy trì cập nhật local
+    console.warn('[PetCare Auth] Backend offline khi đổi vai trò, lưu cập nhật vào local snapshot.');
   }
 
   target.role = newRole;
@@ -697,7 +805,7 @@ export const adminCreateUser = async (callerId, userData) => {
   try {
     response = await fetch('/api/auth/admin/create-user', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         callerId,
         name: name.trim(),
@@ -721,8 +829,9 @@ export const adminCreateUser = async (callerId, userData) => {
   }
 
   const serverUser = data.user;
-  // Lưu bản ghi vào local snapshot (kèm password để xác thực offline nếu cần)
-  const newUser = { ...serverUser, password };
+  // Lưu bản ghi vào local snapshot (không lưu password trong trình duyệt)
+  const newUser = { ...serverUser };
+  delete newUser.password;
 
   // Giải phóng email trong danh sách đã xóa ở localStorage (nếu có)
   const deletedList = getStored(AUTH_STORAGE_KEYS.DELETED_USERS, []);
@@ -776,13 +885,12 @@ export const adminResetUserPassword = async (callerId, targetUserId, newTemporar
   const cleanTargetId = targetUserId ? String(targetUserId).trim() : '';
   const cleanTargetEmail = targetEmail ? String(targetEmail).trim().toLowerCase() : '';
 
-  // 1. Thử cập nhật trên Backend Server
-  let serverSuccess = false;
-  let serverUser = null;
+  // 1. Cập nhật trên Backend Server
+  let response;
   try {
-    const response = await fetch('/api/auth/admin/reset-password', {
+    response = await fetch('/api/auth/admin/reset-password', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         callerId,
         targetUserId: cleanTargetId,
@@ -790,40 +898,31 @@ export const adminResetUserPassword = async (callerId, targetUserId, newTemporar
         newTemporaryPassword
       })
     });
-    const data = await response.json().catch(() => ({}));
-    if (response.ok && data.success && data.user) {
-      serverSuccess = true;
-      serverUser = data.user;
-    } else if (response.status === 404) {
-      throw new Error('Không tìm thấy tài khoản người dùng hoặc tài khoản đã bị xóa.');
-    } else if (data.error) {
-      throw new Error(data.error);
-    }
   } catch (err) {
-    if (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('NetworkError') && !err.message.includes('Load failed')) {
-      throw err;
-    }
+    throw new Error('Không thể kết nối đến máy chủ để đặt lại mật khẩu.');
   }
 
-  // 2. Tìm và cập nhật trong danh sách người dùng local
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.success || !data.user) {
+    throw new Error(data.error || 'Không thể đặt lại mật khẩu tạm thời.');
+  }
+
+  const serverUser = data.user;
+  delete serverUser.password;
+
+  // 2. Cập nhật trong danh sách người dùng local (không lưu password)
   const users = getUsers();
   const index = users.findIndex(u => 
     (cleanTargetId && String(u.id).trim() === cleanTargetId) ||
     (cleanTargetEmail && (u.email || '').trim().toLowerCase() === cleanTargetEmail)
   );
 
-  if (index === -1 && !serverSuccess) {
-    throw new Error('Không tìm thấy tài khoản người dùng hoặc tài khoản đã bị xóa.');
-  }
-
   const nowStr = new Date().toISOString();
   if (index !== -1) {
-    users[index].password = newTemporaryPassword;
+    users[index] = { ...users[index], ...serverUser };
+    delete users[index].password;
     users[index].mustChangePassword = true;
     users[index].passwordChangedAt = nowStr;
-    if (serverUser && serverUser.id) {
-      users[index].id = serverUser.id;
-    }
     setStored(AUTH_STORAGE_KEYS.USERS, users);
   }
 
@@ -838,6 +937,7 @@ export const adminResetUserPassword = async (callerId, targetUserId, newTemporar
       mustChangePassword: true,
       passwordChangedAt: nowStr
     };
+    delete updatedSession.password;
     setStored(AUTH_STORAGE_KEYS.SESSION, updatedSession);
     try {
       localStorage.setItem('petcare_active_user', JSON.stringify(updatedSession));
@@ -846,7 +946,7 @@ export const adminResetUserPassword = async (callerId, targetUserId, newTemporar
   }
 
   sound?.playSuccess?.();
-  return index !== -1 ? users[index] : serverUser;
+  return serverUser;
 };
 
 /**
@@ -902,7 +1002,7 @@ export const adminDeleteUser = async (callerId, targetUserId, confirmEmail, targ
   try {
     deleteResponse = await fetch('/api/auth/admin/delete-user', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         callerId,
         targetUserId: targetUser.id,
@@ -987,40 +1087,46 @@ export const completeFirstLoginPasswordChange = async (userId, newPassword) => {
 
   const nowStr = new Date().toISOString();
 
+  let response;
   try {
-    const response = await fetch('/api/auth/first-login-change-password', {
+    response = await fetch('/api/auth/first-login-change-password', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ userId, newPassword })
     });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok && data.error) {
-      throw new Error(data.error);
-    }
   } catch (err) {
-    if (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('NetworkError') && !err.message.includes('Load failed')) {
-      throw err;
-    }
+    throw new Error('Không thể kết nối đến máy chủ để đổi mật khẩu lần đầu.');
   }
 
-  // Cập nhật trong danh sách local
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Đổi mật khẩu lần đầu không thành công.');
+  }
+
+  if (data.token) {
+    localStorage.setItem('petcare_auth_token', data.token);
+  }
+
+  // Cập nhật trong danh sách local (không lưu password)
   const users = getUsers();
   const index = users.findIndex(u => u.id === userId);
   if (index !== -1) {
-    users[index].password = newPassword;
+    delete users[index].password;
     users[index].mustChangePassword = false;
     users[index].passwordChangedAt = nowStr;
     setStored(AUTH_STORAGE_KEYS.USERS, users);
   }
 
-  // Cập nhật phiên hiện tại
+  // Cập nhật phiên hiện tại (không lưu password)
   const currentSession = getStored(AUTH_STORAGE_KEYS.SESSION, null);
   if (currentSession && (currentSession.id === userId || currentSession.email)) {
     const updatedSession = {
       ...currentSession,
       mustChangePassword: false,
-      authTime: nowStr
+      authTime: nowStr,
+      passwordChangedAt: nowStr
     };
+    delete updatedSession.password;
     setStored(AUTH_STORAGE_KEYS.SESSION, updatedSession);
     try {
       localStorage.setItem('petcare_active_user', JSON.stringify(updatedSession));
@@ -1038,8 +1144,21 @@ export const completeFirstLoginPasswordChange = async (userId, newPassword) => {
  * Hàm này CẬP NHẬT local snapshot từ backend, không merge với legacy data.
  */
 export const syncUsersWithBackend = async () => {
+  const initialToken = typeof localStorage !== 'undefined' ? (localStorage.getItem('petcare_token') || localStorage.getItem('petcare_auth_token')) : null;
+  const initialSessionStr = typeof localStorage !== 'undefined' ? (localStorage.getItem('petcare_active_user') || localStorage.getItem('petcare_current_user')) : null;
+  if (!initialToken) {
+    return [];
+  }
+  const headers = getAuthHeaders();
   // Lấy danh sách người dùng từ backend
-  const response = await fetch('/api/auth/users');
+  const response = await fetch('/api/auth/users', { headers });
+  if (response.status === 401 || response.status === 403) {
+    const errData = await response.json().catch(() => ({}));
+    const err = new Error(errData.error || 'Truy cập danh sách tài khoản bị từ chối.');
+    err.status = response.status;
+    err.code = errData.code;
+    throw err;
+  }
   if (!response.ok) {
     throw new Error('Không thể tải danh sách tài khoản từ máy chủ.');
   }
@@ -1049,9 +1168,19 @@ export const syncUsersWithBackend = async () => {
     throw new Error('Máy chủ trả dữ liệu không hợp lệ.');
   }
 
+  // Kiểm tra lại phiên đăng nhập sau khi hoàn thành fetch bất đồng bộ
+  // So sánh phiên/token ban đầu với phiên/token hiện tại.
+  // Khác phiên thì hủy bỏ kết quả, không ghi vào cache.
+  const currentToken = typeof localStorage !== 'undefined' ? (localStorage.getItem('petcare_token') || localStorage.getItem('petcare_auth_token')) : null;
+  const currentSessionStr = typeof localStorage !== 'undefined' ? (localStorage.getItem('petcare_active_user') || localStorage.getItem('petcare_current_user')) : null;
+  if (!currentToken || currentToken !== initialToken || currentSessionStr !== initialSessionStr) {
+    console.warn('[PetCare Auth] Phiên làm việc đã thay đổi hoặc kết thúc trong lúc đồng bộ users; hủy bỏ kết quả ghi cache.');
+    return [];
+  }
+
   // Đồng bộ danh sách đã xóa từ server để đảm bảo nhất quán
   try {
-    const delResponse = await fetch('/api/auth/deleted-users');
+    const delResponse = await fetch('/api/auth/deleted-users', { headers });
     if (delResponse.ok) {
       const serverDeleted = await delResponse.json();
       if (Array.isArray(serverDeleted)) {
@@ -1110,19 +1239,11 @@ export const syncUsersWithBackend = async () => {
     }
   } catch { /* Bỏ qua lỗi legacy */ }
 
-  // Lưu snapshot backend vào localStorage - đây là nguồn duy nhất cho danh sách Admin
-  // Giữ lại trường password từ local nếu cần (cho offline auth)
-  const localSnapshot = getStored(AUTH_STORAGE_KEYS.USERS, []) || [];
-  const localMap = new Map(localSnapshot.map(u => [String(u.id).trim(), u]));
-
+  // Lưu snapshot backend vào localStorage - không lưu mật khẩu hoặc hash mật khẩu
   const mergedUsers = activeServerUsers.map(su => {
-    const local = localMap.get(String(su.id).trim());
-    return {
-      ...(local || {}),
-      ...su,
-      // Giữ password local nếu backend không trả về (backend ẩn password)
-      password: (local?.password && !su.password) ? local.password : (su.password || local?.password || 'User@123456')
-    };
+    const copy = { ...su };
+    delete copy.password;
+    return copy;
   });
 
   setStored(AUTH_STORAGE_KEYS.USERS, mergedUsers);

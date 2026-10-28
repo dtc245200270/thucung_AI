@@ -1,2022 +1,1670 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import confetti from 'canvas-confetti';
+import React, { useState, useMemo } from 'react';
 import { 
   CalendarDays, 
   Calendar, 
-  Calendar as CalendarIcon,
-  LayoutList,
-  ListTodo, 
+  LayoutList, 
   Plus, 
-  Sparkles, 
   CheckCircle2, 
-  Circle, 
   Clock, 
   MapPin, 
-  Trash2, 
   Edit3, 
   Repeat, 
   Filter, 
   PawPrint, 
   AlertTriangle, 
   ChevronRight, 
-  Layers, 
-  Bell,
-  Stethoscope,
-  RefreshCw,
-  Download,
-  Share2,
-  Syringe,
-  Pill,
-  Home,
-  Check,
-  Flame,
-  ClipboardList
+  Download, 
+  Stethoscope, 
+  UserCheck, 
+  Phone, 
+  User, 
+  FileText, 
+  X, 
+  Trash2, 
+  AlertCircle, 
+  Info,
+  CalendarCheck,
+  RotateCcw,
+  Archive
 } from 'lucide-react';
-import { ScheduleBadge } from '../common/Badges';
-import { SCHEDULE_TYPES } from '../../constants/mockData';
 import { CalendarMonthView } from './CalendarMonthView';
-import DailyStreakChecklist from '../daily/DailyStreakChecklist';
-import HabitsUnifiedView from './HabitsUnifiedView';
 import { sound } from '../../services/soundService';
-import { 
-  generateIcsCalendar, 
-  getAppointments, 
-  saveActiveAppointments, 
-  deleteAppointment,
-  getPetsHealthData,
-  updatePetWeight,
-  normalizePetHealthKey
-} from '../../services/storageService';
+import { generateIcsCalendar } from '../../utils/dateUtils.js';
+import { getTodayVnDate, getCurrentVnTime, getVnDateString } from '../../utils/dateUtils.js';
+import { PageContainer, PageHeader, Tabs, FilterBar, EmptyState, Modal } from '../common/ui';
+import { SCHEDULE_TYPES } from '../../constants/mockData';
+import { ScheduleBadge } from '../common/Badges';
+import { archiveAppointment, unarchiveAppointment } from '../../services/storageService';
 
-// DANH SÁCH THÚ CƯNG CHUẨN ĐỂ PHÂN BẢNG CHĂM SÓC RIÊNG BIỆT CHO TỪNG BÉ
-export const PETS_LIST = [
-  { 
-    id: 'mochi', 
-    altId: 'pet-1',
-    name: 'Mochi', 
-    species: 'Chó Golden Retriever', 
-    avatar: 'https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=300',
-    age: '2.5 Tuổi',
-    weight: '24.5 kg',
-    gender: 'Đực',
-    accentColor: 'amber',
-    badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-    borderClass: 'border-amber-500/30 hover:border-amber-400/50',
-    headerGradient: 'from-amber-500/15 via-amber-500/5 to-transparent',
-    iconEmoji: '🐕'
-  },
-  { 
-    id: 'luna', 
-    altId: 'pet-2',
-    name: 'Luna', 
-    species: 'Mèo Anh Lông Ngắn (BSH)', 
-    avatar: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=300',
-    age: '1.5 Tuổi',
-    weight: '4.2 kg',
-    gender: 'Cái',
-    accentColor: 'sky',
-    badgeClass: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
-    borderClass: 'border-sky-500/30 hover:border-sky-400/50',
-    headerGradient: 'from-sky-500/15 via-sky-500/5 to-transparent',
-    iconEmoji: '🐱'
-  },
-  { 
-    id: 'banh-bao', 
-    altId: 'pet-3',
-    name: 'Bánh Bao', 
-    species: 'Thỏ Minilop', 
-    avatar: 'https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?auto=format&fit=crop&w=300',
-    age: '8 Tháng',
-    weight: '1.8 kg',
-    gender: 'Đực',
-    accentColor: 'emerald',
-    badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
-    borderClass: 'border-emerald-500/30 hover:border-emerald-400/50',
-    headerGradient: 'from-emerald-500/15 via-emerald-500/5 to-transparent',
-    iconEmoji: '🐰'
-  }
-];
+// ============================================================================
+// COMPONENT AVATAR THÚ CƯNG AN TOÀN (CHỐNG LỖI ẢNH, DÙNG ICON TRUNG TÍNH)
+// ============================================================================
+export const SafePetAvatar = ({ pet, size = 'md', className = '' }) => {
+  const [hasError, setHasError] = useState(false);
+  const sizeClasses = {
+    sm: 'w-6 h-6',
+    md: 'w-8 h-8',
+    lg: 'w-11 h-11'
+  }[size] || 'w-8 h-8';
 
-// BẢNG DANH SÁCH VIỆC CHĂM SÓC MẪU MẶC ĐỊNH TẠI NHÀ THEO YÊU CẦU CHO CẢ 3 BÉ
-export const DEFAULT_HOME_ROUTINES = [];
+  const iconSizes = {
+    sm: 'w-3.5 h-3.5',
+    md: 'w-4 h-4',
+    lg: 'w-5 h-5'
+  }[size] || 'w-4 h-4';
 
-// HELPER NHẬN DIỆN VÀ KHỚP THÚ CƯNG 2 CHIỀU CHUẨN XÁC GIỮA petId, petName VÀ TIÊU ĐỀ
-export const isRoutineForPet = (routine, pet) => {
-  if (!routine || !pet) return false;
-  const pId = String(pet.id || '').toLowerCase().trim();
-  const pAltId = String(pet.altId || '').toLowerCase().trim();
-  const pName = String(pet.name || '').toLowerCase().trim();
-
-  const rPetId = String(routine.petId || '').toLowerCase().trim();
-  const rPetName = String(routine.petName || routine.pet_name || '').toLowerCase().trim();
-  const rTitle = String(routine.title || '').toLowerCase().trim();
-
-  // 1. Khớp chính xác ID hoặc Alt ID (petId / altId)
-  if (rPetId) {
-    if (rPetId === pId || (pAltId && rPetId === pAltId)) return true;
-    if ((pId === 'mochi' || pAltId === 'pet-1' || pName.includes('mochi')) && (rPetId === 'mochi' || rPetId === 'pet-1')) return true;
-    if ((pId === 'luna' || pAltId === 'pet-2' || pName.includes('luna')) && (rPetId === 'luna' || rPetId === 'pet-2')) return true;
-    if ((pId === 'banh-bao' || pAltId === 'pet-3' || pName.includes('bánh bao') || pName.includes('banh bao')) && 
-        (rPetId === 'banh-bao' || rPetId === 'banhbao' || rPetId === 'pet-3')) return true;
+  if (!pet || !pet.avatar || hasError) {
+    return (
+      <div 
+        className={`${sizeClasses} rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0 border border-emerald-200/80 dark:border-emerald-800/50 ${className}`}
+        title={pet?.name || 'Thú cưng'}
+      >
+        <PawPrint className={iconSizes} />
+      </div>
+    );
   }
 
-  // 2. Khớp theo petName
-  if (pName && rPetName) {
-    if (rPetName.includes(pName) || pName.includes(rPetName)) return true;
-  }
-
-  // 3. Khớp theo title
-  if (pName && rTitle) {
-    if (rTitle.includes(pName)) return true;
-  }
-
-  // 4. Khớp theo ngữ cảnh / từ khóa đặc thù từng bé
-  if (pName.includes('mochi') || pId === 'mochi' || pAltId === 'pet-1') {
-    if (rTitle.includes('golden') || rTitle.includes('drontal') || rTitle.includes('bravecto') || rTitle.includes('glucosamine') || rTitle.includes('epi-otic')) return true;
-  }
-  if (pName.includes('luna') || pId === 'luna' || pAltId === 'pet-2') {
-    if (rTitle.includes('broadline') || rTitle.includes('revolution') || rTitle.includes('cỏ mèo') || rTitle.includes('bsh') || rTitle.includes('mèo')) return true;
-  }
-  if (pName.includes('bánh bao') || pName.includes('banh bao') || pId === 'banh-bao' || pAltId === 'pet-3') {
-    if (rTitle.includes('alfalfa') || rTitle.includes('thỏ') || rTitle.includes('minilop')) return true;
-  }
-
-  return false;
+  return (
+    <img
+      src={pet.avatar}
+      alt={pet.name || 'Thú cưng'}
+      onError={() => setHasError(true)}
+      className={`${sizeClasses} rounded-full object-cover shrink-0 border border-slate-200 dark:border-white/10 ${className}`}
+    />
+  );
 };
 
-// BỘ DỮ LIỆU MẪU DỰ PHÒNG CHUẨN THÚ Y TRONG THÁNG 09/2026
-export const DEFAULT_SCHEDULES = [
-  {
-    id: 'sch-def-1',
-    petId: 'pet-1',
-    title: 'Tiêm phòng dại Rabisin & Vắc-xin 7 bệnh nhắc lại - Mochi (Golden)',
-    type: 'vaccine',
-    date: '2026-09-26',
-    time: '09:30',
-    location: 'Bệnh viện thú y PetHealth 262 Quang Trung',
-    completed: false,
-    notes: 'Mang theo sổ tiêm chủng của Mochi. Nhịn ăn sáng 2 tiếng trước khi tiêm.',
-    repeat: 'yearly'
-  },
-  {
-    id: 'sch-def-2',
-    petId: 'pet-2',
-    title: 'Nhỏ gáy trị ve rận & giun sán Broadline - Luna (Mèo BSH)',
-    type: 'deworm',
-    date: '2026-09-27',
-    time: '19:00',
-    location: 'Tại nhà',
-    completed: false,
-    notes: 'Không tắm cho mèo trước và sau khi nhỏ thuốc 48 tiếng.',
-    repeat: 'monthly'
-  },
-  {
-    id: 'sch-def-3',
-    petId: 'pet-3',
-    title: 'Khám kiểm tra mài răng cửa & cắt tỉa móng - Bánh Bao (Thỏ Minilop)',
-    type: 'vet',
-    date: '2026-09-28',
-    time: '10:00',
-    location: 'Phòng khám thú y Sammi Animal Clinic',
-    completed: false,
-    notes: 'Kiểm tra khớp cắn và răng cửa xem có mọc lệch gây đau miệng không.',
-    repeat: 'quarterly'
-  },
-  {
-    id: 'sch-def-4',
-    petId: 'pet-1',
-    title: 'Spa tắm sục ozone & cạo lông đệm chân - Mochi',
-    type: 'grooming',
-    date: '2026-09-29',
-    time: '14:00',
-    location: 'Paddy Pet Care & Grooming Spa',
-    completed: false,
-    notes: 'Vệ sinh tai và tuyến hôi hậu môn kỹ lưỡng.',
-    repeat: 'monthly'
-  },
-  {
-    id: 'sch-def-5',
-    petId: 'pet-2',
-    title: 'Siêu âm tim màu & Xét nghiệm sinh hóa máu định kỳ - Luna',
-    type: 'vet',
-    date: '2026-09-30',
-    time: '08:30',
-    location: 'Bệnh viện Thú y 2Vet Hospital',
-    completed: false,
-    notes: 'Nhịn ăn 6 tiếng trước giờ lấy mẫu máu kiểm tra chức năng thận.',
-    repeat: 'yearly'
-  },
-  {
-    id: 'sch-def-6',
-    petId: 'pet-1',
-    title: 'Uống viên tẩy giun định kỳ Drontal Plus (2.5 viên) - Mochi',
-    type: 'deworm',
-    date: '2026-09-30',
-    time: '07:30',
-    location: 'Tại nhà',
-    completed: false,
-    notes: 'Cho uống kèm thức ăn buổi sáng sau khi tập thể dục.',
-    repeat: 'quarterly'
-  },
-  {
-    id: 'sch-def-7',
-    petId: 'pet-2',
-    title: 'Bổ sung men vi sinh tiêu hóa & gel dinh dưỡng Megaderm - Luna',
-    type: 'medicine',
-    date: '2026-09-27',
-    time: '08:30',
-    location: 'Tại nhà',
-    completed: false,
-    notes: 'Trộn 1/2 gói gel dinh dưỡng vào thức ăn ướt buổi sáng.',
-    repeat: 'monthly'
-  },
-  {
-    id: 'sch-def-8',
-    petId: 'pet-1',
-    title: 'Nhỏ gáy phòng ve rận & ghẻ tai (Bravecto) - Mochi',
-    type: 'deworm',
-    date: '2026-09-28',
-    time: '19:30',
-    location: 'Tại nhà',
-    completed: false,
-    notes: 'Sử dụng Bravecto hoặc Nexgard / Frontline. Không tắm cho bé trong vòng 48h.',
-    repeat: 'monthly'
+// ============================================================================
+// HELPER CHUẨN HÓA TRẠNG THÁI NGHIỆP VỤ & NHÃN THỜI GIAN LỊCH KHÁM
+// ============================================================================
+export const getAppointmentStatusInfo = (rawStatus) => {
+  const s = String(rawStatus || '').toLowerCase().trim();
+  if (s === 'pending' || s === 'chờ duyệt' || s === 'chờ xác nhận') {
+    return {
+      key: 'pending',
+      label: 'Chờ xác nhận',
+      badgeClass: 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200 dark:border-amber-800/50'
+    };
   }
-];
+  if (s === 'confirmed' || s === 'đã duyệt' || s === 'đã xác nhận') {
+    return {
+      key: 'confirmed',
+      label: 'Đã xác nhận',
+      badgeClass: 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border-blue-200 dark:border-blue-800/50'
+    };
+  }
+  if (s === 'in_progress' || s === 'đang khám') {
+    return {
+      key: 'in_progress',
+      label: 'Đang khám',
+      badgeClass: 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border-purple-200 dark:border-purple-800/50'
+    };
+  }
+  if (s === 'completed' || s === 'hoàn thành') {
+    return {
+      key: 'completed',
+      label: 'Hoàn thành',
+      badgeClass: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/50'
+    };
+  }
+  if (s === 'cancelled' || s === 'đã hủy') {
+    return {
+      key: 'cancelled',
+      label: 'Đã hủy',
+      badgeClass: 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border-rose-200 dark:border-rose-800/50'
+    };
+  }
+  return {
+    key: 'pending',
+    label: 'Chờ xác nhận',
+    badgeClass: 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200 dark:border-amber-800/50'
+  };
+};
 
-// HÀM ĐỊNH DẠNG NGÀY THÁNG AN TOÀN CHỐNG CRASH
-export const safeFormatDate = (dateStr) => {
-  try {
-    if (!dateStr) return 'Chưa đặt ngày';
-    const d = new Date(dateStr);
-    return isNaN(d.getTime()) ? String(dateStr) : d.toLocaleDateString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  } catch {
-    return dateStr ? String(dateStr) : 'Chưa đặt ngày';
+export const getAppointmentTemporalTag = (dateStr, timeStr) => {
+  if (!dateStr) return { key: 'upcoming', label: 'Sắp tới', className: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40' };
+  const todayVn = getTodayVnDate();
+  const currentVnTime = getCurrentVnTime();
+  const cleanDate = getVnDateString(dateStr);
+
+  if (cleanDate < todayVn) {
+    return { key: 'past', label: 'Đã qua giờ hẹn', className: 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/[0.06]' };
+  }
+  if (cleanDate === todayVn) {
+    if (timeStr && timeStr < currentVnTime) {
+      return { key: 'past', label: 'Đã qua giờ hẹn', className: 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/[0.06]' };
+    }
+    return { key: 'today', label: 'Hôm nay', className: 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 font-bold' };
+  }
+  return { key: 'upcoming', label: 'Sắp tới', className: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40' };
+};
+
+export const getCareTemporalTag = (dateStr) => {
+  if (!dateStr) return { key: 'upcoming', label: 'Sắp tới', className: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40' };
+  const todayVn = getTodayVnDate();
+  const cleanDate = getVnDateString(dateStr);
+
+  if (cleanDate < todayVn) {
+    return { key: 'past', label: 'Đã qua ngày', className: 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/[0.06]' };
+  }
+  if (cleanDate === todayVn) {
+    return { key: 'today', label: 'Hôm nay', className: 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 font-bold' };
+  }
+  return { key: 'upcoming', label: 'Sắp tới', className: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40' };
+};
+
+export const formatRecurrenceLabel = (repeatVal) => {
+  switch (repeatVal) {
+    case 'daily': return 'Hàng ngày';
+    case 'weekly': return 'Hàng tuần';
+    case 'monthly': return 'Hàng tháng';
+    case 'quarterly': return 'Mỗi 3 tháng';
+    case 'yearly': return 'Hàng năm';
+    default: return null;
   }
 };
 
-// HELPER GÁN ĐÍCH DANH TÊN BÉ THAY VÌ ĐỂ RỖNG "Bé: Thú cưng"
-export const resolvePetName = (item, safePets = []) => {
-  if (!item) return 'Mochi';
-  // 1. Tìm trong safePets theo petId
-  const matchedPet = safePets.find(p => p && p.id === item.petId);
-  if (matchedPet?.name && matchedPet.name.trim() && matchedPet.name !== 'Thú cưng') {
-    return matchedPet.name;
-  }
-  // 2. Tìm tên trực tiếp
-  const directName = item.petName || item.pet_name;
-  if (directName && directName.trim() && directName !== 'Thú cưng') {
-    return directName;
-  }
-  // 3. Phân tích ngữ cảnh từ tiêu đề hoặc ghi chú
-  const content = `${item.title || ''} ${item.service || ''} ${item.notes || ''} ${item.note || ''} ${item.petType || ''}`.toLowerCase();
-  if (content.includes('mochi') || content.includes('golden')) return 'Mochi';
-  if (content.includes('luna') || content.includes('bsh') || content.includes('mèo')) return 'Luna';
-  if (content.includes('bánh bao') || content.includes('banh bao') || content.includes('thỏ') || content.includes('minilop')) return 'Bánh Bao';
-
-  // 4. Theo petId
-  if (item.petId === 'pet-1') return 'Mochi';
-  if (item.petId === 'pet-2') return 'Luna';
-  if (item.petId === 'pet-3') return 'Bánh Bao';
-
-  // 5. Fallback luân phiên đích danh
-  const hash = String(item.id || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  const fallbacks = ['Mochi', 'Luna', 'Bánh Bao'];
-  return fallbacks[hash % fallbacks.length];
-};
-
-const ScheduleViewInner = ({
-  schedules: propSchedules,
-  appointments: propAppointments,
-  pets: propPets = [],
-  habits: propHabits = [],
-  familyMembers: propFamilyMembers = [],
-  currentMemberId = 'fam-1',
-  onToggleHabit = () => {},
-  onAddHabit = () => {},
-  onDeleteHabit = () => {},
+// ============================================================================
+// COMPONENT CHÍNH SCHEDULEVIEW
+// ============================================================================
+export const ScheduleView = ({
+  schedules = [],
+  appointments = [],
+  pets = [],
+  selectedPetId: propSelectedPetId,
+  onSelectPet: propOnSelectPet,
   onToggleComplete = () => {},
   onOpenAddSchedule = () => {},
   onOpenEditSchedule = () => {},
   onDeleteSchedule = () => {},
-  onDeleteAppointment: propOnDeleteAppointment,
-  onOpenAiSchedule = () => {},
-  onOpenOmniAlert,
-  onOpenVetBooking,
-  initialTab = 'clinical'
+  onCancelAppointment,
+  onUpdateAppointment,
+  onOpenVetBooking = () => {},
+  currentUser,
+  onReloadData = () => {}
 }) => {
-  // 1. STATE ĐIỀU HƯỚNG CHÍNH (BẮT BUỘC KHAI BÁO ĐẦY ĐỦ):
-  // scheduleViewMode nhận 1 trong 2 giá trị: 'clinical' (Lâm sàng) hoặc 'habits' (Việc thường nhật)
-  const [scheduleViewMode, setScheduleViewMode] = useState(() => {
-    const norm = String(initialTab || '').toLowerCase();
-    return norm === 'habits' ? 'habits' : 'clinical';
-  });
+  // 1. Tab chính: 'appointments' (Lịch khám) hoặc 'care' (Lịch chăm sóc)
+  const [activeMainTab, setActiveMainTab] = useState('appointments');
 
-  // 2. STATE CHO CÁC CHẾ ĐỘ XEM CON (SUB-VIEWS):
-  const [clinicalTab, setClinicalTab] = useState('list'); // 'list' | 'month'
-  const [habitsTab, setHabitsTab] = useState('home_care'); // 'home_care' | 'checklist'
+  // 2. Chế độ xem: 'list' (Danh sách) hoặc 'month' (Lịch tháng)
+  const [viewMode, setViewMode] = useState('list');
 
-  // Compatibility aliases
-  const activeMainTab = scheduleViewMode === 'habits' ? 'HABITS' : 'CLINICAL';
-  const setActiveMainTab = (val) => setScheduleViewMode(String(val || '').toLowerCase() === 'habits' ? 'habits' : 'clinical');
-  const clinicalSubTab = clinicalTab === 'month' || clinicalTab === 'calendar' ? 'CALENDAR' : 'LIST';
-  const setClinicalSubTab = (val) => setClinicalTab(String(val || '').toLowerCase() === 'calendar' ? 'month' : String(val || '').toLowerCase());
-  const habitsSubTab = habitsTab === 'checklist' ? 'CHECKLIST' : 'HOME_CARE';
-  const setHabitsSubTab = (val) => setHabitsTab(String(val || '').toLowerCase());
-  const [isEditingWeight, setIsEditingWeight] = useState(false);
-  const [filterPetId, setFilterPetId] = useState('all');
-  const [filterType, setFilterType] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'today' | 'upcoming' | 'overdue' | 'completed'
-  const [selectedRoutinePetId, setSelectedRoutinePetId] = useState('mochi');
+  // 3. Bộ chọn thú cưng: Đồng bộ với state prop hoặc dùng local state
+  const [internalPetId, setInternalPetId] = useState('all');
+  const activePetId = propSelectedPetId !== undefined ? propSelectedPetId : internalPetId;
+  const handlePetChange = (id) => {
+    sound?.playClick?.();
+    setInternalPetId(id);
+    if (propOnSelectPet) propOnSelectPet(id);
+  };
 
-  // Quản lý dữ liệu sức khỏe và cân nặng đồng bộ 2 chiều (Global / LocalStorage)
-  const [petsHealthData, setPetsHealthData] = useState(() => getPetsHealthData());
-  const activePetKey = normalizePetHealthKey(selectedRoutinePetId);
-  const activePetWeightVal = petsHealthData[activePetKey]?.weight || '';
-  const [currentWeightInput, setCurrentWeightInput] = useState(String(activePetWeightVal));
+  // 4. Bộ lọc ngày: 'all' | 'today' | 'upcoming' | 'past'
+  const [dateFilter, setDateFilter] = useState('all');
 
-  useEffect(() => {
-    setCurrentWeightInput(String(activePetWeightVal));
-  }, [activePetWeightVal, selectedRoutinePetId]);
+  // 5. Bộ lọc trạng thái:
+  // Lịch khám: 'all' | 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'archived'
+  // Lịch chăm sóc: 'all' | 'todo' | 'done'
+  const [appointmentStatusFilter, setAppointmentStatusFilter] = useState('all');
+  const [careStatusFilter, setCareStatusFilter] = useState('all');
+  const [careTypeFilter, setCareTypeFilter] = useState('all');
 
-  useEffect(() => {
-    const handleWeightChange = () => {
-      setPetsHealthData(getPetsHealthData());
-    };
-    window.addEventListener('petcare_weight_updated', handleWeightChange);
-    window.addEventListener('storage', handleWeightChange);
-    return () => {
-      window.removeEventListener('petcare_weight_updated', handleWeightChange);
-      window.removeEventListener('storage', handleWeightChange);
-    };
-  }, []);
+  // 6. Modal chi tiết & thao tác
+  const [selectedAppointmentDetail, setSelectedAppointmentDetail] = useState(null);
+  const [appointmentToCancel, setAppointmentToCancel] = useState(null);
+  const [cancelReasonInput, setCancelReasonInput] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
 
-  const handleQuickUpdateWeight = (e) => {
+  // Lưu trữ (Xóa khỏi danh sách) & Khôi phục lịch khám
+  const [appointmentToArchive, setAppointmentToArchive] = useState(null);
+  const [isSubmittingArchive, setIsSubmittingArchive] = useState(false);
+  const [archiveError, setArchiveError] = useState('');
+  const [isUnarchivingId, setIsUnarchivingId] = useState(null);
+  const [archiveNotice, setArchiveNotice] = useState(null);
+
+  const [selectedCareDetail, setSelectedCareDetail] = useState(null);
+  const [careToDelete, setCareToDelete] = useState(null);
+  const [isDeletingCare, setIsDeletingCare] = useState(false);
+
+  const todayVn = getTodayVnDate();
+  const currentVnTime = getCurrentVnTime();
+
+  // --------------------------------------------------------------------------
+  // LỌC DỮ LIỆU LỊCH KHÁM (APPOINTMENTS)
+  // --------------------------------------------------------------------------
+  const currentUserIdStr = String(currentUser?.id || '').trim();
+
+  const filteredAppointments = useMemo(() => {
+    const list = Array.isArray(appointments) ? appointments : [];
+    return list.filter(appt => {
+      if (!appt) return false;
+
+      // 0. Phân biệt trạng thái lưu trữ theo tài khoản người dùng
+      const isArchived = Boolean(
+        currentUserIdStr &&
+        Array.isArray(appt.archivedByUserIds) &&
+        appt.archivedByUserIds.includes(currentUserIdStr)
+      );
+
+      if (appointmentStatusFilter === 'archived') {
+        if (!isArchived) return false;
+      } else {
+        if (isArchived) return false;
+
+        // 3. Lọc theo trạng thái nghiệp vụ khi không ở chế độ xem lưu trữ
+        if (appointmentStatusFilter !== 'all') {
+          const statusInfo = getAppointmentStatusInfo(appt.status);
+          if (statusInfo.key !== appointmentStatusFilter) return false;
+        }
+      }
+
+      // 1. Lọc theo thú cưng
+      if (activePetId !== 'all' && appt.petId !== activePetId) {
+        return false;
+      }
+
+      // 2. Lọc theo khoảng ngày
+      const apptDate = getVnDateString(appt.date);
+      const apptTime = (appt.time || '').trim();
+
+      if (dateFilter === 'today') {
+        if (apptDate !== todayVn) return false;
+      } else if (dateFilter === 'upcoming') {
+        if (apptDate < todayVn) return false;
+        if (apptDate === todayVn && apptTime && apptTime < currentVnTime) return false;
+      } else if (dateFilter === 'past') {
+        if (apptDate > todayVn) return false;
+        if (apptDate === todayVn && (!apptTime || apptTime >= currentVnTime)) return false;
+      }
+
+      return true;
+    }).sort((a, b) => {
+      // Sắp xếp ngày mới nhất/gần nhất lên đầu
+      const dateA = `${getVnDateString(a.date)} ${a.time || '00:00'}`;
+      const dateB = `${getVnDateString(b.date)} ${b.time || '00:00'}`;
+      return dateA.localeCompare(dateB);
+    });
+  }, [appointments, activePetId, dateFilter, appointmentStatusFilter, todayVn, currentVnTime, currentUserIdStr]);
+
+  const unarchivedAppointmentsCount = useMemo(() => {
+    const list = Array.isArray(appointments) ? appointments : [];
+    return list.filter(a => {
+      const isArchived = Boolean(
+        currentUserIdStr &&
+        Array.isArray(a.archivedByUserIds) &&
+        a.archivedByUserIds.includes(currentUserIdStr)
+      );
+      return !isArchived;
+    }).length;
+  }, [appointments, currentUserIdStr]);
+
+
+  // --------------------------------------------------------------------------
+  // LỌC DỮ LIỆU LỊCH CHĂM SÓC (CARE SCHEDULES)
+  // --------------------------------------------------------------------------
+  const filteredSchedules = useMemo(() => {
+    const list = Array.isArray(schedules) ? schedules : [];
+    return list.filter(sch => {
+      if (!sch) return false;
+
+      // 1. Lọc theo thú cưng
+      if (activePetId !== 'all' && sch.petId !== activePetId) {
+        return false;
+      }
+
+      // 2. Lọc theo khoảng ngày
+      const schDate = getVnDateString(sch.date);
+      if (dateFilter === 'today') {
+        if (schDate !== todayVn) return false;
+      } else if (dateFilter === 'upcoming') {
+        if (schDate < todayVn) return false;
+      } else if (dateFilter === 'past') {
+        if (schDate >= todayVn) return false;
+      }
+
+      // 3. Lọc theo loại sự kiện chăm sóc
+      if (careTypeFilter !== 'all') {
+        if (careTypeFilter === 'deworm') {
+          if (sch.type !== 'deworm' && sch.type !== 'parasite') return false;
+        } else {
+          if (sch.type !== careTypeFilter) return false;
+        }
+      }
+
+      // 4. Lọc theo trạng thái hoàn thành
+      if (careStatusFilter === 'todo' && sch.completed) return false;
+      if (careStatusFilter === 'done' && !sch.completed) return false;
+
+      return true;
+    }).sort((a, b) => {
+      const dateA = `${getVnDateString(a.date)} ${a.time || '00:00'}`;
+      const dateB = `${getVnDateString(b.date)} ${b.time || '00:00'}`;
+      return dateA.localeCompare(dateB);
+    });
+  }, [schedules, activePetId, dateFilter, careTypeFilter, careStatusFilter, todayVn]);
+
+  // Tên thú cưng đang lọc để hiển thị trên banner
+  const selectedPetObject = useMemo(() => {
+    if (activePetId === 'all') return null;
+    return (pets || []).find(p => p && p.id === activePetId) || null;
+  }, [pets, activePetId]);
+
+  // --------------------------------------------------------------------------
+  // HÀNH ĐỘNG HỦY LỊCH KHÁM (CHỦ NUÔI)
+  // --------------------------------------------------------------------------
+  const handleConfirmCancelAppointment = async (e) => {
     e?.preventDefault?.();
-    const val = parseFloat(currentWeightInput);
-    if (isNaN(val) || val < 0.5 || val > 150) {
-      alert('Vui lòng nhập cân nặng hợp lệ từ 0.5 đến 150 kg!');
+    if (!appointmentToCancel) return;
+
+    const reason = cancelReasonInput.trim() || 'Chủ nuôi yêu cầu hủy lịch';
+    setIsCancelling(true);
+
+    try {
+      if (onCancelAppointment) {
+        await onCancelAppointment(appointmentToCancel.id, reason);
+      } else if (onUpdateAppointment) {
+        await onUpdateAppointment(appointmentToCancel.id, {
+          status: 'cancelled',
+          cancelReason: reason,
+          cancelledAt: new Date().toISOString()
+        });
+      }
+      sound?.playSuccess?.();
+      setAppointmentToCancel(null);
+      setSelectedAppointmentDetail(null);
+      setCancelReasonInput('');
+      onReloadData();
+    } catch (err) {
+      alert(err.message || 'Lỗi khi hủy lịch khám. Vui lòng thử lại.');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // HÀNH ĐỘNG XÓA KHỎI DANH SÁCH (LƯU TRỮ) & KHÔI PHỤC LỊCH KHÁM
+  // --------------------------------------------------------------------------
+  const handleConfirmArchiveAppointment = async () => {
+    if (!appointmentToArchive || isSubmittingArchive) return;
+    setIsSubmittingArchive(true);
+    setArchiveError('');
+    try {
+      await archiveAppointment(appointmentToArchive.id);
+      sound?.playSuccess?.();
+      const targetId = appointmentToArchive.id;
+      setAppointmentToArchive(null);
+      setSelectedAppointmentDetail(null);
+      setArchiveNotice({
+        type: 'archived',
+        message: `Đã xóa lịch #${targetId} khỏi danh sách hiển thị của bạn (đã lưu trữ). Bạn có thể xem lại tại bộ lọc "Đã lưu trữ".`
+      });
+      setTimeout(() => setArchiveNotice(null), 6000);
+      await onReloadData();
+    } catch (err) {
+      console.error('Lỗi khi lưu trữ lịch khám:', err);
+      setArchiveError(err.message || 'Lỗi khi xóa lịch khỏi danh sách. Vui lòng thử lại.');
+    } finally {
+      setIsSubmittingArchive(false);
+    }
+  };
+
+  const handleUnarchiveAppointment = async (apptId) => {
+    if (!apptId || isUnarchivingId) return;
+    setIsUnarchivingId(apptId);
+    try {
+      await unarchiveAppointment(apptId);
+      sound?.playSuccess?.();
+      setArchiveNotice({
+        type: 'restored',
+        message: `Đã khôi phục lịch #${apptId} về danh sách hiển thị.`
+      });
+      setTimeout(() => setArchiveNotice(null), 5000);
+      if (selectedAppointmentDetail?.id === apptId) {
+        setSelectedAppointmentDetail(null);
+      }
+      await onReloadData();
+    } catch (err) {
+      console.error('Lỗi khi khôi phục lịch khám:', err);
+      alert(err.message || 'Lỗi khi khôi phục lịch. Vui lòng thử lại.');
+    } finally {
+      setIsUnarchivingId(null);
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // HÀNH ĐỘNG XÓA LỊCH CHĂM SÓC
+  // --------------------------------------------------------------------------
+  const [deleteError, setDeleteError] = useState(null);
+  const [deleteNotice, setDeleteNotice] = useState(null);
+
+  const handleConfirmDeleteCare = async () => {
+    if (!careToDelete || isDeletingCare) return;
+    setIsDeletingCare(true);
+    setDeleteError(null);
+    try {
+      await onDeleteSchedule(careToDelete.id);
+      sound?.playTrash?.();
+      setCareToDelete(null);
+      setSelectedCareDetail(null);
+      setDeleteError(null);
+      onReloadData();
+    } catch (err) {
+      console.error('Lỗi khi xóa lịch chăm sóc:', err);
+      if (err.status === 404 || err.code === 'NOT_FOUND' || err.isGhostCleaned || (err.message && err.message.includes('không tồn tại'))) {
+        // Backend xác nhận bản ghi không còn tồn tại: tải lại nguồn dữ liệu có thẩm quyền để loại thẻ cũ; thông báo rõ ràng
+        setCareToDelete(null);
+        setSelectedCareDetail(null);
+        setDeleteError(null);
+        setDeleteNotice('Lịch này không còn tồn tại, danh sách đã được cập nhật.');
+        setTimeout(() => setDeleteNotice(null), 5000);
+        onReloadData();
+      } else {
+        // Hiển thị lỗi trong modal thay cho alert trình duyệt; không giả thành công khi lỗi mạng, 403 hoặc lỗi hệ thống
+        setDeleteError({
+          title: err.status === 403 ? 'Không có quyền thực hiện' : 'Xóa lịch thất bại',
+          message: err.message || 'Lỗi khi xóa lịch chăm sóc. Vui lòng thử lại.'
+        });
+      }
+    } finally {
+      setIsDeletingCare(false);
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // XUẤT LỊCH (.ICS) THEO PHẠM VI BỘ LỌC ĐANG CHỌN (CHUẨN ASIA/HO_CHI_MINH)
+  // --------------------------------------------------------------------------
+  const handleExportIcs = () => {
+    sound?.playPop?.();
+    const isAppt = activeMainTab === 'appointments';
+    const targetItems = isAppt ? filteredAppointments : filteredSchedules;
+
+    if (targetItems.length === 0) {
+      alert('Không có lịch nào trong phạm vi bộ lọc hiện tại để xuất file .ics.');
       return;
     }
 
-    try { sound?.playSuccess?.(); } catch {}
-
-    // 1. Cập nhật state và storage toàn cục (Đồng bộ sang Dashboard)
-    const updatedHealth = updatePetWeight(activePetKey, val);
-    setPetsHealthData(updatedHealth);
-
-    // 2. Cập nhật lại dòng mô tả liều lượng thuốc tẩy giun Drontal Plus
-    // "Liều lượng ${(weight / 10).toFixed(1)} viên theo cân nặng ${weight}kg"
-    const dewormDoseText = `Liều lượng ${(val / 10).toFixed(1)} viên theo cân nặng ${val}kg`;
-    setHomeRoutinesList(prevList => {
-      const updated = prevList.map(r => {
-        if (isRoutineForPet(r, { id: activePetKey, name: activePetKey }) && 
-            ((r.title || '').includes('Drontal') || (r.title || '').toLowerCase().includes('tẩy giun'))) {
-          let newNotes = r.notes || '';
-          if (newNotes.includes('Liều lượng') || newNotes.includes('viên')) {
-            newNotes = newNotes.replace(/Liều lượng [^.]+(\.|$)/i, `${dewormDoseText}. Cho uống kèm thức ăn buổi sáng.`);
-          } else {
-            newNotes = `${dewormDoseText}. ${newNotes}`;
-          }
-          return { ...r, notes: newNotes };
-        }
-        return r;
-      });
-      try {
-        localStorage.setItem('petcare_home_routines', JSON.stringify(updated));
-      } catch {}
-      return updated;
+    // Chuẩn hóa item cho generateIcsCalendar
+    const normalizedList = targetItems.map(item => {
+      if (isAppt) {
+        return {
+          id: item.id,
+          date: item.date,
+          time: item.time || '08:30',
+          title: `Khám thú y: ${item.service || 'Khám tổng quát'}`,
+          notes: `Cơ sở: ${item.facility || 'Cơ sở thú y'}\nBác sĩ: ${item.assignedVet || 'Chưa phân công'}\nLiên hệ: ${item.phone || ''}\nGhi chú: ${item.note || 'Không có'}`,
+          location: item.facility || 'Bệnh viện thú y',
+          petId: item.petId,
+          petName: item.petName
+        };
+      }
+      return item;
     });
-  };
 
-  // Khởi tạo state homeRoutinesList theo yêu cầu với cơ chế Data Seeding & Fallback
-  const [homeRoutinesList, setHomeRoutinesList] = useState(() => {
     try {
-      const saved = localStorage.getItem('petcare_home_routines');
-      if (saved) {
-        let parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Normalize Mochi routines to guarantee 4 overdue, 1 today
-          parsed = parsed.map(r => {
-            if (r.id === 'routine-mochi-4' && r.status === 'today') {
-              return { ...r, status: 'overdue', date: '2026-09-28' };
-            }
-            if (r.id === 'routine-mochi-1' && r.status === 'upcoming') {
-              return { ...r, status: 'overdue', date: '2026-09-22' };
-            }
-            if (r.id === 'routine-mochi-5') {
-              return { ...r, status: 'today', date: '2026-10-04' };
-            }
-            return r;
-          });
-          localStorage.setItem('petcare_home_routines', JSON.stringify(parsed));
-          return parsed;
-        }
-      }
-    } catch (err) {
-      console.error("Lỗi đọc storage routines:", err);
-    }
-    localStorage.setItem('petcare_home_routines', JSON.stringify(DEFAULT_HOME_ROUTINES));
-    return DEFAULT_HOME_ROUTINES;
-  });
-
-  // Dữ liệu an toàn: tôn trọng propSchedules và propPets đã được lọc theo người dùng
-  const rawSchedules = Array.isArray(propSchedules) ? propSchedules : [];
-
-  // Chuẩn hóa và sửa triệt để các mock data có năm 2099, 2098 và loại bỏ các bản ghi trùng lặp
-  const cleanSchedules = useMemo(() => {
-    const seen = new Set();
-    const result = [];
-
-    (rawSchedules || []).forEach((sch, idx) => {
-      if (!sch || typeof sch !== 'object') return;
-      const dateStr = sch.date ? String(sch.date).split('T')[0] : '';
-      const yr = dateStr ? new Date(dateStr).getFullYear() : 0;
-      
-      let item = { ...sch };
-      if (dateStr.includes('2099') || dateStr.includes('2098') || yr >= 2028 || yr < 2024) {
-        const realisticDay = 24 + (idx % 7);
-        const formattedDay = realisticDay < 10 ? `0${realisticDay}` : `${realisticDay}`;
-        item.date = `2026-09-${formattedDay}`;
-      }
-
-      if ((item.title || '').includes('Drontal Plus') && (item.date === '2026-09-28' || !item.date)) {
-        item.date = '2026-09-30';
-      }
-
-      if (item.title && (item.title.includes('cho kkk') || item.title.toLowerCase().includes('ghẻ tai cho kkk') || item.title.includes('kkk'))) {
-        item.title = 'Nhỏ gáy phòng ve rận & ghẻ tai (Bravecto)';
-        item.petId = item.petId || (propPets?.[0]?.id || '');
-      }
-
-      const pId = String(item.petId || '').trim();
-      const pTitle = String(item.title || '').trim().toLowerCase();
-      const pDate = String(item.date || '').split('T')[0];
-      const sig = `${pId}__${pDate}__${pTitle}`;
-
-      // Bỏ qua nếu trùng bản ghi
-      if (seen.has(sig)) return;
-      seen.add(sig);
-      result.push(item);
-    });
-
-    return result;
-  }, [rawSchedules, propPets]);
-
-  const safeSchedules = cleanSchedules;
-
-  // Quản lý danh sách ca hẹn lâm sàng với khả năng xóa ngay lập tức và đồng bộ 2 chiều
-  const [appointmentsList, setAppointmentsList] = useState(() => {
-    if (Array.isArray(propAppointments)) return propAppointments;
-    return getAppointments();
-  });
-
-  useEffect(() => {
-    if (Array.isArray(propAppointments)) {
-      setAppointmentsList(propAppointments);
-    }
-  }, [propAppointments]);
-
-  useEffect(() => {
-    const handleAppointmentsChange = () => {
-      setAppointmentsList(getAppointments());
-    };
-    window.addEventListener('petcare_appointments_updated', handleAppointmentsChange);
-    window.addEventListener('storage', handleAppointmentsChange);
-    return () => {
-      window.removeEventListener('petcare_appointments_updated', handleAppointmentsChange);
-      window.removeEventListener('storage', handleAppointmentsChange);
-    };
-  }, []);
-
-  const safeAppointments = appointmentsList;
-  const safePets = Array.isArray(propPets) ? propPets : [];
-
-  // 1. KHẮC PHỤC LỖI TRÙNG LẶP LỊCH HẸN TRONG ScheduleView.jsx:
-  // - Làm sạch danh sách ca khám: Xóa các bản ghi trùng lặp nội dung "Cấp cứu & Xử lý sốc / Dị ứng cấp" của Mochi vào rạng sáng ngày 27/09.
-  // - Thêm bộ lọc dedup tự động dựa trên mã id hoặc tổ hợp thời gian hẹn/dịch vụ để tránh việc dữ liệu test từ Admin làm tràn ngập màn hình Chủ nuôi.
-  const dedupedAppointments = useMemo(() => {
-    const seenIds = new Set();
-    const seenSignatures = new Set();
-    let hasSeenMochiEmergency = false;
-
-    return (safeAppointments || []).filter(app => {
-      if (!app) return false;
-      const pName = (app.petName || '').toLowerCase().trim();
-      const srv = (app.service || '').toLowerCase().trim();
-      const d = String(app.date || '').split('T')[0];
-      const t = (app.time || '').trim();
-
-      // Kiểm tra ca cấp cứu trùng lặp của Mochi rạng sáng 27/09
-      const isMochiEmergencyTest = pName.includes('mochi') && 
-        (srv.includes('cấp cứu') || srv.includes('dị ứng') || srv.includes('sốc')) && 
-        (d === '2026-09-27' || d.includes('27/09'));
-
-      if (isMochiEmergencyTest) {
-        if (hasSeenMochiEmergency) {
-          return false; // Loại bỏ bản ghi trùng lặp thứ 2 trở đi
-        }
-        hasSeenMochiEmergency = true;
-      }
-
-      // Dedup tự động dựa trên id hoặc tổ hợp thời gian hẹn, dịch vụ, thú cưng
-      const idKey = app.id ? String(app.id) : null;
-      const sigKey = `${pName}__${d}__${t}__${srv}`;
-
-      if (idKey && seenIds.has(idKey)) return false;
-      if (seenSignatures.has(sigKey)) return false;
-
-      if (idKey) seenIds.add(idKey);
-      seenSignatures.add(sigKey);
-      return true;
-    });
-  }, [safeAppointments]);
-
-  // 2. SỬA HÀM TÍNH SỐ LƯỢNG CA THEO TỪNG BÉ (FILTER COUNTER):
-  // Logic đếm số lượng ca khám chính xác theo yêu cầu:
-  const mochiCount = dedupedAppointments.filter(a => a.petName?.toLowerCase().includes('mochi')).length;
-  const lunaCount = dedupedAppointments.filter(a => a.petName?.toLowerCase().includes('luna')).length;
-  const banhBaoCount = dedupedAppointments.filter(a => a.petName?.toLowerCase().includes('bánh bao')).length;
-
-  const getPetCount = (pet) => {
-    if (!pet) return 0;
-    if (scheduleViewMode === 'home_routines' || (scheduleViewMode === 'habits' && habitsTab === 'home_care')) {
-      return homeRoutinesList.filter(routine => isRoutineForPet(routine, pet)).length;
-    }
-    const pName = (pet.name || '').toLowerCase();
-    if (scheduleViewMode === 'clinical' || activeMainTab === 'clinical' || activeMainTab === 'CLINICAL') {
-      if (pName.includes('mochi')) return mochiCount;
-      if (pName.includes('luna')) return lunaCount;
-      if (pName.includes('bánh bao') || pName.includes('banh bao')) return banhBaoCount;
-      return dedupedAppointments.filter(a => {
-        const aName = (a.petName || '').toLowerCase();
-        return a.petId === pet.id || (pName && aName.includes(pName));
-      }).length;
-    }
-    return safeSchedules.filter(s => s.petId === pet.id || (pet.altId && s.petId === pet.altId) || isRoutineForPet(s, pet)).length;
-  };
-
-  const todayStr = (() => {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  })();
-
-  // Lọc dữ liệu an toàn theo pet, type, status
-  const filteredSchedules = (safeSchedules || []).filter((sch) => {
-    if (!sch || typeof sch !== 'object') return false;
-    const matchPet = filterPetId === 'all' || sch.petId === filterPetId;
-    const matchType = filterType === 'all' || sch.type === filterType;
-
-    let matchStatus = true;
-    const schDate = sch.date ? String(sch.date).split('T')[0] : '';
-
-    if (filterStatus === 'today') {
-      matchStatus = schDate === todayStr;
-    } else if (filterStatus === 'upcoming') {
-      matchStatus = Boolean(schDate && schDate > todayStr && !sch.completed);
-    } else if (filterStatus === 'overdue') {
-      matchStatus = Boolean(schDate && schDate < todayStr && !sch.completed);
-    } else if (filterStatus === 'completed') {
-      matchStatus = Boolean(sch.completed);
-    }
-
-    return matchPet && matchType && matchStatus;
-  });
-
-  // Helper chuẩn hóa category trạng thái: 'TODAY' | 'OVERDUE' | 'UPCOMING' | 'COMPLETED'
-  const getItemStatusCategory = (item, refToday) => {
-    if (!item) return 'UPCOMING';
-    const st = String(item.status || '').toUpperCase().trim();
-    const isCompleted = Boolean(item.completed) || st === 'COMPLETED' || st === 'HOÀN THÀNH' || st === 'ĐÃ KHÁM' || st === 'DONE';
-    if (isCompleted) return 'COMPLETED';
-
-    const isCancelled = st === 'CANCELLED' || st === 'HỦY' || st === 'CANCEL';
-    if (isCancelled) return 'CANCELLED';
-
-    const d = item.date ? String(item.date).split('T')[0] : '';
-    if (!d) return 'UPCOMING';
-
-    if (st === 'OVERDUE' || (d < refToday && !item.completed)) {
-      return 'OVERDUE';
-    }
-    if (st === 'TODAY' || d === refToday) {
-      return 'TODAY';
-    }
-    return 'UPCOMING';
-  };
-
-  // Helper kiểm tra item có thuộc về pet đang lọc không
-  const isItemForPet = (item, petId) => {
-    if (!item || !petId || petId === 'all') return true;
-    const selectedPet = safePets.find(p => p.id === petId);
-    const selectedPetName = (selectedPet?.name || '').toLowerCase().trim();
-    const itemPetName = (item.petName || item.pet_name || '').toLowerCase().trim();
-    const itemPetId = String(item.petId || '').toLowerCase().trim();
-    const targetPetId = String(petId).toLowerCase().trim();
-
-    if (itemPetId === targetPetId) return true;
-    if (targetPetId === 'pet-1' || targetPetId === 'mochi') {
-      if (itemPetId === 'pet-1' || itemPetId === 'mochi' || itemPetName.includes('mochi')) return true;
-    }
-    if (targetPetId === 'pet-2' || targetPetId === 'luna') {
-      if (itemPetId === 'pet-2' || itemPetId === 'luna' || itemPetName.includes('luna')) return true;
-    }
-    if (targetPetId === 'pet-3' || targetPetId === 'banh-bao' || targetPetId === 'banhbao') {
-      if (itemPetId === 'pet-3' || itemPetId === 'banh-bao' || itemPetId === 'banhbao' || itemPetName.includes('bánh bao') || itemPetName.includes('banh bao')) return true;
-    }
-    if (selectedPetName && itemPetName) {
-      return itemPetName.includes(selectedPetName) || selectedPetName.includes(itemPetName);
-    }
-    return false;
-  };
-
-  // TỔNG HỢP VÀ DEDUP TOÀN BỘ CÁC CA LÂM SÀNG (APPOINTMENTS + CLINICAL SCHEDULES)
-  const allUniqueClinicalItems = useMemo(() => {
-    const seenSignatures = new Set();
-    const seenIds = new Set();
-    let hasSeenLunaBloodTest = false;
-    const result = [];
-
-    // 1. Nạp và dedup các ca hẹn từ appointments
-    (dedupedAppointments || []).forEach((app, idx) => {
-      if (!app) return;
-      const id = app.id ? String(app.id) : `app-${idx}`;
-      const pName = (app.petName || '').toLowerCase().trim();
-      const d = app.date ? String(app.date).split('T')[0] : '';
-      const t = app.time ? String(app.time).trim().padStart(5, '0') : '09:00';
-      const srv = (app.service || app.title || '').toLowerCase().trim();
-      const sig = `${pName}__${d}__${t}__${srv}`;
-
-      // Khắc phục triệt để lỗi trùng 5 thẻ Luna xét nghiệm máu ngày 24/09
-      const isLunaBloodTestDup = pName.includes('luna') && d === '2026-09-24' && (srv.includes('xét nghiệm') || srv.includes('khám tổng quát'));
-      if (isLunaBloodTestDup) {
-        if (hasSeenLunaBloodTest) return;
-        hasSeenLunaBloodTest = true;
-      }
-
-      if (seenIds.has(id) || seenSignatures.has(sig)) return;
-      seenIds.add(id);
-      seenSignatures.add(sig);
-
-      result.push({
-        ...app,
-        _itemType: 'appointment',
-        _sortKey: `${d}T${t}`
-      });
-    });
-
-    // 2. Nạp và dedup các lịch lâm sàng từ schedules (vet & vaccine)
-    (safeSchedules || []).filter(s => s && (s.type === 'vet' || s.type === 'vaccine')).forEach((sch, idx) => {
-      if (!sch) return;
-      const id = sch.id ? String(sch.id) : `sch-clinic-${idx}`;
-      const pName = resolvePetName(sch, safePets).toLowerCase().trim();
-      const d = sch.date ? String(sch.date).split('T')[0] : '';
-      const t = sch.time ? String(sch.time).trim().padStart(5, '0') : '09:00';
-      const title = (sch.title || '').toLowerCase().trim();
-      const sig = `${pName}__${d}__${t}__${title}`;
-
-      const isLunaBloodTestDup = pName.includes('luna') && d === '2026-09-24' && (title.includes('xét nghiệm') || title.includes('khám tổng quát'));
-      if (isLunaBloodTestDup) {
-        if (hasSeenLunaBloodTest) return;
-        hasSeenLunaBloodTest = true;
-      }
-
-      if (seenIds.has(id) || seenSignatures.has(sig)) return;
-      seenIds.add(id);
-      seenSignatures.add(sig);
-
-      result.push({
-        ...sch,
-        _itemType: 'schedule',
-        _sortKey: `${d}T${t}`
-      });
-    });
-
-    return result.sort((a, b) => a._sortKey.localeCompare(b._sortKey));
-  }, [dedupedAppointments, safeSchedules, safePets]);
-
-  // 1. CHUẨN HÓA BỘ ĐẾM ĐỘNG CHO CÁC TAB LỌC (COUNTS)
-  const counts = useMemo(() => {
-    const petItems = allUniqueClinicalItems.filter(item => isItemForPet(item, filterPetId));
-
-    return {
-      all: petItems.filter(i => getItemStatusCategory(i, todayStr) !== 'CANCELLED').length,
-      today: petItems.filter(i => getItemStatusCategory(i, todayStr) === 'TODAY').length,
-      upcoming: petItems.filter(i => getItemStatusCategory(i, todayStr) === 'UPCOMING').length,
-      overdue: petItems.filter(i => getItemStatusCategory(i, todayStr) === 'OVERDUE').length,
-      completed: petItems.filter(i => getItemStatusCategory(i, todayStr) === 'COMPLETED').length,
-    };
-  }, [allUniqueClinicalItems, filterPetId, todayStr]);
-
-  // 2. SỬA LOGIC HIỂN THỊ KHI BẤM VÀO TỪNG TAB LỌC: CHỈ RENDER PHẦN TỬ CÓ STATUS TƯƠNG ỨNG
-  const sortedClinicalItems = useMemo(() => {
-    return allUniqueClinicalItems.filter(item => {
-      // Lọc theo thú cưng
-      if (!isItemForPet(item, filterPetId)) return false;
-
-      // Lọc theo trạng thái
-      const cat = getItemStatusCategory(item, todayStr);
-      if (cat === 'CANCELLED') return false;
-
-      if (filterStatus === 'all') return true;
-      if (filterStatus === 'today') return cat === 'TODAY';
-      if (filterStatus === 'upcoming') return cat === 'UPCOMING';
-      if (filterStatus === 'overdue') return cat === 'OVERDUE';
-      if (filterStatus === 'completed') return cat === 'COMPLETED';
-      return true;
-    });
-  }, [allUniqueClinicalItems, filterPetId, filterStatus, todayStr]);
-
-  // 2. Tự động đồng bộ các việc chăm sóc tại nhà mới được thêm/chỉnh sửa từ Modal vào homeRoutinesList
-  useEffect(() => {
-    if (!Array.isArray(propSchedules) || propSchedules.length === 0) return;
-
-    setHomeRoutinesList(prevList => {
-      let hasChanges = false;
-      const currentMap = new Map(prevList.map(r => [String(r.id), r]));
-      const nextList = [...prevList];
-
-      propSchedules.forEach(sch => {
-        if (!sch || !sch.id) return;
-        // Bỏ qua lịch khám lâm sàng (vet, vaccine)
-        if (sch.type === 'vet' || sch.type === 'vaccine') return;
-
-        const schId = String(sch.id);
-        const existing = currentMap.get(schId);
-
-        if (!existing) {
-          // Việc mới thêm từ Modal -> đưa vào đầu danh sách
-          const petName = resolvePetName(sch, safePets);
-          const dateStr = sch.date ? String(sch.date).split('T')[0] : '';
-          const status = sch.completed ? 'completed' : (dateStr && dateStr < todayStr ? 'overdue' : (dateStr === todayStr ? 'today' : 'upcoming'));
-          
-          const newRoutine = {
-            ...sch,
-            petName: sch.petName || petName,
-            status: sch.status || status,
-            completed: Boolean(sch.completed)
-          };
-          nextList.unshift(newRoutine);
-          currentMap.set(schId, newRoutine);
-          hasChanges = true;
-        } else {
-          // Cập nhật khi chỉnh sửa nội dung hoặc đánh dấu hoàn thành
-          if (
-            existing.title !== sch.title ||
-            existing.date !== sch.date ||
-            existing.time !== sch.time ||
-            existing.type !== sch.type ||
-            existing.repeat !== sch.repeat ||
-            existing.notes !== sch.notes ||
-            existing.completed !== sch.completed ||
-            existing.petId !== sch.petId
-          ) {
-            const idx = nextList.findIndex(r => String(r.id) === schId);
-            if (idx !== -1) {
-              nextList[idx] = {
-                ...existing,
-                ...sch,
-                completed: Boolean(sch.completed),
-                status: sch.completed ? 'completed' : (existing.status || 'upcoming')
-              };
-              hasChanges = true;
-            }
-          }
-        }
-      });
-
-      if (hasChanges) {
-        try {
-          localStorage.setItem('petcare_home_routines', JSON.stringify(nextList));
-        } catch (e) {
-          console.error("Lỗi lưu storage home routines:", e);
-        }
-        return nextList;
-      }
-      return prevList;
-    });
-  }, [propSchedules, safePets, todayStr]);
-
-  // Helper xóa việc chăm sóc tại nhà an toàn
-  const handleDeleteRoutine = (routineId) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa việc chăm sóc này?')) {
-      try { sound?.playTrash?.(); } catch {}
-      setHomeRoutinesList(prev => {
-        const next = prev.filter(r => String(r.id) !== String(routineId));
-        try {
-          localStorage.setItem('petcare_home_routines', JSON.stringify(next));
-        } catch (e) {
-          console.error("Lỗi cập nhật storage khi xóa routine:", e);
-        }
-        return next;
-      });
-      if (typeof onDeleteSchedule === 'function') {
-        onDeleteSchedule(routineId);
-      }
-    }
-  };
-
-  // Helper xóa từng ca hẹn khám lâm sàng
-  const handleDeleteAppointment = (appointmentId) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa / hủy ca hẹn này?')) {
-      try { sound?.playTrash?.() || sound?.playClick?.(); } catch {}
-      deleteAppointment(appointmentId);
-      setAppointmentsList(prev => (prev || []).filter(a => a && a.id !== appointmentId));
-      if (typeof propOnDeleteAppointment === 'function') {
-        try {
-          propOnDeleteAppointment(appointmentId);
-        } catch (e) {
-          console.error("Lỗi gọi propOnDeleteAppointment:", e);
-        }
-      }
-    }
-  };
-
-
-  // Helper mở modal Thêm Việc Mới đồng bộ chuẩn loại việc và bé được chọn
-  const handleOpenAddSchedule = (e, defaultType = null, defaultDate = null, defaultPetId = null) => {
-    if (e && typeof e.preventDefault === 'function') e.preventDefault();
-    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-    try {
-      sound?.playClick?.();
-    } catch {}
-
-    const isHomeCareActive = scheduleViewMode === 'home_routines' || (scheduleViewMode === 'habits' && habitsTab === 'home_care');
-    const typeToUse = defaultType || (isHomeCareActive ? 'deworm' : null);
-    // Nếu đang ở Home Routines, truyền chính xác mã bé đang được chọn vào Modal
-    const activeTargetPet = PETS_LIST.find(p => p.id === selectedRoutinePetId || p.altId === selectedRoutinePetId);
-    const petIdToUse = defaultPetId || (isHomeCareActive ? (activeTargetPet?.altId || selectedRoutinePetId) : null);
-
-    if (typeof onOpenAddSchedule === 'function') {
-      try {
-        onOpenAddSchedule(defaultDate || null, typeToUse, null, petIdToUse);
-      } catch (err) {
-        console.warn('Lỗi gọi onOpenAddSchedule:', err);
-      }
-    }
-  };
-
-  const handleTaskCheck = (sch) => {
-    if (!sch || !sch.id) return;
-    try {
-      sound?.playSuccess?.();
-    } catch {}
-
-    // Cập nhật trạng thái trong homeRoutinesList nếu việc thuộc danh sách này
-    setHomeRoutinesList(prev => {
-      const exists = prev.some(item => String(item.id) === String(sch.id));
-      if (!exists) return prev;
-      const next = prev.map(item => {
-        if (String(item.id) === String(sch.id)) {
-          const nextCompleted = !item.completed;
-          return {
-            ...item,
-            completed: nextCompleted,
-            status: nextCompleted ? 'completed' : (item.date && String(item.date).split('T')[0] < todayStr ? 'overdue' : 'upcoming')
-          };
-        }
-        return item;
-      });
-      try {
-        localStorage.setItem('petcare_home_routines', JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-
-    onToggleComplete(sch.id);
-    if (!sch.completed) {
-      try {
-        confetti({
-          particleCount: 50,
-          spread: 60,
-          origin: { y: 0.7 }
-        });
-      } catch {}
-    }
-  };
-
-  // Export iCal (.ics)
-  const handleExportIcs = () => {
-    try {
-      sound?.playSuccess?.();
-      const ics = generateIcsCalendar(safeSchedules, safePets);
-      const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+      const icsString = generateIcsCalendar(normalizedList, pets);
+      const blob = new Blob([icsString], { type: 'text/calendar;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `lich_cham_soc_thu_cung_${todayStr}.ics`);
+      link.setAttribute('download', isAppt ? 'lich-kham-petcare.ics' : 'lich-cham-soc-petcare.ics');
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Lỗi xuất file iCal:', err);
+      console.error('Lỗi khi xuất file .ics:', err);
+      alert('Lỗi tạo tệp lịch .ics: ' + err.message);
     }
   };
 
-  // Đảm bảo khi đang ở tab "Chăm Sóc Tại Nhà", số đếm Quá hạn chỉ tính trên danh sách chăm sóc tại nhà (2 thay vì 3)
-  const isHomeCareActive = scheduleViewMode === 'home_routines' || (scheduleViewMode === 'habits' && habitsTab === 'home_care');
-  const baseListForCounts = isHomeCareActive
-    ? (safeSchedules || []).filter(s => s && s.type !== 'vet' && s.type !== 'vaccine')
-    : (safeSchedules || []);
+  // Mô tả phạm vi bộ lọc cho banner
+  const filterSummaryText = useMemo(() => {
+    const parts = [];
+    parts.push(selectedPetObject ? `Bé ${selectedPetObject.name}` : 'Tất cả thú cưng');
 
-  const overdueCount = baseListForCounts.filter(s => s && s.date && String(s.date).split('T')[0] < todayStr && !s.completed).length;
-  const todayCount = baseListForCounts.filter(s => s && s.date && String(s.date).split('T')[0] === todayStr && !s.completed).length;
+    if (dateFilter === 'today') parts.push('Hôm nay');
+    else if (dateFilter === 'upcoming') parts.push('Sắp tới');
+    else if (dateFilter === 'past') parts.push('Đã qua ngày/giờ hẹn');
+    else parts.push('Tất cả ngày');
 
-  // KHỐI 1: LỊCH HẸN LÂM SÀNG (CLINICAL APPOINTMENTS) - CHỈ HIỂN THỊ KHI Ở TAB TIERED
-  const renderClinicalAppointmentsSection = () => (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-200/80 dark:border-white/10 gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-500/20 dark:text-purple-300 dark:border-purple-500/30 flex items-center justify-center shrink-0">
-            <Stethoscope className="w-4 h-4" />
+    if (activeMainTab === 'appointments') {
+      if (appointmentStatusFilter === 'archived') parts.push('Đã lưu trữ');
+      else if (appointmentStatusFilter === 'pending') parts.push('Chờ xác nhận');
+      else if (appointmentStatusFilter === 'confirmed') parts.push('Đã xác nhận');
+      else if (appointmentStatusFilter === 'in_progress') parts.push('Đang khám');
+      else if (appointmentStatusFilter === 'completed') parts.push('Hoàn thành');
+      else if (appointmentStatusFilter === 'cancelled') parts.push('Đã hủy');
+    } else {
+      if (careTypeFilter !== 'all') {
+        const typeLabel = SCHEDULE_TYPES[careTypeFilter]?.label;
+        if (typeLabel) parts.push(typeLabel);
+      }
+      if (careStatusFilter === 'todo') parts.push('Chưa hoàn thành');
+      else if (careStatusFilter === 'done') parts.push('Đã hoàn thành');
+    }
+
+    return parts.join(' • ');
+  }, [selectedPetObject, dateFilter, activeMainTab, appointmentStatusFilter, careStatusFilter, careTypeFilter]);
+
+  const currentCount = activeMainTab === 'appointments' ? filteredAppointments.length : filteredSchedules.length;
+  const totalCount = activeMainTab === 'appointments' 
+    ? (appointmentStatusFilter === 'archived' ? filteredAppointments.length : unarchivedAppointmentsCount) 
+    : (schedules || []).length;
+
+  return (
+    <PageContainer id="schedule-page">
+      {/* 1. Tiêu đề và nút tạo lịch trên cùng một hàng */}
+      <PageHeader
+        title="Lịch trình"
+        subtitle="Theo dõi lịch hẹn khám thú y và kế hoạch chăm sóc định kỳ cho thú cưng"
+        actions={
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={handleExportIcs}
+              className="inline-flex items-center gap-1.5 h-11 px-4 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-[#12192A] hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-all cursor-pointer border border-slate-200 dark:border-white/10 shadow-xs active:scale-95"
+              title="Xuất tệp lịch .ics theo phạm vi bộ lọc đang chọn"
+            >
+              <Download className="w-4 h-4 text-slate-500" />
+              <span className="hidden sm:inline">Xuất lịch (.ics)</span>
+              <span className="sm:hidden">.ics</span>
+            </button>
+
+            {activeMainTab === 'appointments' ? (
+              <button
+                type="button"
+                onClick={() => onOpenVetBooking({
+                  petId: activePetId !== 'all' ? activePetId : null
+                })}
+                className="inline-flex items-center gap-2 h-11 px-5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm active:scale-95 transition-all cursor-pointer whitespace-nowrap"
+              >
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span>Đặt lịch khám</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onOpenAddSchedule(
+                  null, 
+                  null, 
+                  null, 
+                  activePetId !== 'all' ? activePetId : null
+                )}
+                className="inline-flex items-center gap-2 h-11 px-5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm active:scale-95 transition-all cursor-pointer whitespace-nowrap"
+              >
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span>Thêm việc chăm sóc</span>
+              </button>
+            )}
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2 flex-wrap">
-              <span>1. Lịch Hẹn Lâm Sàng (Clinical Appointments)</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200 dark:bg-cyan-500/20 dark:text-cyan-300 dark:border-cyan-400/30 normal-case font-bold">
-                Đồng bộ 2 chiều Phòng khám
-              </span>
-            </h3>
-            <p className="text-[11px] text-slate-600 dark:text-slate-400">Khám tại viện, tiêm vắc-xin, phẫu thuật và chỉ định từ Bác sĩ</p>
-          </div>
-        </div>
+        }
+      />
 
-        <div className="flex items-center gap-2 flex-wrap">
+      {/* 2. Tabs Lịch khám / Lịch chăm sóc ngay dưới tiêu đề */}
+      <Tabs
+        tabs={[
+          { id: 'appointments', label: 'Lịch khám', icon: Stethoscope, badge: unarchivedAppointmentsCount },
+          { id: 'care', label: 'Lịch chăm sóc', icon: CalendarDays, badge: (schedules || []).length }
+        ]}
+        activeTab={activeMainTab}
+        onChange={(id) => {
+          try { sound?.playClick?.(); } catch {}
+          setActiveMainTab(id);
+        }}
+        variant="pill"
+      />
+
+      {/* 3. Bộ lọc gọn, xuống hàng có chủ đích khi thiếu chỗ */}
+      <FilterBar
+        onReset={(dateFilter !== 'all' || (activeMainTab === 'appointments' ? appointmentStatusFilter !== 'all' : careStatusFilter !== 'all') || activePetId !== 'all') ? () => {
+          handlePetChange('all');
+          setDateFilter('all');
+          setAppointmentStatusFilter('all');
+          setCareStatusFilter('all');
+        } : null}
+      >
+        {/* Bộ chọn thú cưng */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 max-w-full">
           <button
             type="button"
-            onClick={() => {
-              sound?.playClick?.();
-              if (typeof onOpenVetBooking === 'function') {
-                onOpenVetBooking();
-              } else if (typeof onOpenAddSchedule === 'function') {
-                onOpenAddSchedule(null, 'vet', 'Khám lâm sàng thú y');
-              }
-            }}
-            className="px-3.5 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-cyan-500/20 cursor-pointer active:scale-95"
+            onClick={() => handlePetChange('all')}
+            className={`h-10 px-3 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+              activePetId === 'all'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'bg-white dark:bg-[#12192A] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 border border-slate-200 dark:border-white/10'
+            }`}
           >
-            <Plus size={14} />
-            <span>+ Đặt hẹn mới</span>
+            Tất cả ({pets.length})
           </button>
-        </div>
-      </div>
 
-      {sortedClinicalItems.length === 0 ? (
-        <div className="p-6 rounded-2xl bg-white dark:bg-[#1E293B]/60 border border-dashed border-slate-300 dark:border-white/15 text-center text-slate-500 dark:text-slate-400 text-xs shadow-xs">
-          Chưa có lịch khám lâm sàng nào cho thú cưng đang lọc. Bạn có thể bấm "+ Đặt Lịch Khám" để hẹn với Bác sĩ.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {sortedClinicalItems.map((item, idx) => {
-            if (item._itemType === 'appointment') {
-              const app = item;
-              const cat = getItemStatusCategory(app, todayStr);
-              const isInProgress = String(app.status || '').toLowerCase() === 'in_progress';
-              const petName = resolvePetName(app, safePets);
-
-              return (
-                <div 
-                  key={app.id || `app-${idx}`}
-                  className="p-4 rounded-3xl bg-white dark:bg-[#1E293B] border border-slate-200/80 dark:border-white/10 hover:border-cyan-400/40 transition-all shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)] dark:shadow-md space-y-3 flex flex-col justify-between"
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono font-bold text-slate-400 dark:text-slate-500">{app.id}</span>
-                      
-                      <div className="flex items-center gap-2">
-                        {/* TRẠNG THÁI CHUẨN HÓA MÀU SẮC & RENDER RÕ RÀNG */}
-                        <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
-                          cat === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/40' :
-                          cat === 'OVERDUE' ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/40' :
-                          cat === 'TODAY' ? 'bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-500/20 dark:text-cyan-300 dark:border-cyan-400/40' :
-                          isInProgress ? 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-500/20 dark:text-sky-300 dark:border-sky-500/40' :
-                          'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40'
-                        }`}>
-                          {cat === 'COMPLETED' ? '✓ Hoàn thành' :
-                           cat === 'OVERDUE' ? '! Quá hạn' :
-                           cat === 'TODAY' ? '● Hôm nay' :
-                           isInProgress ? '• Đang khám' :
-                           '• Đã đặt hẹn'}
-                        </span>
-
-                        {/* Nút Xóa Ca Khám */}
-                        <button
-                          type="button"
-                          title="Xóa / Hủy lịch hẹn này"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteAppointment(app.id);
-                          }}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 border border-transparent hover:border-rose-200 dark:hover:border-rose-500/20 transition-all duration-200 cursor-pointer"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">{app.service || 'Khám tổng quát'}</h4>
-                      <p className="text-xs text-cyan-700 dark:text-cyan-300 font-semibold mt-0.5">
-                        Bệnh nhân: <strong className="text-slate-800 dark:text-white">{petName}</strong>
-                      </p>
-                    </div>
-
-                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-black/30 border border-slate-200/80 dark:border-white/5 space-y-1 text-xs text-slate-700 dark:text-slate-300">
-                      <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                          <span>{safeFormatDate(app.date)}</span>
-                        </span>
-                        <span className="flex items-center gap-1 font-mono text-cyan-700 dark:text-cyan-300 font-bold">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>{app.time || '09:00'}</span>
-                        </span>
-                      </div>
-                      {app.facility && (
-                        <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 pt-0.5 truncate">
-                          <MapPin className="w-3 h-3 text-cyan-600 dark:text-cyan-400 shrink-0" />
-                          <span className="truncate">{app.facility}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {app.adminNote && (
-                    <div className="text-[11px] text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-500/10 p-2 rounded-xl border border-amber-200 dark:border-amber-500/20 italic">
-                      BS dặn: "{app.adminNote}"
-                    </div>
-                  )}
-                </div>
-              );
-            }
-
-            // Render thẻ schedule lâm sàng (Tiêm chủng / Khám răng / Siêu âm...)
-            const sch = item;
-            const petName = resolvePetName(sch, safePets);
-            const schDate = sch.date ? String(sch.date).split('T')[0] : '';
-            const isOverdue = Boolean(schDate && schDate < todayStr && !sch.completed);
-            const isToday = Boolean(schDate && schDate === todayStr && !sch.completed);
-            const isCompleted = Boolean(sch.completed);
-
-            // Phân biệt dịch vụ tiêm chủng hay dịch vụ khám/thủ thuật khác (Cắt móng, mài răng, siêu âm tim...)
-            const isVaccine = sch.type === 'vaccine' || 
-              (sch.title || '').toLowerCase().includes('tiêm') || 
-              (sch.title || '').toLowerCase().includes('vắc-xin');
-
+          {pets.map((p) => {
+            if (!p) return null;
+            const isSelected = activePetId === p.id;
             return (
-              <div 
-                key={sch.id}
-                className="p-4 rounded-3xl bg-white dark:bg-[#1E293B] border border-slate-200/80 dark:border-white/10 hover:border-emerald-400/40 transition-all shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)] dark:shadow-md space-y-3 flex flex-col justify-between"
+              <button
+                type="button"
+                key={p.id}
+                onClick={() => handlePetChange(p.id)}
+                className={`inline-flex items-center gap-2 h-10 px-3 rounded-xl text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer border ${
+                  isSelected
+                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 ring-2 ring-indigo-400/30'
+                    : 'border-slate-200 dark:border-white/10 bg-white dark:bg-[#12192A] text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                }`}
               >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono font-bold text-slate-400 dark:text-slate-500">#SCH-CLINIC</span>
-                    
-                    <div className="flex items-center gap-2">
-                      {/* SỬA NGHỊCH LÝ THỜI GIAN: Thẻ quá hạn hiển thị rõ Quá hạn, không hiển thị Sắp đến hẹn */}
-                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
-                        isCompleted 
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/40' 
-                          : isOverdue
-                          ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/40'
-                          : isToday
-                          ? 'bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-500/20 dark:text-cyan-300 dark:border-cyan-400/40'
-                          : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40'
-                      }`}>
-                        {isCompleted && '✓ Đã hoàn thành'}
-                        {isOverdue && '! Quá hạn'}
-                        {isToday && '● Hôm nay'}
-                        {!isCompleted && !isOverdue && !isToday && '● Sắp đến hẹn'}
-                      </span>
-
-                      {/* Nút Xóa Lịch Khám / Tiêm */}
-                      <button
-                        type="button"
-                        title="Xóa lịch hẹn này"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (typeof onDeleteSchedule === 'function') {
-                            onDeleteSchedule(sch.id);
-                          }
-                        }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 border border-transparent hover:border-rose-200 dark:hover:border-rose-500/20 transition-all duration-200 cursor-pointer"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">{sch.title}</h4>
-                    <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-0.5">
-                      Bé: <strong className="text-slate-800 dark:text-white">{petName}</strong>
-                    </p>
-                  </div>
-
-                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-black/30 border border-slate-200/80 dark:border-white/5 space-y-1 text-xs text-slate-700 dark:text-slate-300">
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                        <span>{safeFormatDate(sch.date)}</span>
-                      </span>
-                      <span className="font-mono text-cyan-700 dark:text-cyan-300 font-bold">{sch.time || '09:30'}</span>
-                    </div>
-                    {sch.location && (
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-cyan-600 dark:text-cyan-400 shrink-0" />
-                        <span className="truncate">{sch.location}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="pt-2 flex items-center justify-between border-t border-slate-100 dark:border-white/10">
-                  {/* NÚT HÀNH ĐỘNG: Phân biệt Tiêm vắc-xin vs Đã khám xong */}
-                  <button
-                    onClick={() => handleTaskCheck(sch)}
-                    className="text-xs font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>
-                      {isVaccine 
-                        ? (sch.completed ? 'Đã tiêm xong' : 'Xác nhận tiêm xong')
-                        : (sch.completed ? 'Đã khám xong' : 'Đã khám xong')}
-                    </span>
-                  </button>
-                </div>
-              </div>
+                <SafePetAvatar pet={p} size="sm" />
+                <span>{p.name}</span>
+              </button>
             );
           })}
         </div>
-      )}
-    </div>
-  );
 
-  const renderHomeRoutinesSection = (isStandalone = false) => {
-    // 1. Tìm thông tin thú cưng đang chọn (Active Pet)
-    const activePet = PETS_LIST.find(p => 
-      p.id === selectedRoutinePetId || 
-      p.altId === selectedRoutinePetId ||
-      p.name.toLowerCase() === String(selectedRoutinePetId).toLowerCase()
-    ) || PETS_LIST[0];
+        {/* Dropdown Ngày */}
+        <select
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
+          className="h-10 px-3 bg-white dark:bg-[#12192A] border border-slate-200 dark:border-white/10 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-indigo-500 cursor-pointer"
+        >
+          <option value="all">Tất cả ngày</option>
+          <option value="today">Hôm nay</option>
+          <option value="upcoming">Sắp tới</option>
+          <option value="past">Đã qua</option>
+        </select>
 
-    // Đồng bộ thông tin từ safePets nếu có
-    const matchSafe = safePets.find(sp => sp && (sp.id === activePet.id || sp.id === activePet.altId || sp.name?.toLowerCase() === activePet.name?.toLowerCase()));
-    const normKey = normalizePetHealthKey(activePet.id || activePet.name);
-    const dynamicWeightVal = petsHealthData[normKey]?.weight || '';
-
-    const resolvedActivePet = {
-      ...activePet,
-      name: matchSafe?.name || activePet.name,
-      avatar: matchSafe?.avatar || activePet.avatar,
-      species: matchSafe?.breed || matchSafe?.species || activePet.species,
-      age: matchSafe?.age || activePet.age || '2.5 Tuổi',
-      weight: `${dynamicWeightVal} kg`,
-      gender: matchSafe?.gender || activePet.gender || 'Đực'
-    };
-
-    // 2. Danh sách tất cả việc của bé này (sử dụng helper isRoutineForPet nhận diện 2 chiều chuẩn xác)
-    const allActivePetRoutines = homeRoutinesList.filter(routine => isRoutineForPet(routine, resolvedActivePet));
-
-    // Khắc phục logic số học (Derived Stats): Đảm bảo đẳng thức logic total = completed + today + overdue (+ upcoming nếu có)
-    const isRoutineCompleted = (r) => Boolean(r.completed || r.status === 'completed');
-    const isRoutineOverdue = (r) => !isRoutineCompleted(r) && (r.status === 'overdue' || (r.date && String(r.date).split('T')[0] < todayStr && r.status !== 'today'));
-    const isRoutineToday = (r) => !isRoutineCompleted(r) && !isRoutineOverdue(r) && (r.status === 'today' || (r.date && String(r.date).split('T')[0] === todayStr));
-    const isRoutineUpcoming = (r) => !isRoutineCompleted(r) && !isRoutineOverdue(r) && !isRoutineToday(r);
-
-    const completedCount = allActivePetRoutines.filter(isRoutineCompleted).length;
-    const overdueCount = allActivePetRoutines.filter(isRoutineOverdue).length;
-    const todayCount = allActivePetRoutines.filter(isRoutineToday).length;
-    const upcomingCount = allActivePetRoutines.filter(isRoutineUpcoming).length;
-    const totalCount = allActivePetRoutines.length;
-
-    // 3. Danh sách việc hiển thị cho bé này (có lọc theo filterStatus: all, today, overdue, completed, upcoming)
-    const activePetRoutines = allActivePetRoutines.filter(routine => {
-      if (filterStatus === 'all') return true;
-      if (filterStatus === 'completed') return isRoutineCompleted(routine);
-      if (filterStatus === 'today') return isRoutineToday(routine);
-      if (filterStatus === 'overdue') return isRoutineOverdue(routine);
-      if (filterStatus === 'upcoming') return isRoutineUpcoming(routine);
-      return true;
-    });
-
-    const progressPct = allActivePetRoutines.length > 0 
-      ? Math.round((completedCount / allActivePetRoutines.length) * 100) 
-      : 0;
-    const currentPet = resolvedActivePet;
-    const progressPercent = progressPct;
-
-    return (
-      <div className="w-full max-w-[1600px] mx-auto h-full flex-1 min-h-0 flex flex-col overflow-hidden">
-        {/* Header trên cùng */}
-        <div className="flex-shrink-0 flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-white/10 gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-teal-500/20 text-teal-300 flex items-center justify-center border border-teal-500/30 shrink-0">
-              <Home className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm sm:text-base font-black text-white uppercase tracking-wider flex items-center gap-2 flex-wrap">
-                <span>{isStandalone ? 'Bảng Chăm Sóc Tại Nhà' : '2. Lịch Chăm Sóc Tại Nhà (Home Routines)'}</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 normal-case font-bold">
-                  Bé: {resolvedActivePet.name}
-                </span>
-              </h3>
-              <p className="text-xs text-slate-400">
-                Không gian quản lý thói quen, vệ sinh, dinh dưỡng và nhỏ gáy định kỳ tại nhà
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
-
-            <button
-              type="button"
-              onClick={(e) => handleOpenAddSchedule(e, 'deworm', null, resolvedActivePet.altId || resolvedActivePet.id)}
-              className="text-xs text-teal-300 hover:text-white font-bold flex items-center gap-1.5 cursor-pointer bg-teal-500/15 hover:bg-teal-500/25 px-3.5 py-2 rounded-xl border border-teal-500/30 transition-all shadow-xs active:scale-95"
+        {/* Dropdown Trạng thái theo từng tab */}
+        {activeMainTab === 'appointments' ? (
+          <select
+            value={appointmentStatusFilter}
+            onChange={(e) => setAppointmentStatusFilter(e.target.value)}
+            className="h-10 px-3 bg-white dark:bg-[#12192A] border border-slate-200 dark:border-white/10 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-indigo-500 cursor-pointer"
+          >
+            <option value="all">Tất cả trạng thái khám</option>
+            <option value="pending">Chờ xác nhận</option>
+            <option value="confirmed">Đã xác nhận</option>
+            <option value="in_progress">Đang khám</option>
+            <option value="completed">Hoàn thành</option>
+            <option value="cancelled">Đã hủy</option>
+            <option value="archived">Đã lưu trữ (Ẩn khỏi danh sách)</option>
+          </select>
+        ) : (
+          <>
+            {/* Dropdown Loại việc chăm sóc (8 loại) */}
+            <select
+              value={careTypeFilter}
+              onChange={(e) => setCareTypeFilter(e.target.value)}
+              className="h-10 px-3 bg-white dark:bg-[#12192A] border border-slate-200 dark:border-white/10 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-indigo-500 cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>Thêm việc mới</span>
-            </button>
-          </div>
+              <option value="all">Tất cả loại việc</option>
+              {Object.entries(SCHEDULE_TYPES).map(([typeKey, cfg]) => (
+                <option key={typeKey} value={typeKey}>{cfg.label}</option>
+              ))}
+            </select>
+
+            <select
+              value={careStatusFilter}
+              onChange={(e) => setCareStatusFilter(e.target.value)}
+              className="h-10 px-3 bg-white dark:bg-[#12192A] border border-slate-200 dark:border-white/10 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-indigo-500 cursor-pointer"
+            >
+              <option value="all">Tất cả trạng thái việc</option>
+              <option value="todo">Chưa hoàn thành</option>
+              <option value="done">Đã hoàn thành</option>
+            </select>
+          </>
+        )}
+
+        {/* Chế độ Danh sách / Lịch tháng */}
+        <div className="inline-flex p-1 rounded-xl bg-slate-100 dark:bg-white/[0.06] border border-slate-200/60 dark:border-white/[0.08] ml-auto">
+          <button
+            type="button"
+            onClick={() => setViewMode('list')}
+            className={`flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+              viewMode === 'list'
+                ? 'bg-white dark:bg-[#14182b] text-slate-900 dark:text-white shadow-xs'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
+            }`}
+            title="Chế độ Danh sách"
+          >
+            <LayoutList className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Danh sách</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('month')}
+            className={`flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+              viewMode === 'month'
+                ? 'bg-white dark:bg-[#14182b] text-slate-900 dark:text-white shadow-xs'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
+            }`}
+            title="Chế độ Lịch tháng"
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Lịch tháng</span>
+          </button>
+        </div>
+      </FilterBar>
+
+      {/* 4. Dòng đếm & Tải lại */}
+      <div className="flex items-center justify-between text-xs px-1 text-slate-500 dark:text-slate-400">
+        <div>
+          Hiển thị <strong>{currentCount}</strong> / <strong>{totalCount}</strong> {activeMainTab === 'appointments' ? 'lịch khám' : 'việc chăm sóc'}
+          <span className="hidden sm:inline text-slate-400 dark:text-slate-500 ml-2">
+            ({filterSummaryText})
+          </span>
         </div>
 
-        {/* ============================================================ */}
-        {/* LƯỚI 2 CỘT TẬN DỤNG TOÀN BỘ MÀN HÌNH (12 COLS: 4 COLS - 8 COLS) */}
-        {/* ============================================================ */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch flex-1 min-h-0 overflow-hidden pt-3">
-          
-          {/* ========================================================== */}
-          {/* CỘT TRÁI (QUẢN LÝ THÚ CƯNG & TIẾN ĐỘ - 4 COLS): lg:col-span-4 */}
-          {/* ========================================================== */}
-          <div className="lg:col-span-4 h-full flex flex-col gap-3 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => {
+            sound?.playClick?.();
+            onReloadData();
+          }}
+          className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
+          title="Tải lại dữ liệu từ hệ thống"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          <span>Làm mới</span>
+        </button>
+      </div>
 
-            {/* KHỐI 1: THANH MINI-TAB CHỌN NHANH 3 BÉ */}
-            <div className="flex-shrink-0 bg-white dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 rounded-2xl p-2.5 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)] dark:shadow-lg">
-              <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-0.5 flex justify-between items-center mb-1">
-                <span>Chọn Thú Cưng</span>
-                <span className="text-cyan-600 dark:text-cyan-400 font-mono">3 bé</span>
+      {/* 5. Nội dung chính */}
+      {viewMode === 'month' ? (
+        <CalendarMonthView
+          items={activeMainTab === 'appointments' ? filteredAppointments : filteredSchedules}
+          tabType={activeMainTab}
+          pets={pets}
+          onSelectItem={(item) => {
+            sound?.playPop?.();
+            if (activeMainTab === 'appointments') {
+              setSelectedAppointmentDetail(item);
+            } else {
+              setSelectedCareDetail(item);
+            }
+          }}
+          onToggleComplete={(id) => onToggleComplete(id)}
+          onOpenCreate={(selectedDate) => {
+            if (activeMainTab === 'appointments') {
+              onOpenVetBooking({
+                petId: activePetId !== 'all' ? activePetId : null,
+                initialDate: selectedDate
+              });
+            } else {
+              onOpenAddSchedule(
+                selectedDate,
+                null,
+                null,
+                activePetId !== 'all' ? activePetId : null
+              );
+            }
+          }}
+        />
+      ) : activeMainTab === 'appointments' ? (
+        /* TAB LỊCH KHÁM: Lưới 3 cột desktop, 2 cột tablet, 1 cột mobile (min 320px) */
+        <div className="space-y-4">
+          {archiveNotice && (
+            <div className="p-3.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 text-xs text-indigo-900 dark:text-indigo-200 flex items-center justify-between gap-3 animate-in fade-in duration-200">
+              <div className="flex items-center gap-2">
+                <Info className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                <span className="font-medium">{archiveNotice.message}</span>
               </div>
-              
-              <div className="grid grid-cols-3 gap-2">
-                {PETS_LIST.map((pet) => {
-                  const isSelected = selectedRoutinePetId === pet.id || 
-                                     selectedRoutinePetId === pet.altId || 
-                                     String(selectedRoutinePetId).toLowerCase() === pet.name.toLowerCase();
-                  const petTasks = homeRoutinesList.filter(r => isRoutineForPet(r, pet));
-                  const petOverdue = petTasks.filter(r => isRoutineOverdue(r)).length;
-
-                  return (
-                    <button
-                      key={pet.id}
-                      type="button"
-                      onClick={() => {
-                        try { sound?.playClick?.(); } catch {}
-                        setSelectedRoutinePetId(pet.id);
-                      }}
-                      className={`relative flex flex-col items-center py-2 px-1 rounded-xl transition-all duration-200 border cursor-pointer ${
-                        isSelected
-                          ? 'bg-cyan-50 dark:bg-cyan-500/20 border-cyan-300 dark:border-cyan-400 text-cyan-900 dark:text-white shadow-xs'
-                          : 'bg-slate-50/50 dark:bg-white/[0.02] border-slate-200/60 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:bg-slate-100/60 dark:hover:bg-white/5 hover:text-slate-800 dark:hover:text-slate-200'
-                      }`}
-                    >
-                      <div className="relative mb-1">
-                        <img
-                          src={pet.avatar}
-                          alt={pet.name}
-                          className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-white/20"
-                          onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=80'; }}
-                        />
-                        {petOverdue > 0 && (
-                          <span className="absolute -top-1 -right-1.5 px-1 min-w-[14px] h-[14px] bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center ring-2 ring-white dark:ring-slate-900 animate-pulse">
-                            {petOverdue}
-                          </span>
-                        )}
-                      </div>
-
-                      <span className={`text-xs font-bold truncate max-w-full ${isSelected ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-700 dark:text-slate-300'}`}>
-                        {pet.name}
-                      </span>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500">{petTasks.length} việc</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* KHỐI 2: THẺ HỒ SƠ & BẢNG TIẾN ĐỘ (LẤP ĐẦY TOÀN BỘ CHIỀU CAO - KHÔNG CÒN KHOẢNG TRỐNG) */}
-            <div className="flex-1 bg-white dark:bg-slate-900/60 backdrop-blur-2xl border border-slate-200/80 dark:border-white/10 rounded-3xl p-4 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)] dark:shadow-2xl flex flex-col justify-between overflow-hidden">
-              
-              {/* 1. Header bé */}
-              <div className="flex items-center gap-3">
-                <div className="relative flex-shrink-0">
-                  <img
-                    src={currentPet.avatar}
-                    alt={currentPet.name}
-                    className="w-13 h-13 rounded-2xl object-cover border-2 border-cyan-400/60 shadow-lg shadow-cyan-500/20"
-                    onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=160'; }}
-                  />
-                  <span className="absolute -bottom-1 -right-1 text-[9px] bg-amber-500 text-slate-950 font-black px-1.5 py-0.2 rounded-md uppercase">
-                    {currentPet.gender || 'Đực'}
-                  </span>
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white truncate">{currentPet.name}</h3>
-                    <span className="text-[10px] px-2 py-0.2 rounded-full bg-cyan-50 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/20 truncate">
-                      {currentPet.species}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {currentPet.age || '2.5 Tuổi'} • <span className="text-emerald-600 dark:text-emerald-400 font-bold">{dynamicWeightVal} kg</span>
-                  </p>
-                </div>
-              </div>
-
-              {/* Tích hợp tính năng Cân nặng trực tiếp vào Thẻ Hồ Sơ cao cấp */}
-              {!isEditingWeight ? (
-                <div className="mt-3 pt-3 border-t border-slate-200/80 dark:border-white/10 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">⚖️</span>
-                    <span className="text-xs font-bold text-slate-900 dark:text-white font-mono">
-                      {dynamicWeightVal} kg
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30">
-                      +0.2 kg tuần này
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      sound?.playClick?.();
-                      setIsEditingWeight(true);
-                    }}
-                    title="Chỉnh sửa cân nặng"
-                    className="p-1.5 rounded-xl text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-slate-100 dark:hover:bg-white/10 transition-all cursor-pointer"
-                  >
-                    <Edit3 size={14} />
-                  </button>
-                </div>
-              ) : (
-                <form
-                  onSubmit={(e) => {
-                    handleQuickUpdateWeight(e);
-                    setIsEditingWeight(false);
-                  }}
-                  className="mt-3 pt-3 border-t border-slate-200/80 dark:border-white/10 flex items-center justify-between gap-2"
-                >
-                  <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
-                    <span>⚖️</span>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0.5"
-                      max="150"
-                      autoFocus
-                      value={currentWeightInput}
-                      onChange={(e) => setCurrentWeightInput(e.target.value)}
-                      className="w-18 px-2 py-1 text-xs font-bold text-center bg-slate-50 dark:bg-slate-900 border border-cyan-400 rounded-lg text-cyan-700 dark:text-cyan-300 focus:outline-none focus:ring-1 focus:ring-cyan-500"
-                    />
-                    <span className="text-xs text-slate-400">kg</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="submit"
-                      className="px-2.5 py-1 text-[11px] font-bold text-slate-950 bg-gradient-to-r from-cyan-400 to-teal-400 hover:opacity-90 rounded-lg shadow transition-all cursor-pointer active:scale-95"
-                    >
-                      Lưu
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCurrentWeightInput(String(dynamicWeightVal));
-                        setIsEditingWeight(false);
-                      }}
-                      className="px-2 py-1 text-[11px] font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white rounded-lg transition-all cursor-pointer"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* 2. Thanh Tiến Độ Chăm Sóc */}
-              <div className="bg-slate-50 dark:bg-white/[0.03] p-2.5 rounded-2xl border border-slate-200/80 dark:border-white/5 space-y-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500 dark:text-slate-400">Tiến độ chăm sóc</span>
-                  <span className="text-cyan-700 dark:text-cyan-300 font-bold font-mono">
-                    {completedCount}/{totalCount} ({progressPercent}%)
-                  </span>
-                </div>
-                <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-cyan-400 to-emerald-400 rounded-full transition-all duration-500"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* 3. Lưới 4 Chỉ Số (Hiển thị trọn vẹn, không cắt chân) */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/5 rounded-xl p-2 text-center">
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Tổng việc</div>
-                  <div className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 font-mono">{totalCount}</div>
-                </div>
-                <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-xl p-2 text-center">
-                  <div className="text-[10px] text-emerald-700 dark:text-emerald-300 uppercase font-semibold">Đã xong</div>
-                  <div className="text-sm font-bold text-emerald-700 dark:text-emerald-400 mt-0.5 font-mono">{completedCount}</div>
-                </div>
-                <div className="bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/20 rounded-xl p-2 text-center">
-                  <div className="text-[10px] text-cyan-700 dark:text-cyan-300 uppercase font-semibold">Hôm nay</div>
-                  <div className="text-sm font-bold text-cyan-700 dark:text-cyan-400 mt-0.5 font-mono">{todayCount}</div>
-                </div>
-                <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl p-2 text-center">
-                  <div className="text-[10px] text-rose-700 dark:text-rose-300 uppercase font-semibold">Quá hạn</div>
-                  <div className="text-sm font-bold text-rose-700 dark:text-rose-400 mt-0.5 font-mono">{overdueCount}</div>
-                </div>
-              </div>
-
-              {/* 4. Khối lời khuyên nhanh từ Dr. Paw (Lấp đầy không gian tinh tế) */}
-              <div className="bg-cyan-50/70 dark:bg-cyan-950/30 border border-cyan-200/80 dark:border-cyan-500/20 rounded-2xl p-2.5 text-xs text-slate-700 dark:text-slate-300 flex items-start gap-2">
-                <span className="text-sm">💡</span>
-                <p className="line-clamp-2 text-[11px] leading-relaxed text-slate-700 dark:text-slate-300">
-                  {overdueCount > 0 
-                    ? `Bé ${currentPet.name} có ${overdueCount} việc quá hạn, hãy hoàn tất sớm để đảm bảo sức khỏe!` 
-                    : `Thể trạng của ${currentPet.name} rất ổn định. Nhớ duy trì lịch uống nước và vận động nhé.`}
-                </p>
-              </div>
-
-              {/* 5. Nút Thêm Việc Cho Bé */}
               <button
                 type="button"
-                onClick={(e) => handleOpenAddSchedule(e, 'deworm', null, currentPet.altId || currentPet.id)}
-                className="w-full py-2.5 px-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-cyan-500/20 transition-all active:scale-[0.98] cursor-pointer"
+                onClick={() => setArchiveNotice(null)}
+                className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 p-1 cursor-pointer"
+                title="Đóng thông báo"
               >
-                <span>+ Thêm việc cho {currentPet.name}</span>
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
+          )}
 
-          </div>
+          {filteredAppointments.length === 0 ? (
+            <EmptyState
+              icon={appointmentStatusFilter === 'archived' ? Archive : Stethoscope}
+              title={appointmentStatusFilter === 'archived' ? 'Không có lịch khám nào đã lưu trữ' : 'Không tìm thấy lịch khám nào'}
+              description={appointmentStatusFilter === 'archived' 
+                ? 'Bạn chưa lưu trữ lịch khám nào. Khi xóa bớt các ca đã hoàn tất hoặc đã hủy, chúng sẽ xuất hiện tại đây.' 
+                : `Chưa có lịch khám nào phù hợp với bộ lọc (${filterSummaryText}).`}
+              actionText={appointmentStatusFilter === 'archived' ? null : 'Đặt lịch khám ngay'}
+              onAction={appointmentStatusFilter === 'archived' ? null : () => onOpenVetBooking({ petId: activePetId !== 'all' ? activePetId : null })}
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredAppointments.map((appt) => {
+                if (!appt) return null;
+                const pet = (pets || []).find(p => p && p.id === appt.petId);
+                const petName = appt.petName || pet?.name || 'Thú cưng';
+                const statusInfo = getAppointmentStatusInfo(appt.status);
+                const temporalTag = getAppointmentTemporalTag(appt.date, appt.time);
 
-          {/* ========================================================== */}
-          {/* CỘT PHẢI (DANH SÁCH CÔNG VIỆC CHĂM SÓC - 8 COLS): lg:col-span-8 */}
-          {/* ========================================================== */}
-          <div className="lg:col-span-8 flex-1 flex flex-col min-h-0 h-full bg-white dark:bg-slate-900/40 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 rounded-3xl p-5 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)] dark:shadow-none overflow-hidden">
-            
-            {/* Khối Header bên trên (Tiêu đề + Bộ lọc Tất cả / Hôm nay / Sắp tới / Quá hạn / Đã xong) - CỐ ĐỊNH Ở ĐỈNH */}
-            <div className="flex-shrink-0 mb-4 pb-3 border-b border-slate-100 dark:border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>Lịch Chăm Sóc Tại Nhà:</span>
-                    <span className="text-cyan-600 dark:text-cyan-300">{resolvedActivePet.name}</span>
-                  </h3>
-                  <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200 dark:bg-cyan-500/20 dark:text-cyan-300 dark:border-cyan-400/30 font-bold">
-                    {activePetRoutines.length} mục hiển thị
-                  </span>
-                </div>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                  Quản lý thuốc, tẩy giun, nhỏ gáy, spa và thực đơn bổ sung tại gia
-                </p>
-              </div>
+                const doctorDisplay = appt.assignedVet && appt.assignedVet !== 'Cơ sở phân công'
+                  ? appt.assignedVet
+                  : 'Chưa phân công';
 
-              {/* Cụm nút lọc trạng thái dạng chip */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none shrink-0">
-                {[
-                  { id: 'all', label: 'Tất cả', count: allActivePetRoutines.length },
-                  { id: 'today', label: 'Hôm nay', count: todayCount },
-                  { id: 'upcoming', label: 'Sắp tới', count: upcomingCount },
-                  { id: 'overdue', label: 'Quá hạn', count: overdueCount, isAlert: overdueCount > 0 },
-                  { id: 'completed', label: 'Đã xong', count: completedCount }
-                ].map(tab => (
-                  <button
-                    key={tab.id}
-                    type="button"
+                const isArchived = Boolean(
+                  currentUserIdStr &&
+                  Array.isArray(appt.archivedByUserIds) &&
+                  appt.archivedByUserIds.includes(currentUserIdStr)
+                );
+
+                const canCancel = (statusInfo.key === 'pending' || statusInfo.key === 'confirmed') && !isArchived;
+                const canArchive = (statusInfo.key === 'completed' || statusInfo.key === 'cancelled') && !isArchived;
+                const canUnarchive = isArchived;
+
+                return (
+                  <div
+                    key={appt.id}
                     onClick={() => {
-                      try { sound?.playClick?.(); } catch {}
-                      setFilterStatus(tab.id);
+                      sound?.playPop?.();
+                      setSelectedAppointmentDetail(appt);
                     }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
-                      filterStatus === tab.id
-                        ? tab.isAlert
-                          ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30 font-black'
-                          : 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30 font-black'
-                        : tab.isAlert
-                        ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30 dark:hover:bg-rose-500/25'
-                        : 'bg-slate-100/80 hover:bg-slate-200/70 border border-slate-200/80 text-slate-700 dark:bg-white/5 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white'
+                    className={`bg-white dark:bg-[#12192A] rounded-2xl p-5 border transition-all cursor-pointer flex flex-col justify-between space-y-4 group min-w-[320px] ${
+                      isArchived
+                        ? 'border-slate-200/60 dark:border-white/5 opacity-85 bg-slate-50/50 dark:bg-white/[0.01]'
+                        : 'border-slate-200/80 dark:border-white/10 hover:border-indigo-400/50 dark:hover:border-indigo-400/50 shadow-sm hover:shadow-md'
                     }`}
                   >
-                    <span>{tab.label}</span>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
-                      filterStatus === tab.id ? 'bg-black/20 text-current' : 'bg-slate-200/60 dark:bg-white/10 text-slate-600 dark:text-slate-400'
-                    }`}>
-                      {tab.count}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Khối danh sách các thẻ công việc (Task Cards) - CUỘN ĐỘC LẬP NỘI BỘ VỚI ĐỆM ĐÁY PB-32 */}
-            <div className="flex-1 min-h-0 overflow-y-auto pr-2 pb-32 space-y-3.5 custom-scrollbar">
-
-              {activePetRoutines.length === 0 ? (
-                /* EMPTY STATE */
-                <div className="p-10 sm:p-12 rounded-3xl bg-slate-50 dark:bg-[#1E293B]/70 border border-dashed border-slate-300 dark:border-white/15 text-center space-y-4 shadow-xs dark:shadow-xl my-auto">
-                  <div className="w-16 h-16 rounded-3xl bg-cyan-500/10 border border-cyan-400/20 text-cyan-600 dark:text-cyan-400 flex items-center justify-center mx-auto shadow-inner">
-                    <Calendar className="w-8 h-8" />
-                  </div>
-                  <div className="space-y-1.5 max-w-md mx-auto">
-                    <h4 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                      {filterStatus === 'all'
-                        ? `Bé ${resolvedActivePet.name} chưa có lịch chăm sóc nào`
-                        : `Không có việc nào của bé ${resolvedActivePet.name} trong mục "${filterStatus === 'today' ? 'Hôm nay' : filterStatus === 'overdue' ? 'Quá hạn' : filterStatus === 'completed' ? 'Đã xong' : 'Sắp tới'}"`}
-                    </h4>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                      Hãy thiết lập lịch định kỳ như nhỏ gáy Broadline, tẩy giun, tắm spa hoặc uống men tiêu hóa cho bé {resolvedActivePet.name}.
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-center gap-3 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={(e) => handleOpenAddSchedule(e, 'deworm', null, resolvedActivePet.altId || resolvedActivePet.id)}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold text-slate-950 bg-gradient-to-r from-cyan-400 to-teal-400 hover:opacity-95 shadow-lg shadow-cyan-500/20 active:scale-95 transition-all cursor-pointer"
-                    >
-                      <Plus className="w-4 h-4 stroke-[3]" />
-                      <span>Lên lịch chăm sóc cho {resolvedActivePet.name}</span>
-                    </button>
-
-                  </div>
-                </div>
-              ) : (
-                activePetRoutines.map(sch => {
-                  const schDate = sch.date ? String(sch.date).split('T')[0] : '';
-                  const isOverdue = sch.status === 'overdue' || Boolean(schDate && schDate < todayStr && !sch.completed);
-                  const isToday = sch.status === 'today' || schDate === todayStr;
-                  const isUpcoming = sch.status === 'upcoming' || Boolean(schDate && schDate > todayStr && !sch.completed);
-                  const isDone = sch.completed || sch.status === 'completed';
-
-                  return (
-                    <div
-                      key={sch.id}
-                      className={`p-4 sm:p-5 rounded-2xl border transition-all space-y-3 ${
-                        isDone
-                          ? 'bg-slate-50/70 dark:bg-[#1E293B]/40 border-slate-200/60 dark:border-white/5 opacity-65'
-                          : isOverdue
-                          ? 'bg-rose-50/70 dark:bg-rose-950/20 border-rose-200 dark:border-rose-500/40 shadow-xs'
-                          : isToday
-                          ? 'bg-cyan-50/70 dark:bg-cyan-950/20 border-cyan-200 dark:border-cyan-500/40 shadow-xs'
-                          : 'bg-white dark:bg-[#1E293B] border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 shadow-[0_2px_10px_rgba(15,23,42,0.04)] dark:shadow-md'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-start gap-3.5 min-w-0">
-                          <button
-                            type="button"
-                            onClick={() => handleTaskCheck(sch)}
-                            className="mt-0.5 text-slate-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition-all shrink-0 active:scale-90 cursor-pointer"
-                            title={isDone ? 'Đánh dấu chưa hoàn thành' : 'Đánh dấu hoàn thành'}
-                          >
-                            {isDone ? (
-                              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 fill-emerald-100 dark:fill-emerald-950" />
-                            ) : (
-                              <Circle className="w-5 h-5 hover:stroke-emerald-500" />
-                            )}
-                          </button>
-
-                          <div className="min-w-0 space-y-1">
-                            <h5 className={`text-sm sm:text-base font-bold leading-snug ${
-                              isDone ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'
-                            }`}>
-                              {sch.title}
-                            </h5>
-                            
-                            {/* Meta info: Type Badge, Date, Time, Repeat, Location */}
-                            <div className="flex items-center gap-2.5 flex-wrap text-xs text-slate-600 dark:text-slate-300">
-                              <ScheduleBadge type={sch.type} />
-                              <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
-                                <Clock className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                                <span>{safeFormatDate(sch.date)}</span>
-                                {sch.time && <span className="font-mono text-cyan-700 dark:text-cyan-300">• {sch.time}</span>}
-                              </span>
-                              {sch.repeat && sch.repeat !== 'none' && (
-                                <span className="flex items-center gap-1 text-teal-700 dark:text-teal-300 font-semibold bg-teal-50 dark:bg-teal-500/10 px-2 py-0.5 rounded-md border border-teal-200 dark:border-teal-500/20">
-                                  <Repeat className="w-3 h-3" />
-                                  <span>
-                                    {sch.repeat === 'daily' ? 'Hàng ngày' : 
-                                     sch.repeat === 'weekly' ? 'Hàng tuần' : 
-                                     sch.repeat === 'monthly' ? 'Hàng tháng' : 
-                                     sch.repeat === 'quarterly' ? 'Hàng quý (3 tháng)' : 
-                                     sch.repeat === 'yearly' ? 'Hàng năm' : sch.repeat}
-                                  </span>
-                                </span>
-                              )}
-                              {sch.location && (
-                                <span className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                                  <MapPin className="w-3 h-3 text-slate-400 dark:text-slate-500" />
-                                  <span>{sch.location}</span>
-                                </span>
-                              )}
+                    {/* Trong thẻ: Thú cưng / dịch vụ */}
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <SafePetAvatar pet={pet} size="md" />
+                          <div>
+                            <div className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                              {petName}
+                            </div>
+                            <div className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">
+                              #{appt.id}
                             </div>
                           </div>
                         </div>
 
-                        {/* Right side: Status Badge + Action Buttons */}
-                        <div className="shrink-0 flex items-center gap-2">
-                          {isDone && (
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30">
-                              Đã xong
+                        {/* Trạng thái */}
+                        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                          {isArchived && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-white/[0.08] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/10 flex items-center gap-1">
+                              <Archive className="w-3 h-3 text-slate-400" />
+                              Đã lưu trữ
                             </span>
                           )}
-                          {isOverdue && !isDone && (
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/30 animate-pulse">
-                              Quá hạn
-                            </span>
-                          )}
-                          {isToday && !isDone && (
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 dark:bg-cyan-500/20 dark:text-cyan-300 dark:border-cyan-500/30">
-                              Hôm nay
-                            </span>
-                          )}
-                          {isUpcoming && !isDone && (
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-500/20 dark:text-sky-300 dark:border-sky-500/30">
-                              Sắp tới
-                            </span>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={() => { sound?.playClick?.(); onOpenEditSchedule(sch); }}
-                            className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 dark:bg-white/5 dark:hover:bg-white/10 dark:text-slate-300 dark:hover:text-white transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer border border-slate-200 dark:border-white/5"
-                            title="Sửa lịch"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteRoutine(sch.id)}
-                            className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 dark:text-rose-400 transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer border border-rose-200 dark:border-rose-500/20"
-                            title="Xóa việc"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${statusInfo.badgeClass}`}>
+                            {statusInfo.label}
+                          </span>
                         </div>
                       </div>
 
-                      {/* Notes if any */}
-                      {sch.notes && (
-                        <div className="text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-black/40 p-3 rounded-xl border border-slate-200/80 dark:border-white/5 leading-relaxed flex items-start gap-2">
-                          <span className="text-amber-500 dark:text-amber-400 text-sm">💡</span>
-                          <span className="flex-1">
-                            {((sch.title || '').includes('Drontal') || (sch.title || '').toLowerCase().includes('tẩy giun'))
-                              ? `Liều lượng ${(dynamicWeightVal / 10).toFixed(1)} viên theo cân nặng ${dynamicWeightVal}kg. Cho uống kèm thức ăn buổi sáng.`
-                              : sch.notes}
-                          </span>
-                        </div>
-                      )}
+                      <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 line-clamp-2">
+                        {appt.service || 'Khám tổng quát thú cưng'}
+                      </div>
                     </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
-  return (
-    <div className={`font-sans select-none h-full flex flex-col overflow-hidden space-y-4 pb-2`}>
-      
-      {/* ============================================================ */}
-      {/* 1. HAI TAB ĐIỀU HƯỚNG CHÍNH: CLINICAL vs HABITS */}
-      {/* ============================================================ */}
-      <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-white/70 dark:bg-slate-900/80 backdrop-blur-3xl border border-slate-200/80 dark:border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.06)] w-fit shrink-0">
-        <button
-          type="button"
-          onClick={() => {
-            sound?.playClick?.();
-            setScheduleViewMode('clinical');
-          }}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
-            scheduleViewMode === 'clinical'
-              ? 'bg-gradient-to-r from-cyan-500 to-sky-500 text-white shadow-md shadow-cyan-500/20'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/5'
-          }`}
-        >
-          <Stethoscope className="w-4 h-4 stroke-[2.5]" />
-          <span>Lịch Khám Lâm Sàng (Clinical)</span>
-        </button>
+                    {/* Ngày giờ / cơ sở / bác sĩ */}
+                    <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300 pt-3 border-t border-slate-100 dark:border-white/5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white">
+                          <Clock className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                          <span>{appt.time || '08:30'} • {appt.date}</span>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold ${temporalTag.className}`}>
+                          {temporalTag.label}
+                        </span>
+                      </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            sound?.playClick?.();
-            setScheduleViewMode('habits');
-          }}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
-            scheduleViewMode === 'habits'
-              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/20'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/5'
-          }`}
-        >
-          <Flame className="w-4 h-4 stroke-[2.5] fill-current" />
-          <span>Thói Quen & Chăm Sóc (Habits)</span>
-        </button>
-      </div>
+                      <div className="flex items-start gap-1.5 text-slate-500 dark:text-slate-400">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                        <span className="line-clamp-1">{appt.facility || 'Cơ sở thú y'}</span>
+                      </div>
 
-      {/* ============================================================ */}
-      {/* 2. SUB-NAVIGATION (CHỈ DÀNH CHO TAB LÂM SÀNG CLINICAL) */}
-      {/* ============================================================ */}
-      {scheduleViewMode === 'clinical' && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
-          <div className="inline-flex items-center p-1.5 rounded-2xl bg-white/60 dark:bg-white/[0.08] backdrop-blur-xl border border-slate-200/80 dark:border-white/10 shadow-sm gap-1.5">
-            {/* Menu con CLINICAL 1: Danh Sách Ca Khám */}
-            <button
-              type="button"
-              onClick={() => { sound?.playClick?.(); setClinicalTab('list'); }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                clinicalTab === 'list'
-                  ? 'bg-white dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 shadow-md shadow-black/5 border border-slate-200/80 dark:border-cyan-400/30'
-                  : 'text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <ClipboardList size={15} className="stroke-[2.5]" />
-              <span>📋 Danh Sách Ca Khám</span>
-            </button>
+                      <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                        <UserCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span className="truncate">
+                          Bác sĩ: <strong>{doctorDisplay}</strong>
+                        </span>
+                      </div>
+                    </div>
 
-            {/* Menu con CLINICAL 2: Lịch Tháng Trực Quan */}
-            <button
-              type="button"
-              onClick={() => { sound?.playClick?.(); setClinicalTab('month'); }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                clinicalTab === 'month' || clinicalTab === 'calendar'
-                  ? 'bg-white dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 shadow-md shadow-black/5 border border-slate-200/80 dark:border-cyan-400/30'
-                  : 'text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <CalendarIcon size={15} className="stroke-[2.5]" />
-              <span>📅 Lịch Tháng Trực Quan</span>
-            </button>
-          </div>
+                    {/* Thao tác */}
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-white/5 gap-2 flex-wrap">
+                      <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 flex items-center gap-0.5 group-hover:underline">
+                        Xem chi tiết <ChevronRight className="w-3.5 h-3.5" />
+                      </span>
 
-          {/* Dynamic Status Filter Tabs (Chỉ hiển thị khi ở CLINICAL > Danh Sách Ca Khám) */}
-          {clinicalTab === 'list' && (
-            <div className="flex items-center gap-1.5 overflow-x-auto bg-white dark:bg-[#1E293B] p-1.5 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)] dark:shadow-xs">
-              {[
-                { id: 'all', label: `Tất cả (${counts.all})` },
-                { id: 'today', label: `Hôm nay (${counts.today})` },
-                { id: 'upcoming', label: `Sắp tới (${counts.upcoming})` },
-                { id: 'overdue', label: `Quá hạn (${counts.overdue})`, isAlert: counts.overdue > 0 },
-                { id: 'completed', label: `Đã xong (${counts.completed})` }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => { sound?.playClick?.(); setFilterStatus(tab.id); }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                    filterStatus === tab.id
-                      ? tab.isAlert 
-                        ? 'bg-rose-600 text-white shadow-md' 
-                        : 'bg-cyan-600 text-white shadow-md'
-                      : tab.isAlert
-                        ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/5'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+                      <div className="flex items-center gap-1.5">
+                        {canCancel && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              sound?.playClick?.();
+                              setAppointmentToCancel(appt);
+                              setCancelReasonInput('');
+                            }}
+                            className="h-8 px-3 text-xs font-medium text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 rounded-lg transition-colors cursor-pointer"
+                            title="Hủy lịch hẹn khám này"
+                          >
+                            Hủy lịch
+                          </button>
+                        )}
+
+                        {canArchive && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              sound?.playClick?.();
+                              setAppointmentToArchive(appt);
+                              setArchiveError('');
+                            }}
+                            className="h-8 px-2.5 text-xs font-medium text-slate-600 hover:text-rose-600 dark:text-slate-300 dark:hover:text-rose-400 bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.06] dark:hover:bg-white/10 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                            title="Xóa lịch này khỏi danh sách hiển thị của bạn (Lưu trữ)"
+                          >
+                            <Archive className="w-3.5 h-3.5" />
+                            <span>Xóa khỏi DS</span>
+                          </button>
+                        )}
+
+                        {canUnarchive && (
+                          <button
+                            type="button"
+                            disabled={isUnarchivingId === appt.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUnarchiveAppointment(appt.id);
+                            }}
+                            className="h-8 px-2.5 text-xs font-medium text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                            title="Khôi phục lịch này trở lại danh sách hiển thị"
+                          >
+                            <RotateCcw className={`w-3.5 h-3.5 ${isUnarchivingId === appt.id ? 'animate-spin' : ''}`} />
+                            <span>Khôi phục</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
-      )}
-
-      {/* ============================================================ */}
-      {/* 3. KHÔNG GIAN NỘI DUNG CHÍNH (MAIN VIEW CONTENT) */}
-      {/* ============================================================ */}
-      {scheduleViewMode === 'clinical' && (
-        <>
-          {clinicalTab === 'list' && (
-            <div className="flex-1 min-h-0 flex flex-col space-y-4 overflow-hidden">
-              {/* Header & Quick Actions */}
-              <div className="flex-shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/65 backdrop-blur-2xl p-5 sm:p-6 rounded-3xl border border-white/80 shadow-[0_12px_32px_rgba(6,182,212,0.08)]">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-cyan-500/15 border border-cyan-400/30 text-cyan-600 flex items-center justify-center shadow-md shadow-cyan-500/15 shrink-0">
-                    <CalendarDays className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">
-                        Lịch Khám Lâm Sàng (Clinical)
-                      </h1>
-                      {counts.overdue > 0 && (
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-50 text-rose-700 border border-rose-200 animate-pulse">
-                          {counts.overdue} ca quá hạn
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-slate-600 text-xs sm:text-sm mt-0.5">
-                      Khám tại viện, tiêm chủng vắc-xin, phẫu thuật và chỉ định điều trị từ Bác sĩ thú y
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 self-start md:self-auto shrink-0">
-                  <button
-                    onClick={handleExportIcs}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white/80 hover:bg-white border border-slate-200 transition-all active:scale-95 cursor-pointer shadow-xs"
-                    title="Tải file .ics để đồng bộ vào Google Calendar, Apple iCal hoặc Outlook"
-                  >
-                    <Download className="w-4 h-4 text-cyan-600" />
-                    <span>Đồng bộ Calendar (iCal)</span>
-                  </button>
-
-                  {onOpenOmniAlert && (
-                    <button
-                      onClick={() => { sound?.playClick?.(); onOpenOmniAlert(); }}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100/80 border border-indigo-200 shadow-xs transition-all active:scale-95 cursor-pointer"
-                      title="Báo Zalo, Telegram và SMS đa kênh"
-                    >
-                      <Bell className="w-4 h-4 text-indigo-600" />
-                      <span>Báo Đa Kênh</span>
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() => { sound?.playPop?.(); onOpenAiSchedule(); }}
-                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100/80 border border-purple-200 shadow-xs transition-all active:scale-95 cursor-pointer"
-                  >
-                    <Sparkles className="w-4 h-4 text-purple-600 animate-pulse" />
-                    <span>AI Tạo Lộ Trình</span>
-                  </button>
-
-                  {onOpenVetBooking && (
-                    <button
-                      onClick={() => { sound?.playClick?.(); onOpenVetBooking(); }}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-cyan-500 to-sky-500 hover:opacity-95 shadow-md shadow-cyan-500/20 active:scale-95 transition-all cursor-pointer font-black"
-                      title="Đặt lịch khám 2 chiều với Bác sĩ Thú y"
-                    >
-                      <Stethoscope className="w-4 h-4 stroke-[2.5]" />
-                      <span>+ Đặt Lịch Khám</span>
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={(e) => handleOpenAddSchedule(e, 'vet')}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-teal-500 to-emerald-500 hover:opacity-95 shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4 stroke-[3]" />
-                    <span>Thêm Ca Khám</span>
-                  </button>
-                </div>
+      ) : (
+        /* TAB LỊCH CHĂM SÓC: Lưới 3 cột desktop, 2 cột tablet, 1 cột mobile (min 320px) */
+        <div className="space-y-4">
+          {deleteNotice && (
+            <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-800 dark:text-amber-200 flex items-center justify-between gap-3 animate-in fade-in duration-200">
+              <div className="flex items-center gap-2">
+                <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span className="font-medium">{deleteNotice}</span>
               </div>
+              <button
+                type="button"
+                onClick={() => setDeleteNotice(null)}
+                className="text-amber-600 dark:text-amber-400 hover:text-amber-800 p-1 cursor-pointer"
+                title="Đóng thông báo"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
-              {/* Bộ lọc nhanh theo thú cưng */}
-              <div className="flex-shrink-0 flex items-center gap-2 overflow-x-auto bg-white/65 backdrop-blur-2xl p-2.5 rounded-2xl border border-white/80 shadow-[0_8px_24px_rgba(6,182,212,0.06)] no-scrollbar">
-                <span className="text-xs font-bold text-slate-500 pl-2 shrink-0 flex items-center gap-1.5">
-                  <PawPrint className="w-4 h-4 text-cyan-600" />
-                  <span>Lọc theo Bé:</span>
-                </span>
+          {filteredSchedules.length === 0 ? (
+            <EmptyState
+              icon={CalendarDays}
+              title="Không có lịch chăm sóc nào"
+              description={`Chưa có công việc chăm sóc nào phù hợp với bộ lọc (${filterSummaryText}).`}
+              actionText="Thêm việc chăm sóc"
+              onAction={() => onOpenAddSchedule(null, null, null, activePetId !== 'all' ? activePetId : null)}
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredSchedules.map((sch) => {
+              if (!sch) return null;
+              const pet = (pets || []).find(p => p && p.id === sch.petId);
+              const petName = sch.petName || pet?.name || 'Thú cưng';
+              const isDone = Boolean(sch.completed);
+              const temporalTag = getCareTemporalTag(sch.date);
+              const recurrenceLabel = formatRecurrenceLabel(sch.repeat);
 
-                <button
-                  onClick={() => { sound?.playClick?.(); setFilterPetId('all'); }}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 ${
-                    filterPetId === 'all'
-                      ? 'bg-gradient-to-r from-cyan-500 to-sky-500 text-white shadow-sm'
-                      : 'bg-white/70 text-slate-600 hover:bg-white hover:text-slate-800 border border-slate-200/60'
+              return (
+                <div
+                  key={sch.id}
+                  className={`rounded-2xl p-5 border transition-all flex flex-col justify-between space-y-4 min-w-[320px] ${
+                    isDone 
+                      ? 'bg-slate-50/70 dark:bg-white/[0.02] border-slate-200/60 dark:border-white/5 opacity-80' 
+                      : 'bg-white dark:bg-[#12192A] border border-slate-200/80 dark:border-white/10 shadow-sm hover:shadow-md hover:border-indigo-400/50'
                   }`}
                 >
-                  🐾 Tất cả thú cưng ({allUniqueClinicalItems.length})
-                </button>
+                  {/* Trong thẻ: Thú cưng / việc chăm sóc */}
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <button
+                          type="button"
+                          onClick={() => onToggleComplete(sch.id)}
+                          className="mt-0.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer shrink-0"
+                          title={isDone ? 'Đánh dấu chưa hoàn thành' : 'Đánh dấu hoàn thành'}
+                        >
+                          {isDone ? (
+                            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                          ) : (
+                            <div className="w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 hover:border-indigo-500" />
+                          )}
+                        </button>
+                        <div>
+                          <div 
+                            onClick={() => setSelectedCareDetail(sch)}
+                            className={`text-sm font-bold cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors ${
+                              isDone ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'
+                            }`}
+                          >
+                            {sch.title || sch.task || 'Lịch chăm sóc'}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
+                            <SafePetAvatar pet={pet} size="sm" />
+                            <span className="font-medium">{petName}</span>
+                            <span className="text-slate-300 dark:text-slate-600">•</span>
+                            <ScheduleBadge type={sch.type} />
+                          </div>
+                        </div>
+                      </div>
 
-                {safePets.map(p => {
-                  const count = getPetCount(p);
-                  const isSelected = filterPetId === p.id;
+                      {/* Trạng thái */}
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold shrink-0 ${
+                        isDone 
+                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/40' 
+                          : 'bg-slate-100 text-slate-600 dark:bg-white/[0.08] dark:text-slate-300'
+                      }`}>
+                        {isDone ? 'Đã hoàn thành' : 'Chưa làm'}
+                      </span>
+                    </div>
+
+                    {sch.notes && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400 pl-8 line-clamp-2 italic">
+                        "{sch.notes}"
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Ngày giờ / lặp / địa điểm */}
+                  <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-300 pt-3 border-t border-slate-100 dark:border-white/5 pl-8">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 font-medium text-slate-900 dark:text-white">
+                        <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span>{sch.date} {sch.time ? `• ${sch.time}` : ''}</span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold ${temporalTag.className}`}>
+                        {temporalTag.label}
+                      </span>
+                    </div>
+
+                    {recurrenceLabel && (
+                      <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 font-medium">
+                        <Repeat className="w-3.5 h-3.5 shrink-0" />
+                        <span>Lặp lại: {recurrenceLabel}</span>
+                      </div>
+                    )}
+
+                    {sch.location && (
+                      <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 truncate">
+                        <MapPin className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{sch.location}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Thao tác */}
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-white/5 pl-8">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCareDetail(sch)}
+                      className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                    >
+                      Chi tiết
+                    </button>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => onOpenEditSchedule(sch)}
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
+                        title="Sửa lịch chăm sóc"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCareToDelete(sch)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                        title="Xóa lịch chăm sóc này"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    )}
+
+      {/* 6. Modal xem chi tiết lịch khám */}
+      <Modal
+        isOpen={Boolean(selectedAppointmentDetail)}
+        onClose={() => setSelectedAppointmentDetail(null)}
+        title="Chi tiết lịch hẹn khám"
+        size="md"
+        footer={
+          <div className="flex items-center justify-between w-full flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              {(() => {
+                if (!selectedAppointmentDetail) return null;
+                const statusKey = getAppointmentStatusInfo(selectedAppointmentDetail.status).key;
+                const isArchived = Boolean(
+                  currentUserIdStr &&
+                  Array.isArray(selectedAppointmentDetail.archivedByUserIds) &&
+                  selectedAppointmentDetail.archivedByUserIds.includes(currentUserIdStr)
+                );
+
+                if (statusKey === 'pending' || statusKey === 'confirmed') {
                   return (
                     <button
-                      key={p.id}
-                      onClick={() => { sound?.playClick?.(); setFilterPetId(p.id); }}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 border ${
-                        isSelected
-                          ? 'bg-cyan-50 text-cyan-700 border-cyan-300 shadow-sm'
-                          : 'bg-white/70 text-slate-600 hover:bg-white hover:text-slate-800 border-slate-200/60'
-                      }`}
+                      type="button"
+                      onClick={() => {
+                        setAppointmentToCancel(selectedAppointmentDetail);
+                        setCancelReasonInput('');
+                      }}
+                      className="h-10 px-4 text-xs font-medium text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 rounded-xl transition-colors cursor-pointer"
                     >
-                      <img
-                        src={p.avatar}
-                        alt={p.name}
-                        className="w-4 h-4 rounded-full object-cover"
-                        onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=50'; }}
-                      />
-                      <span>{p.name}</span>
-                      <span className="text-[10px] font-mono opacity-80">({count})</span>
+                      Hủy lịch khám này
                     </button>
                   );
-                })}
-              </div>
+                }
 
-              {/* Danh sách ca khám lâm sàng */}
-              <div className="space-y-6 flex-1 min-h-0 overflow-y-auto pr-2 pb-16 custom-scrollbar">
-                {renderClinicalAppointmentsSection()}
+                if ((statusKey === 'completed' || statusKey === 'cancelled') && !isArchived) {
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAppointmentToArchive(selectedAppointmentDetail);
+                        setArchiveError('');
+                      }}
+                      className="h-10 px-4 text-xs font-medium text-slate-700 hover:text-rose-600 dark:text-slate-300 dark:hover:text-rose-400 bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.06] rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Archive className="w-3.5 h-3.5" />
+                      <span>Xóa khỏi danh sách</span>
+                    </button>
+                  );
+                }
+
+                if (isArchived) {
+                  return (
+                    <button
+                      type="button"
+                      disabled={isUnarchivingId === selectedAppointmentDetail.id}
+                      onClick={() => handleUnarchiveAppointment(selectedAppointmentDetail.id)}
+                      className="h-10 px-4 text-xs font-medium text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <RotateCcw className={`w-3.5 h-3.5 ${isUnarchivingId === selectedAppointmentDetail.id ? 'animate-spin' : ''}`} />
+                      <span>Khôi phục vào danh sách</span>
+                    </button>
+                  );
+                }
+
+                return null;
+              })()}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSelectedAppointmentDetail(null)}
+              className="h-10 px-5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
+            >
+              Đóng
+            </button>
+          </div>
+        }
+      >
+        {selectedAppointmentDetail && (
+          <div className="space-y-4 text-xs text-slate-700 dark:text-slate-300">
+            {/* Trạng thái & Nhãn thời gian */}
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/10">
+              <div>
+                <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
+                  Trạng thái
+                </span>
+                <span className={`inline-block mt-0.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getAppointmentStatusInfo(selectedAppointmentDetail.status).badgeClass}`}>
+                  {getAppointmentStatusInfo(selectedAppointmentDetail.status).label}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
+                  Thời điểm
+                </span>
+                <span className={`inline-block mt-0.5 px-2.5 py-0.5 rounded-lg text-xs font-semibold ${getAppointmentTemporalTag(selectedAppointmentDetail.date, selectedAppointmentDetail.time).className}`}>
+                  {getAppointmentTemporalTag(selectedAppointmentDetail.date, selectedAppointmentDetail.time).label}
+                </span>
               </div>
             </div>
-          )}
 
-          {(clinicalTab === 'month' || clinicalTab === 'calendar' || clinicalSubTab === 'CALENDAR') && (
-            <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
-              <CalendarMonthView
-                schedules={filteredSchedules}
-                pets={safePets}
-                onToggleComplete={handleTaskCheck}
-                onOpenAddScheduleWithDate={(date) => handleOpenAddSchedule(null, null, date)}
+            {/* Thông tin khám */}
+            <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-slate-50/50 dark:bg-white/[0.01] border border-slate-100 dark:border-white/5">
+              <div>
+                <span className="text-slate-400 dark:text-slate-500 block text-[11px]">Thú cưng:</span>
+                <div className="font-bold text-slate-900 dark:text-white mt-0.5 flex items-center gap-1.5">
+                  <PawPrint className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>{selectedAppointmentDetail.petName || 'Thú cưng'}</span>
+                </div>
+              </div>
+              <div>
+                <span className="text-slate-400 dark:text-slate-500 block text-[11px]">Dịch vụ:</span>
+                <div className="font-semibold text-slate-900 dark:text-white mt-0.5">
+                  {selectedAppointmentDetail.service || 'Khám tổng quát'}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <span className="text-slate-400 dark:text-slate-500 block text-[11px]">Ngày khám:</span>
+                <div className="font-semibold text-slate-900 dark:text-white mt-0.5 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{selectedAppointmentDetail.date}</span>
+                </div>
+              </div>
+              <div>
+                <span className="text-slate-400 dark:text-slate-500 block text-[11px]">Giờ khám:</span>
+                <div className="font-semibold text-slate-900 dark:text-white mt-0.5 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{selectedAppointmentDetail.time || '08:30'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <span className="text-slate-400 dark:text-slate-500 block text-[11px]">Cơ sở tiếp nhận:</span>
+              <div className="font-semibold text-slate-900 dark:text-white mt-0.5 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span>{selectedAppointmentDetail.facility || 'Cơ sở thú y'}</span>
+              </div>
+            </div>
+
+            <div>
+              <span className="text-slate-400 dark:text-slate-500 block text-[11px]">Bác sĩ phụ trách:</span>
+              <div className="font-semibold text-slate-900 dark:text-white mt-0.5 flex items-center gap-1.5">
+                <UserCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span>
+                  {selectedAppointmentDetail.assignedVet && selectedAppointmentDetail.assignedVet !== 'Cơ sở phân công'
+                    ? selectedAppointmentDetail.assignedVet
+                    : 'Chưa phân công'}
+                </span>
+              </div>
+            </div>
+
+            {/* Thông tin liên hệ */}
+            <div className="p-3 rounded-xl bg-slate-50/50 dark:bg-white/[0.01] border border-slate-100 dark:border-white/5 space-y-1">
+              <span className="text-slate-400 dark:text-slate-500 block text-[11px] font-semibold uppercase tracking-wider">
+                Thông tin liên hệ
+              </span>
+              <div className="flex items-center justify-between text-xs pt-1">
+                <div className="flex items-center gap-1.5 text-slate-800 dark:text-slate-200">
+                  <User className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{selectedAppointmentDetail.ownerName || 'Chủ nuôi'}</span>
+                </div>
+                <div className="flex items-center gap-1.5 font-semibold text-indigo-600 dark:text-indigo-400">
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>{selectedAppointmentDetail.phone || 'Chưa cung cấp SĐT'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Ghi chú */}
+            <div>
+              <span className="text-slate-400 dark:text-slate-500 block text-[11px] font-semibold uppercase tracking-wider mb-1">
+                Ghi chú từ chủ nuôi
+              </span>
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/10 text-xs">
+                {selectedAppointmentDetail.note || <span className="italic text-slate-400">Không có ghi chú thêm</span>}
+              </div>
+            </div>
+
+            {selectedAppointmentDetail.adminNote && (
+              <div>
+                <span className="text-slate-400 dark:text-slate-500 block text-[11px] font-semibold uppercase tracking-wider mb-1">
+                  Phản hồi từ phòng khám
+                </span>
+                <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/30 text-xs text-blue-900 dark:text-blue-200">
+                  {selectedAppointmentDetail.adminNote}
+                </div>
+              </div>
+            )}
+
+            {selectedAppointmentDetail.status === 'cancelled' && (
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/30 text-xs text-rose-800 dark:text-rose-200 space-y-1">
+                <span className="font-semibold flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" /> Lý do hủy lịch:
+                </span>
+                <p>{selectedAppointmentDetail.cancelReason || 'Chủ nuôi yêu cầu hủy lịch'}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* 7. Modal xác nhận hủy lịch khám */}
+      <Modal
+        isOpen={Boolean(appointmentToCancel)}
+        onClose={() => setAppointmentToCancel(null)}
+        title="Xác nhận hủy lịch khám"
+        size="sm"
+        footer={
+          <div className="flex items-center justify-end gap-2.5 w-full">
+            <button
+              type="button"
+              onClick={() => setAppointmentToCancel(null)}
+              disabled={isCancelling}
+              className="h-10 px-4 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
+            >
+              Không, giữ lịch
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmCancelAppointment}
+              disabled={isCancelling}
+              className={`h-10 px-4 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-sm transition-all ${
+                isCancelling ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+              }`}
+            >
+              {isCancelling ? 'Đang hủy...' : 'Xác nhận hủy lịch'}
+            </button>
+          </div>
+        }
+      >
+        {appointmentToCancel && (
+          <div className="space-y-4">
+            <p className="text-xs text-slate-600 dark:text-slate-300">
+              Bạn có chắc chắn muốn hủy lịch khám ngày <strong>{appointmentToCancel.date}</strong> lúc <strong>{appointmentToCancel.time || '08:30'}</strong> cho bé <strong>{appointmentToCancel.petName || 'Thú cưng'}</strong>?
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Lý do hủy lịch (tùy chọn):
+              </label>
+              <textarea
+                rows={2}
+                value={cancelReasonInput}
+                onChange={(e) => setCancelReasonInput(e.target.value)}
+                placeholder="Ví dụ: Bận đột xuất, bé đã khỏe hơn..."
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-xl text-xs outline-none focus:border-rose-500 text-slate-900 dark:text-white"
               />
             </div>
-          )}
-        </>
-      )}
 
-      {scheduleViewMode === 'habits' && (
-        <div className="w-full h-full overflow-hidden flex-1 min-h-0">
-          <HabitsUnifiedView
-            pets={safePets}
-            homeRoutinesList={homeRoutinesList}
-            setHomeRoutinesList={setHomeRoutinesList}
-            selectedRoutinePetId={selectedRoutinePetId}
-            setSelectedRoutinePetId={setSelectedRoutinePetId}
-            petsHealthData={petsHealthData}
-            setPetsHealthData={setPetsHealthData}
-            onOpenAddSchedule={handleOpenAddSchedule}
-            onOpenEditSchedule={onOpenEditSchedule}
-            onDeleteSchedule={handleDeleteRoutine}
-            onResetHomeRoutines={handleResetHomeRoutines}
-            onToggleComplete={handleTaskCheck}
-            familyMembers={propFamilyMembers}
-            currentMemberId={currentMemberId}
-            todayStr={todayStr}
-          />
-        </div>
-      )}
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 italic">
+              Lưu ý: Lịch khám sau khi hủy vẫn được lưu giữ an toàn trong lịch sử với trạng thái "Đã hủy".
+            </p>
+          </div>
+        )}
+      </Modal>
 
-    </div>
+      {/* Modal xác nhận xóa khỏi danh sách (Lưu trữ) lịch khám */}
+      <Modal
+        isOpen={Boolean(appointmentToArchive)}
+        onClose={() => {
+          if (!isSubmittingArchive) {
+            setAppointmentToArchive(null);
+            setArchiveError('');
+          }
+        }}
+        title="Xóa khỏi danh sách (Lưu trữ lịch khám)"
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-2.5 w-full">
+            <button
+              type="button"
+              onClick={() => {
+                setAppointmentToArchive(null);
+                setArchiveError('');
+              }}
+              disabled={isSubmittingArchive}
+              className="h-10 px-4 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
+            >
+              Giữ lại
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmArchiveAppointment}
+              disabled={isSubmittingArchive}
+              className={`h-10 px-4 text-xs font-semibold text-white bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-xl shadow-sm transition-all flex items-center gap-1.5 ${
+                isSubmittingArchive ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+              }`}
+            >
+              {isSubmittingArchive && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+              <span>{isSubmittingArchive ? 'Đang lưu trữ...' : 'Xác nhận xóa khỏi danh sách'}</span>
+            </button>
+          </div>
+        }
+      >
+        {appointmentToArchive && (
+          <div className="space-y-4">
+            {archiveError && (
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <div className="font-bold">Không thể lưu trữ lịch khám</div>
+                  <div className="text-[11px] text-rose-600 dark:text-rose-400">{archiveError}</div>
+                </div>
+              </div>
+            )}
+
+            <p className="text-xs text-slate-700 dark:text-slate-200">
+              Bạn có chắc chắn muốn xóa lịch khám này khỏi danh sách hiển thị của mình?
+            </p>
+
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/10 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Thú cưng:</span>
+                <span className="font-bold text-slate-900 dark:text-white">
+                  {(pets || []).find(p => p && p.id === appointmentToArchive.petId)?.name || appointmentToArchive.petName || 'Thú cưng'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Dịch vụ:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">{appointmentToArchive.service || 'Khám tổng quát'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Thời gian hẹn:</span>
+                <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                  {appointmentToArchive.time || '08:30'} • {appointmentToArchive.date}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Mã lịch khám:</span>
+                <span className="font-mono text-slate-500">#{appointmentToArchive.id}</span>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-800/40 text-[11px] text-blue-800 dark:text-blue-300 space-y-1">
+              <div className="font-bold flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                <span>Giải thích phạm vi lưu trữ:</span>
+              </div>
+              <p>
+                Thao tác này chỉ ẩn lịch khỏi danh sách hiển thị cá nhân của bạn (tài khoản hiện tại) và chuyển vào mục <strong>"Đã lưu trữ"</strong>.
+              </p>
+              <p className="text-slate-500 dark:text-slate-400">
+                • Hồ sơ bệnh án, đơn thuốc, lịch sử y tế và liên kết dữ liệu vẫn được bảo toàn nguyên vẹn.
+                <br />
+                • Lịch hẹn phía Bác sĩ/Phòng khám không bị ảnh hưởng.
+                <br />
+                • Bạn có thể xem lại và bấm <strong>"Khôi phục"</strong> bất kỳ lúc nào từ bộ lọc <em>"Đã lưu trữ"</em>.
+              </p>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* 8. Modal xem chi tiết lịch chăm sóc */}
+      <Modal
+        isOpen={Boolean(selectedCareDetail)}
+        onClose={() => setSelectedCareDetail(null)}
+        title="Chi tiết lịch chăm sóc"
+        size="md"
+        footer={
+          <div className="flex items-center justify-between w-full">
+            <button
+              type="button"
+              onClick={() => {
+                const care = selectedCareDetail;
+                setSelectedCareDetail(null);
+                onOpenEditSchedule(care);
+              }}
+              className="h-10 px-4 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-xl transition-colors cursor-pointer"
+            >
+              Chỉnh sửa
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedCareDetail(null)}
+              className="h-10 px-5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
+            >
+              Đóng
+            </button>
+          </div>
+        }
+      >
+        {selectedCareDetail && (
+          <div className="space-y-3.5 text-xs text-slate-700 dark:text-slate-300">
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/10 flex items-center justify-between">
+              <div>
+                <span className="text-slate-400 dark:text-slate-500 text-[11px] block">Công việc:</span>
+                <span className="font-bold text-sm text-slate-900 dark:text-white">
+                  {selectedCareDetail.title || selectedCareDetail.task}
+                </span>
+              </div>
+              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                selectedCareDetail.completed 
+                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' 
+                  : 'bg-slate-100 text-slate-600 dark:bg-white/[0.08] dark:text-slate-300'
+              }`}>
+                {selectedCareDetail.completed ? 'Đã hoàn thành' : 'Chưa làm'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <span className="text-slate-400 dark:text-slate-500 text-[11px] block">Thú cưng:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {selectedCareDetail.petName || 'Thú cưng'}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400 dark:text-slate-500 text-[11px] block">Loại việc:</span>
+                <div className="mt-0.5">
+                  <ScheduleBadge type={selectedCareDetail.type} />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <span className="text-slate-400 dark:text-slate-500 text-[11px] block">Ngày dự kiến:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {selectedCareDetail.date}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400 dark:text-slate-500 text-[11px] block">Giờ thực hiện:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {selectedCareDetail.time || '09:00'}
+                </span>
+              </div>
+            </div>
+
+            {selectedCareDetail.repeat && selectedCareDetail.repeat !== 'none' && (
+              <div>
+                <span className="text-slate-400 dark:text-slate-500 text-[11px] block">Quy tắc lặp:</span>
+                <span className="font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 mt-0.5">
+                  <Repeat className="w-3.5 h-3.5" /> {formatRecurrenceLabel(selectedCareDetail.repeat)}
+                </span>
+              </div>
+            )}
+
+            {selectedCareDetail.location && (
+              <div>
+                <span className="text-slate-400 dark:text-slate-500 text-[11px] block">Địa điểm:</span>
+                <span className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5 mt-0.5">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400" /> {selectedCareDetail.location}
+                </span>
+              </div>
+            )}
+
+            {selectedCareDetail.notes && (
+              <div>
+                <span className="text-slate-400 dark:text-slate-500 text-[11px] block">Ghi chú & dặn dò:</span>
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/10 mt-1 text-xs">
+                  {selectedCareDetail.notes}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* 9. Modal xác nhận xóa lịch chăm sóc */}
+      <Modal
+        isOpen={Boolean(careToDelete)}
+        onClose={() => {
+          if (!isDeletingCare) {
+            setCareToDelete(null);
+            setDeleteError(null);
+          }
+        }}
+        title="Xóa việc chăm sóc"
+        size="sm"
+        footer={
+          <div className="flex items-center justify-end gap-2.5 w-full">
+            <button
+              type="button"
+              onClick={() => {
+                setCareToDelete(null);
+                setDeleteError(null);
+              }}
+              disabled={isDeletingCare}
+              className="h-10 px-4 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
+            >
+              {deleteError ? 'Đóng' : 'Hủy bỏ'}
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmDeleteCare}
+              disabled={isDeletingCare}
+              className={`h-10 px-4 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-sm transition-all flex items-center gap-1.5 ${
+                isDeletingCare ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+              }`}
+            >
+              {isDeletingCare && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+              <span>{isDeletingCare ? 'Đang xóa...' : deleteError ? 'Thử lại' : 'Xóa lịch'}</span>
+            </button>
+          </div>
+        }
+      >
+        {careToDelete && (
+          <div className="space-y-3">
+            {deleteError && (
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <div className="font-bold">{deleteError.title}</div>
+                  <div className="text-[11px] text-rose-600 dark:text-rose-400">{deleteError.message}</div>
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-slate-600 dark:text-slate-300">
+              Bạn có chắc chắn muốn xóa lịch chăm sóc <strong>"{careToDelete.title || careToDelete.task || 'Lịch chăm sóc'}"</strong> của bé <strong>{(pets || []).find(p => p && p.id === careToDelete.petId)?.name || careToDelete.petName || 'Thú cưng'}</strong>?
+            </p>
+          </div>
+        )}
+      </Modal>
+    </PageContainer>
   );
 };
-
-// ERROR BOUNDARY
-class ScheduleErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    console.error("ScheduleView ErrorBoundary caught error:", error, errorInfo);
-  }
-
-  handleReset = () => {
-    this.setState({ hasError: false, error: null });
-  };
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="p-8 my-6 rounded-3xl bg-rose-500/10 border border-rose-500/30 text-center space-y-4 max-w-2xl mx-auto backdrop-blur-xl">
-          <div className="w-12 h-12 mx-auto rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center">
-            <AlertTriangle className="w-6 h-6" />
-          </div>
-          <h3 className="text-lg font-bold text-white">Đã kích hoạt chế độ an toàn Lịch trình</h3>
-          <p className="text-xs text-rose-300 max-w-md mx-auto">
-            {this.state.error?.message || 'Có xung đột dữ liệu định dạng ngày hoặc danh sách lịch hẹn.'}
-          </p>
-          <button
-            onClick={this.handleReset}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer"
-          >
-            <RefreshCw className="w-4 h-4" />
-            <span>Khôi phục & Tải lại giao diện</span>
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-export const ScheduleView = (props) => (
-  <ScheduleErrorBoundary>
-    <ScheduleViewInner {...props} />
-  </ScheduleErrorBoundary>
-);
 
 export default ScheduleView;

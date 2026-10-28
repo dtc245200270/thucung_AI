@@ -1,0 +1,13 @@
+{
+  "pet-test-1793094736704": {
+    "petId": "pet-test-1793094736704",
+    "weight": 15.5,
+    "weightHistory": [
+      {
+        "date": "2026-10-15",
+        "weight": 15.5,
+        "note": "Khám sức khỏe"
+      }
+    ]
+  }
+}

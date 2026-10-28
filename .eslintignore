@@ -1,0 +1,14 @@
+# Build outputs
+dist/
+dist-ssr/
+
+# Automated test browser user profiles & scratch caches
+scratch/*profile*
+scratch/*_profile*/
+tests/.profile*
+scratch/debug_click/
+scratch/debug_vet_profile/
+scratch/profile_vet/
+scratch/profile_vet_test/
+scratch/profile_owner_test/
+scratch/temp_*

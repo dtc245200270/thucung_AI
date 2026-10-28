@@ -1,0 +1,31 @@
+[
+  {
+    "id": "user_admin_01",
+    "name": "Quản trị viên Hệ thống",
+    "email": "admin@petcare.ai",
+    "phone": "0901.000.888",
+    "address": "Trụ sở chính PetCare AI, Hà Nội",
+    "role": "system_admin",
+    "isLocked": false,
+    "vetStatus": null,
+    "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
+    "createdAt": "2026-01-01T08:00:00.000Z",
+    "passwordChangedAt": null,
+    "password": "pbkdf2:220d266a8680931910179eacdca3e589:92859972c0dd6212b8cdbcd0784bbe7557a93b12daf4592d4b709a90a88850d08d26b92c7632df69da1e2d68f92d95dc6000f0f345132b86e794bac8c1524f11"
+  },
+  {
+    "id": "user_1791541299976_7ebbe5",
+    "name": "Đinh Xuân Mạnh",
+    "email": "manhdinh2907@gmail.com",
+    "phone": "",
+    "address": "Việt Nam",
+    "role": "pet_owner",
+    "isLocked": false,
+    "vetStatus": null,
+    "mustChangePassword": false,
+    "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=300&auto=format&fit=crop&q=80",
+    "createdAt": "2026-10-09T10:21:40.033Z",
+    "passwordChangedAt": "2026-10-14T10:29:58.631Z",
+    "password": "pbkdf2:103e96344e5da6cff71e23db037f796c:8b1124bdfd896cc387e2272f8d50252cafcdf4046bc031b6ab52d1573c30df8755d44333869ec664984b46eb7aa72d7cb0e2b92c02aacfed79b856e596f7e6fa"
+  }
+]

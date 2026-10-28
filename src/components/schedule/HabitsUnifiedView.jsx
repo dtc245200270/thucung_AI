@@ -19,20 +19,21 @@ import {
   AlertCircle,
   Home,
   Check,
-  Award
+  Award,
+  PawPrint
 } from 'lucide-react';
 import { sound } from '../../services/soundService';
 import { updatePetWeight, normalizePetHealthKey } from '../../services/storageService';
-import { PETS_LIST } from './ScheduleView';
+import { getTodayVnDate } from '../../utils/dateUtils.js';
 
 // 1. KHAI BÁO STATE DANH SÁCH CÔNG VIỆC BAN ĐẦU (Rỗng, chờ dữ liệu thật)
 export const INITIAL_HABIT_TASKS = [];
 
 export default function HabitsUnifiedView({
-  pets = PETS_LIST,
+  pets = [],
   homeRoutinesList = [],
   setHomeRoutinesList = () => {},
-  selectedRoutinePetId = 'mochi',
+  selectedRoutinePetId = '',
   setSelectedRoutinePetId = () => {},
   petsHealthData = {},
   setPetsHealthData = () => {},
@@ -42,24 +43,24 @@ export default function HabitsUnifiedView({
   onResetHomeRoutines = () => {},
   familyMembers = [],
   currentMemberId = 'fam-1',
-  todayStr = new Date().toISOString().split('T')[0]
+  todayStr = getTodayVnDate()
 }) {
   // Bộ lọc trạng thái & ca trong ngày
   const [filterStatus, setFilterStatus] = useState('ALL'); // 'ALL' | 'TODAY' | 'UPCOMING' | 'OVERDUE' | 'COMPLETED'
   const [timeFilter, setTimeFilter] = useState('ALL');     // 'ALL' | 'MORNING' | 'NOON' | 'EVENING'
 
   // Bé thú cưng đang chọn
-  const safePets = pets && pets.length > 0 ? pets : PETS_LIST;
+  const safePets = pets && pets.length > 0 ? pets : [];
   const currentPet = safePets.find(p => 
     p.id === selectedRoutinePetId || 
     p.altId === selectedRoutinePetId || 
     String(p.name).toLowerCase() === String(selectedRoutinePetId).toLowerCase()
-  ) || safePets[0] || PETS_LIST[0];
+  ) || safePets[0] || null;
 
   // Trạng thái cân nặng inline
   const [isEditingWeight, setIsEditingWeight] = useState(false);
-  const activePetKey = normalizePetHealthKey(currentPet.id);
-  const activePetWeightVal = petsHealthData?.[activePetKey]?.weight || '';
+  const activePetKey = currentPet ? normalizePetHealthKey(currentPet.id) : null;
+  const activePetWeightVal = activePetKey ? (petsHealthData?.[activePetKey]?.weight || '') : '';
   const [currentWeightInput, setCurrentWeightInput] = useState(String(activePetWeightVal));
 
   useEffect(() => {
@@ -80,7 +81,15 @@ export default function HabitsUnifiedView({
               ...t,
               note: cleanNote,
               notes: cleanNote,
-              category: t.category || (t.type === 'deworm' ? 'Tẩy giun / Nhỏ gáy' : t.type === 'medicine' ? 'Thuốc & Dinh dưỡng' : 'Vệ sinh & Spa'),
+              category: t.category || (
+                t.type === 'deworm' || t.type === 'parasite' ? 'Tẩy giun / Phòng ký sinh trùng' :
+                t.type === 'medicine' ? 'Uống thuốc / Điều trị' :
+                t.type === 'feeding' ? 'Ăn uống' :
+                t.type === 'exercise' ? 'Vận động / Vui chơi' :
+                t.type === 'vet' ? 'Nhắc khám / Tái khám' :
+                t.type === 'vaccine' ? 'Tiêm phòng' :
+                'Vệ sinh / Làm đẹp'
+              ),
               frequency: t.frequency || (t.repeat === 'daily' ? 'Hàng ngày' : t.repeat === 'weekly' ? 'Hàng tuần' : t.repeat === 'monthly' ? 'Hàng tháng' : 'Định kỳ'),
               completed: Boolean(t.completed)
             };
@@ -90,16 +99,6 @@ export default function HabitsUnifiedView({
     } catch {}
     return INITIAL_HABIT_TASKS;
   });
-
-  // Đồng bộ lưu LocalStorage khi tasks thay đổi
-  useEffect(() => {
-    try {
-      localStorage.setItem('petcare_home_routines', JSON.stringify(tasks));
-    } catch {}
-    if (typeof setHomeRoutinesList === 'function') {
-      setHomeRoutinesList(tasks);
-    }
-  }, [tasks, setHomeRoutinesList]);
 
   // Xác định thành viên gia đình
   const getMemberName = (memberId) => {
@@ -113,22 +112,28 @@ export default function HabitsUnifiedView({
     const nowTimeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     const memberName = getMemberName(currentMemberId);
 
-    setTasks(prevTasks =>
-      prevTasks.map(task => {
-        if (String(task.id) === String(taskId)) {
-          const nextCompleted = !task.completed;
-          willComplete = nextCompleted;
-          return {
-            ...task,
-            completed: nextCompleted,
-            status: nextCompleted ? 'COMPLETED' : 'OVERDUE',
-            completedAt: nextCompleted ? nowTimeStr : null,
-            completedBy: nextCompleted ? memberName : null
-          };
-        }
-        return task;
-      })
-    );
+    const nextTasks = tasks.map(task => {
+      if (String(task.id) === String(taskId)) {
+        const nextCompleted = !task.completed;
+        willComplete = nextCompleted;
+        return {
+          ...task,
+          completed: nextCompleted,
+          status: nextCompleted ? 'COMPLETED' : 'OVERDUE',
+          completedAt: nextCompleted ? nowTimeStr : null,
+          completedBy: nextCompleted ? memberName : null
+        };
+      }
+      return task;
+    });
+
+    setTasks(nextTasks);
+    try {
+      localStorage.setItem('petcare_home_routines', JSON.stringify(nextTasks));
+    } catch {}
+    if (typeof setHomeRoutinesList === 'function') {
+      setHomeRoutinesList(nextTasks);
+    }
 
     // Hiệu ứng âm thanh & Pháo hoa chúc mừng
     if (willComplete) {
@@ -147,12 +152,11 @@ export default function HabitsUnifiedView({
 
   // Helper kiểm tra task thuộc về pet đang chọn
   const isTaskForCurrentPet = (task) => {
-    const curId = String(currentPet.id || 'mochi').toLowerCase();
-    const taskPetId = String(task.petId || '').toLowerCase();
-    if (taskPetId === curId) return true;
-    if (curId.includes('mochi') && taskPetId.includes('mochi')) return true;
-    if (curId.includes('luna') && taskPetId.includes('luna')) return true;
-    if ((curId.includes('banh') || curId.includes('bao')) && (taskPetId.includes('banh') || taskPetId.includes('bao'))) return true;
+    if (!currentPet) return false;
+    const curId = String(currentPet.id || '').trim();
+    const taskPetId = String(task.petId || '').trim();
+    if (taskPetId && taskPetId === curId) return true;
+    if (task.petName && currentPet.name && task.petName.trim().toLowerCase() === currentPet.name.trim().toLowerCase()) return true;
     return false;
   };
 
@@ -198,12 +202,11 @@ export default function HabitsUnifiedView({
     });
   }, [currentPetTasks, filterStatus, timeFilter]);
 
-  // Gamification Chuỗi Streak
-  const [baseStreak] = useState(21);
-  const currentActiveStreak = overdueTasks > 0 ? 0 : (isAllDone ? baseStreak + 1 : baseStreak);
+  // Gamification Chuỗi Streak (Chỉ tính khi có công việc thực tế, không sinh số liệu giả)
+  const currentActiveStreak = currentPetTasks.length === 0 ? 0 : (overdueTasks > 0 ? 0 : (isAllDone ? 1 : 0));
 
   // Cập nhật cân nặng không lặp chuỗi
-  const handleQuickUpdateWeight = (e) => {
+  const handleQuickUpdateWeight = async (e) => {
     e?.preventDefault?.();
     const val = parseFloat(currentWeightInput);
     if (isNaN(val) || val < 0.5 || val > 150) {
@@ -211,27 +214,31 @@ export default function HabitsUnifiedView({
       return;
     }
 
-    try { sound?.playSuccess?.(); } catch {}
-    const updatedHealth = updatePetWeight(activePetKey, val);
-    if (typeof setPetsHealthData === 'function') {
-      setPetsHealthData(updatedHealth);
-    }
+    try {
+      const updatedHealth = await updatePetWeight(activePetKey, val);
+      try { sound?.playSuccess?.(); } catch {}
+      if (typeof setPetsHealthData === 'function') {
+        setPetsHealthData(updatedHealth);
+      }
 
-    // Gán chuỗi sạch duy nhất, không dùng regex append
-    const cleanNote = `Liều lượng ${(val / 10).toFixed(1)} viên theo cân nặng ${val}kg. Cho uống kèm thức ăn buổi sáng.`;
-    setTasks(prevTasks =>
-      prevTasks.map(t => {
-        if (isTaskForCurrentPet(t) && (t.title?.includes('Drontal') || t.title?.toLowerCase()?.includes('tẩy giun'))) {
-          return {
-            ...t,
-            note: cleanNote,
-            notes: cleanNote
-          };
-        }
-        return t;
-      })
-    );
-    setIsEditingWeight(false);
+      // Gán chuỗi sạch duy nhất, không dùng regex append
+      const cleanNote = `Liều lượng ${(val / 10).toFixed(1)} viên theo cân nặng ${val}kg. Cho uống kèm thức ăn buổi sáng.`;
+      setTasks(prevTasks =>
+        prevTasks.map(t => {
+          if (isTaskForCurrentPet(t) && (t.title?.includes('Drontal') || t.title?.toLowerCase()?.includes('tẩy giun'))) {
+            return {
+              ...t,
+              note: cleanNote,
+              notes: cleanNote
+            };
+          }
+          return t;
+        })
+      );
+      setIsEditingWeight(false);
+    } catch (err) {
+      alert(err.message || 'Không thể lưu cân nặng lên máy chủ. Vui lòng thử lại.');
+    }
   };
 
 
@@ -245,6 +252,40 @@ export default function HabitsUnifiedView({
     }
   };
 
+  const handleResetTasks = () => {
+    if (!currentPet) return;
+    if (!window.confirm(`Bạn có chắc chắn muốn BỎ ĐÁNH DẤU HOÀN THÀNH (reset) tất cả thói quen của bé ${currentPet.name}?`)) return;
+    try { sound?.playClick?.(); } catch {}
+    setTasks(prevTasks => prevTasks.map(t => {
+      if (isTaskForCurrentPet(t)) {
+        return { ...t, completed: false };
+      }
+      return t;
+    }));
+  };
+
+  if (!currentPet) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center rounded-3xl bg-white dark:bg-[#12192A] backdrop-blur-xl border border-slate-200/80 dark:border-white/10 shadow-lg mt-8 h-full">
+        <Home className="w-16 h-16 text-slate-300 dark:text-slate-600 mb-4 opacity-50" />
+        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Bạn chưa có thú cưng</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
+          Vui lòng thêm thú cưng vào hệ thống để bắt đầu thiết lập thói quen và lịch chăm sóc hàng ngày.
+        </p>
+        <button 
+          onClick={(e) => {
+            try { sound?.playClick?.(); } catch {}
+            window.dispatchEvent(new CustomEvent('petcare_open_add_pet'));
+          }}
+          className="mt-6 px-5 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl shadow-lg hover:bg-indigo-700 transition-all active:scale-95 flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Thêm Thú Cưng
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col lg:flex-row gap-5 flex-1 min-h-0 h-full overflow-hidden">
       
@@ -257,7 +298,7 @@ export default function HabitsUnifiedView({
         <div className="flex-shrink-0 bg-white dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 rounded-2xl p-2.5 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)] dark:shadow-lg">
           <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-0.5 flex justify-between items-center mb-1">
             <span>Chọn Thú Cưng</span>
-            <span className="text-cyan-600 dark:text-cyan-400 font-mono">3 bé</span>
+            <span className="text-cyan-600 dark:text-cyan-400 font-mono">{safePets.length} bé</span>
           </div>
           
           <div className="grid grid-cols-3 gap-2">
@@ -285,12 +326,20 @@ export default function HabitsUnifiedView({
                   }`}
                 >
                   <div className="relative mb-1">
-                    <img
-                      src={pet.avatar}
-                      alt={pet.name}
-                      className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-white/20"
-                      onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=80'; }}
-                    />
+                    {pet.avatar ? (
+                      <img
+                        src={pet.avatar}
+                        alt={pet.name}
+                        className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-white/20"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div className={`w-8 h-8 rounded-full border border-slate-200 dark:border-white/20 bg-slate-100 dark:bg-slate-800 items-center justify-center text-slate-400 ${pet.avatar ? 'hidden' : 'flex'}`}>
+                      <PawPrint className="w-4 h-4" />
+                    </div>
                     {petOverdue > 0 && (
                       <span className="absolute -top-1 -right-1.5 px-1 min-w-[14px] h-[14px] bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center ring-2 ring-white dark:ring-slate-900 animate-pulse">
                         {petOverdue}
@@ -314,12 +363,20 @@ export default function HabitsUnifiedView({
           {/* Header bé */}
           <div className="flex items-center gap-3">
             <div className="relative flex-shrink-0">
-              <img
-                src={currentPet.avatar}
-                alt={currentPet.name}
-                className="w-13 h-13 rounded-2xl object-cover border-2 border-cyan-400/60 shadow-lg shadow-cyan-500/20"
-                onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=160'; }}
-              />
+              {currentPet.avatar ? (
+                <img
+                  src={currentPet.avatar}
+                  alt={currentPet.name}
+                  className="w-13 h-13 rounded-2xl object-cover border-2 border-cyan-400/60 shadow-lg shadow-cyan-500/20"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'flex';
+                  }}
+                />
+              ) : null}
+              <div className={`w-13 h-13 rounded-2xl border-2 border-slate-200 dark:border-white/20 bg-slate-100 dark:bg-slate-800 items-center justify-center text-slate-400 ${currentPet.avatar ? 'hidden' : 'flex'}`}>
+                <PawPrint className="w-6 h-6" />
+              </div>
               <span className="absolute -bottom-1 -right-1 text-[9px] bg-amber-500 text-slate-950 font-black px-1.5 py-0.2 rounded-md uppercase">
                 {currentPet.gender || 'Đực'}
               </span>

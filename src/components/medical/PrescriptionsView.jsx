@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getTodayVnDate, getVnDateString, addDaysLocal } from '../../utils/dateUtils.js';
 import { 
   Pill, 
   Plus, 
@@ -15,23 +16,58 @@ export const PrescriptionsView = ({
   prescriptions = [],
   pets = [],
   onAddPrescription,
-  onDeletePrescription
+  onDeletePrescription,
+  selectedPetId: propSelectedPetId = null,
+  onSelectPet = null
 }) => {
-  const [selectedPetId, setSelectedPetId] = useState('all');
+  const [selectedPetId, setSelectedPetId] = useState(() => {
+    if (propSelectedPetId && propSelectedPetId !== 'all' && pets.some(p => p.id === propSelectedPetId)) {
+      return propSelectedPetId;
+    }
+    try {
+      const saved = localStorage.getItem('petcare_selected_pet_id');
+      if (saved && (saved === 'all' || pets.some(p => p.id === saved))) return saved;
+    } catch {}
+    return pets[0]?.id || 'all';
+  });
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  // Đồng bộ hai chiều với prop từ tầng App / Navbar
+  React.useEffect(() => {
+    if (propSelectedPetId && propSelectedPetId !== selectedPetId) {
+      if (propSelectedPetId === 'all' || pets.some(p => p.id === propSelectedPetId)) {
+        setSelectedPetId(propSelectedPetId);
+      }
+    }
+  }, [propSelectedPetId, pets, selectedPetId]);
 
   const [formData, setFormData] = useState({
     petId: pets[0]?.id || '',
     medicineName: '',
     dosage: '',
-    startDate: new Date().toISOString().split('T')[0],
+    startDate: getTodayVnDate(),
     durationDays: 7,
     prescribedBy: '',
     purpose: '',
     notes: ''
   });
 
-  const filtered = prescriptions.filter(p => selectedPetId === 'all' || p.petId === selectedPetId);
+  const handleSelectPetChange = (newPetId) => {
+    setSelectedPetId(newPetId);
+    try {
+      localStorage.setItem('petcare_selected_pet_id', newPetId);
+    } catch {}
+    if (onSelectPet) {
+      onSelectPet(newPetId);
+    }
+  };
+
+  const filtered = prescriptions.filter(p => {
+    if (!p) return false;
+    if (selectedPetId === 'all') return true;
+    return String(p.petId || '').trim() === String(selectedPetId).trim();
+  });
 
   const handleSave = (e) => {
     e.preventDefault();
@@ -42,7 +78,7 @@ export const PrescriptionsView = ({
       petId: pets[0]?.id || '',
       medicineName: '',
       dosage: '',
-      startDate: new Date().toISOString().split('T')[0],
+      startDate: getTodayVnDate(),
       durationDays: 7,
       prescribedBy: '',
       purpose: '',
@@ -51,16 +87,16 @@ export const PrescriptionsView = ({
     setIsAddModalOpen(false);
   };
 
-  // Tính số ngày còn lại
+  // Tính số ngày còn lại theo chuẩn Asia/Ho_Chi_Minh
   const calculateDaysRemaining = (startDateStr, durationDays) => {
-    const start = new Date(startDateStr);
-    const end = new Date(start);
-    end.setDate(end.getDate() + Number(durationDays));
-
-    const today = new Date();
-    const diffTime = end - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    const startStr = getVnDateString(startDateStr);
+    const endStr = addDaysLocal(startStr, Number(durationDays) || 7);
+    const todayStr = getTodayVnDate();
+    const [ey, em, ed] = endStr.split('-').map(Number);
+    const [ty, tm, td] = todayStr.split('-').map(Number);
+    const endUtc = Date.UTC(ey, em - 1, ed);
+    const todayUtc = Date.UTC(ty, tm - 1, td);
+    return Math.round((endUtc - todayUtc) / (1000 * 60 * 60 * 24));
   };
 
   return (
@@ -81,7 +117,7 @@ export const PrescriptionsView = ({
         <div className="flex items-center gap-2.5 self-start sm:self-auto">
           <select
             value={selectedPetId}
-            onChange={(e) => setSelectedPetId(e.target.value)}
+            onChange={(e) => handleSelectPetChange(e.target.value)}
             className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 rounded-xl outline-hidden shadow-xs"
           >
             <option value="all">Tất cả thú cưng</option>
@@ -126,17 +162,23 @@ export const PrescriptionsView = ({
                         {pet ? pet.name : 'Thú cưng'}
                       </span>
                       <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1">
-                        {pres.medicineName}
+                        {pres.title || pres.medicineName || 'Đơn thuốc điều trị'}
                       </h3>
                     </div>
 
-                    <button
-                      onClick={() => onDeletePrescription(pres.id)}
-                      className="text-slate-400 hover:text-rose-600 p-1 transition-colors"
-                      title="Xóa đơn thuốc"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {!pres.isFinal ? (
+                      <button
+                        onClick={() => onDeletePrescription(pres.id)}
+                        className="text-slate-400 hover:text-rose-600 p-1 transition-colors"
+                        title="Xóa đơn thuốc"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                        ✓ Đã ký chốt
+                      </span>
+                    )}
                   </div>
 
                   <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-700/50 space-y-1 text-xs mb-3">
@@ -264,7 +306,7 @@ export const PrescriptionsView = ({
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Bác sĩ / Phòng khám kê:</label>
                 <input
                   type="text"
-                  placeholder="Ví dụ: BS. Tuấn - BV PetHealth"
+                  placeholder="Ví dụ: BS. Nguyễn Văn A - BV 2Vet"
                   value={formData.prescribedBy}
                   onChange={(e) => setFormData({ ...formData, prescribedBy: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl outline-hidden"

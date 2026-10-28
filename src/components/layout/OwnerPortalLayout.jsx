@@ -1,18 +1,14 @@
-import React from 'react';
-import { Sun, Moon } from 'lucide-react';
-import { AuraBackground } from '../common/AuraBackground';
+import React, { useState } from 'react';
 import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
 
 /**
  * OwnerPortalLayout
- * Obsidian Spatial Canvas - Master Layout Container for Pet Care Owner Portal
+ * Master Layout Container for Pet Care Owner Portal
  * Features:
- * - Cosmic Dark Background: bg-[#0B0C10]
- * - Locked Viewport Scroll: h-screen overflow-hidden
- * - Top Header Pill Bar (Obsidian Navigation)
- * - Curved Glow Sidebar (Floating Left Dock with Neon Violet accents)
- * - Spatial Canvas Workspace with zero browser window scrollbars
+ * - Left Sidebar (w-56 / 224px desktop, w-[72px] collapsed/tablet, drawer mobile)
+ * - Top Header (Navbar with dynamic page title, search trigger, theme toggle, notifications)
+ * - Single Main Scroll Area (No nested viewport scrollbars, no margin hacks)
  */
 export const OwnerPortalLayout = ({
   children,
@@ -20,10 +16,6 @@ export const OwnerPortalLayout = ({
   setActiveTab = () => {},
   pets = [],
   schedules = [],
-  selectedPetId,
-  onSelectPet = () => {},
-  onOpenAddSchedule = () => {},
-  onOpenVetBooking = () => {},
   onOpenGlobalSearch = () => {},
   isMobileMenuOpen = false,
   setIsMobileMenuOpen = () => {},
@@ -33,66 +25,70 @@ export const OwnerPortalLayout = ({
   currentUser = null,
   onOpenProfileModal = () => {},
   onLogout = () => {},
-  currentPortal = 'OWNER',
-  setCurrentPortal = () => {},
   onSwitchPortal = () => {},
   overdueCount = 0,
   todayCount = 0,
   pendingAppointmentsCount = 0
 }) => {
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      if (window.innerWidth >= 768 && window.innerWidth < 1024) {
+        return true;
+      }
+      return localStorage.getItem('petcare_sidebar_collapsed') === 'true';
+    }
+    return false;
+  });
+
+  const handleToggleCollapse = () => {
+    setIsCollapsed(prev => {
+      const next = !prev;
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('petcare_sidebar_collapsed', String(next));
+      }
+      return next;
+    });
+  };
+
   return (
-    <AuraBackground className="select-none">
-      <div className="h-screen w-full flex flex-col overflow-hidden antialiased bg-transparent text-slate-800 dark:text-slate-100">
-        
-        {/* 1. TOP HEADER PILL BAR */}
-        <Navbar
-          pets={pets}
-          schedules={schedules}
-          selectedPetId={selectedPetId}
-          onSelectPet={onSelectPet}
-          onOpenAddSchedule={onOpenAddSchedule}
-          onOpenVetBooking={onOpenVetBooking}
-          onOpenGlobalSearch={onOpenGlobalSearch}
-          onToggleMobileMenu={() => setIsMobileMenuOpen(prev => !prev)}
+    <div className="h-screen w-full flex flex-col overflow-hidden antialiased bg-transparent text-slate-800 dark:text-white">
+      {/* 1. Top Header: 64px, Logo on left, Centered Pill Menu, Capsule utilities on right */}
+      <Navbar
+        pets={pets}
+        schedules={schedules}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+        onToggleComplete={onToggleComplete}
+        onOpenGlobalSearch={onOpenGlobalSearch}
+        onToggleMobileMenu={() => setIsMobileMenuOpen(prev => !prev)}
+      />
+
+      {/* 2. Body Area: Centered Main View */}
+      <div className="flex-1 min-w-0 flex overflow-hidden">
+        <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          theme={theme}
-          onToggleTheme={onToggleTheme}
-          onToggleComplete={onToggleComplete}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={handleToggleCollapse}
+          isMobileOpen={isMobileMenuOpen}
+          setIsMobileOpen={setIsMobileMenuOpen}
+          overdueCount={overdueCount}
+          todayCount={todayCount}
+          pendingAppointmentsCount={pendingAppointmentsCount}
           currentUser={currentUser}
           onOpenProfileModal={onOpenProfileModal}
           onLogout={onLogout}
-          currentPortal={currentPortal}
-          setCurrentPortal={setCurrentPortal}
           onSwitchPortal={onSwitchPortal}
         />
 
-        {/* 2. SPATIAL CANVAS WORKSPACE */}
-        <div className="flex-1 flex w-full overflow-hidden relative">
-          
-          {/* CURVED GLOW SIDEBAR (LEFT FLOATING DOCK) */}
-          <Sidebar
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            isMobileOpen={isMobileMenuOpen}
-            setIsMobileOpen={setIsMobileMenuOpen}
-            overdueCount={overdueCount}
-            todayCount={todayCount}
-            pendingAppointmentsCount={pendingAppointmentsCount}
-            currentUser={currentUser}
-            onOpenProfileModal={onOpenProfileModal}
-          />
-
-          {/* MAIN CANVAS VIEWPORT */}
-          <main className="flex-1 h-full min-w-0 md:pl-24 pr-2 sm:pr-4 py-1 sm:py-2 overflow-hidden flex flex-col">
-            <div className="w-full h-full max-w-[1680px] mx-auto flex flex-col overflow-hidden">
-              {children}
-            </div>
-          </main>
-        </div>
-
+        {/* Scrollable View Area: Centered max-w-7xl tràn đều toàn màn hình, pt-[100px] tránh bị navbar che */}
+        <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-[100px] pb-6 h-full overflow-y-auto overflow-x-hidden custom-scrollbar">
+          {children}
+        </main>
       </div>
-    </AuraBackground>
+    </div>
   );
 };
 

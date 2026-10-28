@@ -15,7 +15,8 @@ import {
   KeyRound,
   Shield,
   UserPlus,
-  Trash2
+  Trash2,
+  RefreshCw
 } from 'lucide-react';
 import { auditOrphanedPets } from '../../services/storageService';
 import { OrphanedPetsCleanupModal } from './OrphanedPetsCleanupModal';
@@ -23,6 +24,9 @@ import { sound } from '../../services/soundService';
 
 export const AdminOverviewView = ({
   users = [],
+  usersLoading = false,
+  usersError = null,
+  onRetry = null,
   pets = [],
   schedules = [],
   onNavigateTab
@@ -68,39 +72,43 @@ export const AdminOverviewView = ({
   const statCards = [
     {
       title: 'Tổng Tài Khoản',
-      value: totalAccounts,
-      sub: `${activeCount} đang hoạt động, gồm cả Admin`,
+      value: usersError ? '—' : (usersLoading ? '...' : totalAccounts),
+      sub: usersError ? 'Không thể tải từ máy chủ' : `${activeCount} đang hoạt động, gồm cả Admin`,
       icon: Users,
-      badge: `${totalAccounts} tài khoản`
+      badge: usersError ? 'Lỗi kết nối' : (usersLoading ? 'Đang tải...' : `${totalAccounts} tài khoản`),
+      highlight: Boolean(usersError)
     },
     {
       title: 'Quản Trị Viên (Admin)',
-      value: adminCount,
-      sub: 'Quyền vận hành & kiểm soát hệ thống',
+      value: usersError ? '—' : (usersLoading ? '...' : adminCount),
+      sub: usersError ? 'Không thể tải từ máy chủ' : 'Quyền vận hành & kiểm soát hệ thống',
       icon: ShieldCheck,
-      badge: `${adminCount} quản trị viên`
+      badge: usersError ? 'Lỗi kết nối' : (usersLoading ? 'Đang tải...' : `${adminCount} quản trị viên`),
+      highlight: Boolean(usersError)
     },
     {
       title: 'Bác Sĩ Thú Y (Vet Doctor)',
-      value: vetCount,
-      sub: 'Được cấp quyền khám & Clinic OS',
+      value: usersError ? '—' : (usersLoading ? '...' : vetCount),
+      sub: usersError ? 'Không thể tải từ máy chủ' : 'Được cấp quyền khám & Clinic OS',
       icon: Stethoscope,
-      badge: `${vetCount} bác sĩ`
+      badge: usersError ? 'Lỗi kết nối' : (usersLoading ? 'Đang tải...' : `${vetCount} bác sĩ`),
+      highlight: Boolean(usersError)
     },
     {
       title: 'Chủ Nuôi (Pet Owner)',
-      value: ownerCount,
-      sub: `${totalAccounts > 0 ? ((ownerCount / totalAccounts) * 100).toFixed(0) : 0}% tổng người dùng`,
+      value: usersError ? '—' : (usersLoading ? '...' : ownerCount),
+      sub: usersError ? 'Không thể tải từ máy chủ' : `${totalAccounts > 0 ? ((ownerCount / totalAccounts) * 100).toFixed(0) : 0}% tổng người dùng`,
       icon: UserCheck,
-      badge: `${ownerCount} chủ nuôi`
+      badge: usersError ? 'Lỗi kết nối' : (usersLoading ? 'Đang tải...' : `${ownerCount} chủ nuôi`),
+      highlight: Boolean(usersError)
     },
     {
       title: 'Tài Khoản Bị Khóa',
-      value: lockedCount,
-      sub: lockedCount > 0 ? 'Bị chặn đăng nhập & ngắt phiên' : 'Không có tài khoản bị khóa',
+      value: usersError ? '—' : (usersLoading ? '...' : lockedCount),
+      sub: usersError ? 'Không thể tải từ máy chủ' : (lockedCount > 0 ? 'Bị chặn đăng nhập & ngắt phiên' : 'Không có tài khoản bị khóa'),
       icon: Lock,
-      highlight: lockedCount > 0,
-      badge: lockedCount > 0 ? 'Cảnh báo bảo mật' : 'An toàn'
+      highlight: usersError ? false : lockedCount > 0,
+      badge: usersError ? 'Lỗi kết nối' : (lockedCount > 0 ? 'Cảnh báo bảo mật' : 'An toàn')
     },
     {
       title: 'Hồ Sơ Thú Cưng',
@@ -163,6 +171,43 @@ export const AdminOverviewView = ({
         <div className="absolute right-0 top-0 -mr-16 -mt-16 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
       </div>
 
+      {/* Banner Lỗi tải dữ liệu tài khoản kèm nút Thử lại */}
+      {usersError && (
+        <div className="p-4 sm:p-5 rounded-3xl bg-rose-500/10 border border-rose-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in duration-200 shadow-sm">
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 flex items-center justify-center shrink-0 mt-0.5">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <span>Không thể tải danh sách tài khoản từ máy chủ</span>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-rose-500/20 text-rose-600 dark:text-rose-300">
+                  Lỗi kết nối
+                </span>
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                {usersError}. Số liệu hiển thị có thể chưa đầy đủ hoặc không phản ánh đúng cơ sở dữ liệu. Vui lòng bấm "Thử lại" để tải lại.
+              </p>
+            </div>
+          </div>
+
+          {onRetry && (
+            <button
+              type="button"
+              onClick={() => {
+                sound?.playClick?.();
+                onRetry();
+              }}
+              disabled={usersLoading}
+              className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-bold transition-all shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 cursor-pointer shrink-0 disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${usersLoading ? 'animate-spin' : ''}`} />
+              <span>{usersLoading ? 'Đang tải lại...' : 'Thử lại'}</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Banner Cảnh báo Dọn Dẹp Dữ Liệu Tồn Đọng của Tài Khoản Đã Xóa */}
       {orphanedAudit.confirmedDeletedOwnerPets.length > 0 && (
         <div className="p-4 sm:p-5 rounded-3xl bg-rose-500/10 border border-rose-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in duration-200 shadow-sm">
@@ -205,33 +250,33 @@ export const AdminOverviewView = ({
           return (
             <div 
               key={idx}
-              className={`p-5 rounded-3xl bg-white/85 dark:bg-[#151622]/90 border transition-all duration-300 hover:shadow-lg dark:hover:shadow-indigo-500/5 ${
+              className={`p-5 rounded-3xl bg-white dark:bg-slate-900/80 border transition-all duration-300 shadow-sm text-[#1E293B] dark:text-slate-100 ${
                 card.highlight 
-                  ? 'border-rose-400/60 dark:border-rose-500/50 bg-rose-500/5' 
-                  : 'border-slate-200/80 dark:border-white/[0.08] hover:border-indigo-400 dark:hover:border-indigo-500/30'
+                  ? 'border-rose-300 dark:border-rose-400/60 bg-rose-50/50 dark:bg-rose-500/10' 
+                  : 'border-[#E2E8F0] dark:border-white/10 hover:border-indigo-300 dark:hover:border-white/20'
               }`}
             >
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-white/[0.06] text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-white/10 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-white/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-white/20 flex items-center justify-center shadow-xs">
                   <Icon className="w-5 h-5" />
                 </div>
                 <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
                   card.highlight
-                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30'
-                    : 'bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10'
+                    ? 'bg-rose-50 dark:bg-rose-500/20 text-rose-700 dark:text-rose-200 border-rose-200 dark:border-rose-400/30'
+                    : 'bg-slate-100 dark:bg-white/10 text-[#475569] dark:text-slate-300 border-[#E2E8F0] dark:border-white/10'
                 }`}>
                   {card.badge}
                 </span>
               </div>
 
               <div className="mt-1">
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                <p className="text-xs font-semibold text-[#475569] dark:text-slate-400 uppercase tracking-wider">
                   {card.title}
                 </p>
-                <div className="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">
+                <div className="text-3xl font-extrabold text-[#0F172A] dark:text-white mt-1">
                   {card.value}
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
+                <p className="text-xs text-[#475569] dark:text-slate-400 mt-1 flex items-center gap-1">
                   <span>{card.sub}</span>
                 </p>
               </div>
@@ -244,17 +289,17 @@ export const AdminOverviewView = ({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         
         {/* Bảng tổng quan danh sách tài khoản được cấp */}
-        <div className="lg:col-span-2 p-6 rounded-3xl bg-white/85 dark:bg-[#151622]/90 border border-slate-200/80 dark:border-white/[0.08] shadow-sm">
+        <div className="lg:col-span-2 p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-[#E2E8F0] dark:border-white/10 shadow-sm text-[#1E293B] dark:text-slate-100">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-white/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-white/20 flex items-center justify-center shadow-xs">
                 <Users className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                <h3 className="text-sm font-bold text-[#0F172A] dark:text-white">
                   Tài Khoản Trong Hệ Thống ({users.length} tài khoản)
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-[#475569] dark:text-slate-400">
                   Cơ chế cấp tài khoản tập trung bởi Quản trị viên, không đăng ký tự do
                 </p>
               </div>
@@ -276,19 +321,19 @@ export const AdminOverviewView = ({
             {recentUsers.map(u => (
               <div 
                 key={u.id}
-                className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/[0.06] flex items-center justify-between gap-3"
+                className="p-3.5 rounded-2xl bg-[#F8FAFC] dark:bg-white/5 border border-[#E2E8F0] dark:border-white/10 hover:border-indigo-300 dark:hover:border-white/20 flex items-center justify-between gap-3 transition-all duration-300"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <img 
                     src={u.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150"} 
                     alt="" 
-                    className="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-white/10 shrink-0"
+                    className="w-9 h-9 rounded-full object-cover border border-[#E2E8F0] dark:border-white/20 shrink-0"
                   />
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                    <p className="text-xs font-bold text-[#0F172A] dark:text-white truncate">
                       {u.name}
                     </p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate font-mono">
+                    <p className="text-[11px] text-[#475569] dark:text-slate-400 truncate font-mono">
                       {u.email}
                     </p>
                   </div>
@@ -296,25 +341,25 @@ export const AdminOverviewView = ({
 
                 <div className="flex items-center gap-2 shrink-0">
                   {u.role === 'system_admin' ? (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-400/30">
                       Quản trị viên
                     </span>
                   ) : u.role === 'vet_doctor' ? (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-500 border border-cyan-500/20">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-cyan-50 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-400/30">
                       Bác sĩ thú y
                     </span>
                   ) : (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-400/30">
                       Chủ nuôi
                     </span>
                   )}
 
                   {u.isLocked ? (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-500/20 text-rose-700 dark:text-rose-200 border border-rose-200 dark:border-rose-400/30">
                       Khóa
                     </span>
                   ) : (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-400/30">
                       Hoạt động
                     </span>
                   )}
@@ -325,46 +370,46 @@ export const AdminOverviewView = ({
         </div>
 
         {/* Thông số Tài nguyên & Bảo Mật */}
-        <div className="p-6 rounded-3xl bg-white/85 dark:bg-[#151622]/90 border border-slate-200/80 dark:border-white/[0.08] shadow-sm flex flex-col justify-between">
+        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-[#E2E8F0] dark:border-white/10 shadow-sm text-[#1E293B] dark:text-slate-100 flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2.5 mb-4">
               <div className="w-8 h-8 rounded-xl bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-100 dark:border-violet-500/20 flex items-center justify-center">
                 <Activity className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                <h3 className="text-sm font-bold text-[#0F172A] dark:text-white">
                   Cơ Chế Quản Lý & Bảo Mật
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Trạng thái xác thực tập trung</p>
+                <p className="text-xs text-[#475569] dark:text-slate-400">Trạng thái xác thực tập trung</p>
               </div>
             </div>
 
             <div className="space-y-3">
-              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06] flex items-center justify-between">
-                <span className="text-xs text-slate-600 dark:text-slate-400">Cơ chế tài khoản:</span>
+              <div className="p-3 rounded-2xl bg-[#F8FAFC] dark:bg-white/[0.03] border border-[#E2E8F0] dark:border-white/[0.06] flex items-center justify-between">
+                <span className="text-xs text-[#475569] dark:text-slate-400">Cơ chế tài khoản:</span>
                 <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">Admin cấp phát</span>
               </div>
 
-              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06] flex items-center justify-between">
-                <span className="text-xs text-slate-600 dark:text-slate-400">Bảo mật mật khẩu:</span>
+              <div className="p-3 rounded-2xl bg-[#F8FAFC] dark:bg-white/[0.03] border border-[#E2E8F0] dark:border-white/[0.06] flex items-center justify-between">
+                <span className="text-xs text-[#475569] dark:text-slate-400">Bảo mật mật khẩu:</span>
                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">PBKDF2 SHA-512</span>
               </div>
 
-              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06] flex items-center justify-between">
-                <span className="text-xs text-slate-600 dark:text-slate-400">Tài khoản chưa đổi MK lần đầu:</span>
+              <div className="p-3 rounded-2xl bg-[#F8FAFC] dark:bg-white/[0.03] border border-[#E2E8F0] dark:border-white/[0.06] flex items-center justify-between">
+                <span className="text-xs text-[#475569] dark:text-slate-400">Tài khoản chưa đổi MK lần đầu:</span>
                 <span className="text-xs font-mono font-bold text-amber-500">{pendingPasswordCount}</span>
               </div>
 
-              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06] flex items-center justify-between">
-                <span className="text-xs text-slate-600 dark:text-slate-400">Lưu lượng Web Storage:</span>
-                <span className="text-xs font-mono font-bold text-slate-900 dark:text-white">{getStorageEstimate()}</span>
+              <div className="p-3 rounded-2xl bg-[#F8FAFC] dark:bg-white/[0.03] border border-[#E2E8F0] dark:border-white/[0.06] flex items-center justify-between">
+                <span className="text-xs text-[#475569] dark:text-slate-400">Lưu lượng Web Storage:</span>
+                <span className="text-xs font-mono font-bold text-[#0F172A] dark:text-white">{getStorageEstimate()}</span>
               </div>
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-white/[0.06]">
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-normal flex items-start gap-1.5">
-              <Shield className="w-3.5 h-3.5 text-indigo-500 shrink-0 mt-0.5" />
+          <div className="mt-4 pt-3 border-t border-[#E2E8F0] dark:border-white/[0.06]">
+            <p className="text-[11px] text-[#475569] dark:text-slate-400 leading-normal flex items-start gap-1.5">
+              <Shield className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
               <span>Chức năng tự đăng ký công khai đã bị khóa hoàn toàn. Toàn bộ tài khoản chủ nuôi và bác sĩ thú y do Admin tạo và cấp phát qua mục Quản lý tài khoản.</span>
             </p>
           </div>

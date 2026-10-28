@@ -9,10 +9,7 @@ import { useTheme } from '../../context/ThemeContext';
  * twinkling stars, and layered drifting clouds.
  */
 export function DayNightSwitch({ isDark: propIsDark, onToggle: propOnToggle, className = '' }) {
-  let contextTheme = null;
-  try {
-    contextTheme = useTheme();
-  } catch {}
+  const contextTheme = useTheme();
 
   const isDark = propIsDark !== undefined ? propIsDark : (contextTheme?.isDark ?? true);
   const handleToggle = propOnToggle || contextTheme?.toggleTheme;

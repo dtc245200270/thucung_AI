@@ -3,71 +3,32 @@ import { useTheme } from '../../context/ThemeContext';
 
 /**
  * AuraBackground
- * Obsidian Spatial Canvas Ambient Lighting Container (Theme-Aware)
- * - Dark Mode: Deep cosmic space (#0B0C10) with royal indigo (#6366F1), violet, and neon cyan ambient glows.
- * - Light Mode: Pristine frosted spatial canvas (#f1f5f9) with fresh aqua, sky cyan, and gentle lavender glows.
+ * Clean, modern dashboard background container
+ * - Light Mode: Gentle pale mint to light gray (#EEF4F0)
+ * - Dark Mode: Deep forest slate (#121714)
+ * - Clean subtle background without neon, heavy blur, or intense glows
  */
 export const AuraBackground = ({ children, className = '' }) => {
-  let isDark = true;
-  try {
-    const themeContext = useTheme();
-    isDark = themeContext.isDark;
-  } catch {
-    // Fallback if rendered outside ThemeProvider
-    if (typeof document !== 'undefined') {
-      isDark = document.documentElement.classList.contains('dark');
-    }
-  }
+  const themeContext = useTheme();
+  const isDark = themeContext?.isDark ?? false;
 
   return (
     <div 
-      className={`relative min-h-screen overflow-hidden transition-colors duration-500 ${
-        isDark ? 'bg-[#0B0C10] text-slate-100' : 'bg-[#f1f5f9] text-slate-800'
-      } ${className}`}
+      className={`relative min-h-screen w-full overflow-hidden transition-colors duration-500 bg-gradient-to-br from-[#DDF2F5] via-[#F1F5F9] to-[#EEEAF6] dark:from-[#020617] dark:via-[#0b0f19] dark:to-[#1e1b4b] text-[#1E293B] dark:text-slate-100 ${className}`}
     >
-      {/* Layer 1: Primary Ambient Glow Hub (Top-Center / Left) */}
-      <div
-        className="absolute inset-0 pointer-events-none transition-opacity duration-700"
-        style={{
-          filter: 'blur(120px)',
-          background: isDark
-            ? 'radial-gradient(circle at 20% 15%, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.08) 35%, transparent 60%)'
-            : 'radial-gradient(circle at 20% 15%, rgba(6, 182, 212, 0.22) 0%, rgba(14, 165, 233, 0.10) 35%, transparent 60%)',
-          willChange: 'transform',
-          transform: 'translateZ(0)'
-        }}
-        aria-hidden="true"
-      />
+      {/* Dynamic Ambient Mesh Glow Orbs (Subtle in light, cosmic in dark) */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
+        {/* Light mode soft pastel glow orbs / Dark mode vivid glow orbs */}
+        <div className="absolute -top-48 -left-48 w-[650px] h-[650px] bg-teal-300/20 dark:bg-indigo-600/25 rounded-full blur-[130px] animate-pulse" />
+        <div className="absolute top-1/4 -right-48 w-[650px] h-[650px] bg-purple-300/20 dark:bg-purple-600/20 rounded-full blur-[140px]" />
+        <div className="absolute -bottom-48 left-1/4 w-[750px] h-[750px] bg-sky-300/20 dark:bg-blue-600/20 rounded-full blur-[150px]" />
+        <div className="absolute top-2/3 right-1/4 w-[500px] h-[500px] bg-indigo-200/25 dark:bg-teal-500/15 rounded-full blur-[130px]" />
+        
+        {/* Dark Mode Ambient Shading ONLY - NEVER in light mode, and without blur that harms text */}
+        <div className="hidden dark:block absolute inset-0 bg-slate-950/20 pointer-events-none" />
+      </div>
 
-      {/* Layer 2: Secondary Atmospheric Glow (Bottom-Right) */}
-      <div
-        className="absolute inset-0 pointer-events-none transition-opacity duration-700"
-        style={{
-          filter: 'blur(130px)',
-          background: isDark
-            ? 'radial-gradient(circle at 80% 85%, rgba(124, 58, 237, 0.12) 0%, rgba(79, 70, 229, 0.06) 40%, transparent 65%)'
-            : 'radial-gradient(circle at 80% 85%, rgba(139, 92, 246, 0.12) 0%, rgba(99, 102, 241, 0.05) 40%, transparent 65%)',
-          willChange: 'transform',
-          transform: 'translateZ(0)'
-        }}
-        aria-hidden="true"
-      />
-
-      {/* Layer 3: Accent Sheen (Center-Right subtle touch) */}
-      <div
-        className="absolute inset-0 pointer-events-none transition-opacity duration-700"
-        style={{
-          filter: 'blur(100px)',
-          background: isDark
-            ? 'radial-gradient(circle at 65% 30%, rgba(6, 182, 212, 0.07) 0%, rgba(16, 185, 129, 0.03) 30%, transparent 55%)'
-            : 'radial-gradient(circle at 65% 30%, rgba(245, 158, 11, 0.08) 0%, rgba(251, 191, 36, 0.03) 30%, transparent 55%)',
-          willChange: 'transform',
-          transform: 'translateZ(0)'
-        }}
-        aria-hidden="true"
-      />
-
-      {/* Children content wrapper */}
+      {/* Content wrapper */}
       <div className="relative z-10 w-full min-h-screen flex flex-col">
         {children}
       </div>
@@ -76,3 +37,4 @@ export const AuraBackground = ({ children, className = '' }) => {
 };
 
 export default AuraBackground;
+

@@ -47,12 +47,25 @@ import {
 } from '../../services/storageService';
 import { OrphanedPetsCleanupModal } from './OrphanedPetsCleanupModal';
 import { sound } from '../../services/soundService';
+import { VET_FACILITIES, findFacilityById } from '../../constants/clinicFacilities';
 
 export const AdminAccountsView = ({
   users = [],
+  usersLoading = false,
+  usersError = null,
+  onRetry = null,
   currentAdmin = null,
   onUsersUpdated
 }) => {
+  const [internalUsers, setInternalUsers] = useState(users);
+
+  // Luôn đồng bộ danh sách nội bộ khi prop users từ tầng cha (App.jsx / Backend reload) thay đổi
+  useEffect(() => {
+    if (Array.isArray(users)) {
+      setInternalUsers(users);
+    }
+  }, [users]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -156,9 +169,9 @@ export const AdminAccountsView = ({
     return pass.split('').sort(() => 0.5 - Math.random()).join('');
   };
 
-  // Lọc và Tìm kiếm danh sách tài khoản
+  // Lọc và Tìm kiếm danh sách tài khoản (sử dụng internalUsers để phản ánh tức thì)
   const filteredUsers = useMemo(() => {
-    return users.filter(u => {
+    return (internalUsers || []).filter(u => {
       const matchSearch = !searchTerm.trim() || 
         (u.name || '').toLowerCase().includes(searchTerm.toLowerCase().trim()) ||
         (u.email || '').toLowerCase().includes(searchTerm.toLowerCase().trim()) ||
@@ -172,7 +185,7 @@ export const AdminAccountsView = ({
 
       return matchSearch && matchRole && matchStatus;
     });
-  }, [users, searchTerm, roleFilter, statusFilter]);
+  }, [internalUsers, searchTerm, roleFilter, statusFilter]);
 
   // Phân trang
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
@@ -181,8 +194,8 @@ export const AdminAccountsView = ({
     return filteredUsers.slice(start, start + pageSize);
   }, [filteredUsers, currentPage, pageSize]);
 
-  // Handle Edit form submission (Chỉ cập nhật trường cho phép)
-  const [editFormData, setEditFormData] = useState({ name: '', phone: '', address: '', avatar: '' });
+  // Handle Edit form submission (Chỉ cập nhật trường cho phép & cấu hình cơ sở bác sĩ)
+  const [editFormData, setEditFormData] = useState({ name: '', phone: '', address: '', avatar: '', facilityId: '' });
 
   const handleOpenEdit = (user) => {
     setEditingUser(user);
@@ -190,17 +203,22 @@ export const AdminAccountsView = ({
       name: user.name || '',
       phone: user.phone || '',
       address: user.address || '',
-      avatar: user.avatar || ''
+      avatar: user.avatar || '',
+      facilityId: user.facilityId || ''
     });
   };
 
-  const handleSaveEdit = (e) => {
+  const handleSaveEdit = async (e) => {
     e.preventDefault();
     if (!editingUser) return;
     try {
-      adminUpdateUser(currentAdmin?.id, editingUser.id, editFormData);
+      const updated = await adminUpdateUser(currentAdmin?.id, editingUser.id, editFormData);
       showNotice(`Đã cập nhật thông tin tài khoản "${editingUser.name}" thành công!`);
+      setInternalUsers(prev => (prev || []).map(u => String(u.id) === String(editingUser.id) ? { ...u, ...editFormData, ...(updated || {}) } : u));
       setEditingUser(null);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('petcare_data_synced'));
+      }
       if (onUsersUpdated) onUsersUpdated();
     } catch (err) {
       showNotice(err.message, 'error');
@@ -208,13 +226,25 @@ export const AdminAccountsView = ({
   };
 
   // Handle Lock / Unlock
-  const handleConfirmToggleLock = () => {
+  const handleConfirmToggleLock = async () => {
     const target = confirmLockModal.user;
     if (!target) return;
+    if (target.role === ROLES.SYSTEM_ADMIN && !target.isLocked) {
+      const activeAdmins = (internalUsers || []).filter(u => u.role === ROLES.SYSTEM_ADMIN && !u.isLocked);
+      if (activeAdmins.length <= 1) {
+        showNotice('Không thể khóa Quản trị viên hệ thống hoạt động cuối cùng của hệ thống!', 'error');
+        setConfirmLockModal({ isOpen: false, user: null });
+        return;
+      }
+    }
     try {
-      adminToggleLockUser(currentAdmin?.id, target.id);
+      await adminToggleLockUser(currentAdmin?.id, target.id);
       showNotice(target.isLocked ? `Đã mở khóa tài khoản "${target.name}".` : `Đã khóa tài khoản "${target.name}".`);
+      setInternalUsers(prev => (prev || []).map(u => String(u.id) === String(target.id) ? { ...u, isLocked: !target.isLocked } : u));
       setConfirmLockModal({ isOpen: false, user: null });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('petcare_data_synced'));
+      }
       if (onUsersUpdated) onUsersUpdated();
     } catch (err) {
       showNotice(err.message, 'error');
@@ -222,14 +252,40 @@ export const AdminAccountsView = ({
     }
   };
 
-  // Handle Change Role
-  const handleConfirmRoleChange = () => {
+  // Handle Change Role (Chặn leo thang đặc quyền SYSTEM_ADMIN, chỉ cho phép giữa PET_OWNER và VET_DOCTOR)
+  const handleConfirmRoleChange = async () => {
     const { user, targetRole } = confirmRoleModal;
     if (!user || !targetRole) return;
-    try {
-      adminChangeUserRole(currentAdmin?.id, user.id, targetRole);
-      showNotice(`Đã đổi vai trò tài khoản "${user.name}" thành công.`);
+
+    // RÀNG BUỘC BẢO MẬT 1: Tuyệt đối không cho phép gán hoặc leo thang quyền SYSTEM_ADMIN
+    if (targetRole === ROLES.SYSTEM_ADMIN || targetRole === 'system_admin') {
+      showNotice('Không được phép gán hoặc thăng quyền Quản trị viên hệ thống qua giao diện!', 'error');
       setConfirmRoleModal({ isOpen: false, user: null, targetRole: '' });
+      return;
+    }
+
+    // RÀNG BUỘC BẢO MẬT 2: Tuyệt đối không cho phép thay đổi vai trò của Quản trị viên hệ thống
+    if (user.role === ROLES.SYSTEM_ADMIN || user.role === 'system_admin') {
+      showNotice('Không thể thay đổi vai trò của Quản trị viên hệ thống!', 'error');
+      setConfirmRoleModal({ isOpen: false, user: null, targetRole: '' });
+      return;
+    }
+
+    // RÀNG BUỘC BẢO MẬT 3: Chỉ cho phép chuyển đổi giữa Chủ nuôi và Bác sĩ thú y
+    if (targetRole !== ROLES.PET_OWNER && targetRole !== ROLES.VET_DOCTOR) {
+      showNotice('Vai trò không hợp lệ. Chỉ cho phép chuyển đổi giữa Chủ nuôi và Bác sĩ thú y!', 'error');
+      setConfirmRoleModal({ isOpen: false, user: null, targetRole: '' });
+      return;
+    }
+
+    try {
+      await adminChangeUserRole(currentAdmin?.id, user.id, targetRole);
+      showNotice(`Đã đổi vai trò tài khoản "${user.name}" thành công.`);
+      setInternalUsers(prev => (prev || []).map(u => String(u.id) === String(user.id) ? { ...u, role: targetRole } : u));
+      setConfirmRoleModal({ isOpen: false, user: null, targetRole: '' });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('petcare_data_synced'));
+      }
       if (onUsersUpdated) onUsersUpdated();
     } catch (err) {
       showNotice(err.message, 'error');
@@ -306,6 +362,15 @@ export const AdminAccountsView = ({
       setIsCreateSubmitting(false);
       setIsCreateModalOpen(false);
 
+      // Cập nhật trực tiếp danh sách state quản lý users nội bộ để phản ánh tức thì
+      setInternalUsers(prev => {
+        const list = Array.isArray(prev) ? prev : [];
+        const exists = list.some(u => String(u.id).trim() === String(createdUser.id).trim());
+        return exists
+          ? list.map(u => String(u.id).trim() === String(createdUser.id).trim() ? createdUser : u)
+          : [createdUser, ...list];
+      });
+
       // Mở modal hiển thị mật khẩu tạm thời để admin sao chép ngay
       setCredentialModal({
         user: createdUser,
@@ -315,6 +380,11 @@ export const AdminAccountsView = ({
       setHasCopiedCredentials(false);
 
       showNotice(`Đã tạo thành công tài khoản "${createdUser.name}"!`);
+
+      // Kích hoạt đồng thời sự kiện toàn cục và callback làm mới dữ liệu
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('petcare_data_synced'));
+      }
       if (onUsersUpdated) onUsersUpdated();
     } catch (err) {
       setIsCreateSubmitting(false);
@@ -364,6 +434,12 @@ export const AdminAccountsView = ({
       const pass = resetPasswordModal.temporaryPassword;
       setResetPasswordModal({ isOpen: false, user: null, temporaryPassword: '' });
 
+      // Cập nhật trực tiếp danh sách state quản lý users nội bộ để phản ánh tức thì
+      setInternalUsers(prev => {
+        const list = Array.isArray(prev) ? prev : [];
+        return list.map(u => String(u.id).trim() === String(targetUser.id).trim() ? { ...u, ...updatedUser } : u);
+      });
+
       // Mở modal hiển thị mật khẩu mới để admin sao chép
       setCredentialModal({
         user: { ...targetUser, ...updatedUser },
@@ -373,6 +449,11 @@ export const AdminAccountsView = ({
       setHasCopiedCredentials(false);
 
       showNotice(`Đã đặt lại mật khẩu tạm thời cho tài khoản "${targetUser.name}".`);
+
+      // Kích hoạt đồng thời sự kiện toàn cục và callback làm mới dữ liệu
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('petcare_data_synced'));
+      }
       if (onUsersUpdated) onUsersUpdated();
     } catch (err) {
       setIsResetSubmitting(false);
@@ -383,6 +464,9 @@ export const AdminAccountsView = ({
       if (msg.toLowerCase().includes('đã bị xóa') || msg.toLowerCase().includes('không tìm thấy')) {
         showNotice(msg, 'error');
         setResetPasswordModal({ isOpen: false, user: null, temporaryPassword: '' });
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('petcare_data_synced'));
+        }
         if (onUsersUpdated) onUsersUpdated();
       }
     }
@@ -425,6 +509,12 @@ export const AdminAccountsView = ({
       setConfirmDeleteModal({ isOpen: false, user: null });
       setConfirmDeleteEmail('');
 
+      // Cập nhật trực tiếp danh sách state quản lý users nội bộ để loại bỏ user tức thì
+      setInternalUsers(prev => {
+        const list = Array.isArray(prev) ? prev : [];
+        return list.filter(u => String(u.id).trim() !== String(target.id).trim());
+      });
+
       showNotice(`Đã xóa vĩnh viễn tài khoản "${target.name}" (${target.email}) thành công.`);
 
       // Điều chỉnh phân trang nếu trang hiện tại bị trống sau khi xóa
@@ -432,6 +522,10 @@ export const AdminAccountsView = ({
         setCurrentPage(currentPage - 1);
       }
 
+      // Kích hoạt đồng thời sự kiện toàn cục và callback làm mới dữ liệu
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('petcare_data_synced'));
+      }
       if (onUsersUpdated) onUsersUpdated();
     } catch (err) {
       setIsDeleteSubmitting(false);
@@ -442,6 +536,9 @@ export const AdminAccountsView = ({
       if (msg.toLowerCase().includes('đã bị xóa') || msg.toLowerCase().includes('không tìm thấy')) {
         showNotice(msg, 'error');
         setConfirmDeleteModal({ isOpen: false, user: null });
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('petcare_data_synced'));
+        }
         if (onUsersUpdated) onUsersUpdated();
       }
     }
@@ -529,15 +626,52 @@ LƯU Ý: Đây là mật khẩu tạm thời do Quản trị viên cấp. Bạn 
         </div>
       )}
 
+      {/* Banner Lỗi tải dữ liệu tài khoản từ máy chủ kèm nút Thử lại */}
+      {usersError && (
+        <div className="p-4 sm:p-5 rounded-3xl bg-rose-500/10 border border-rose-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in duration-200 shadow-sm">
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 flex items-center justify-center shrink-0 mt-0.5">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <span>Không thể tải danh sách tài khoản từ máy chủ</span>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-rose-500/20 text-rose-600 dark:text-rose-300">
+                  Lỗi kết nối
+                </span>
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                {usersError}. Danh sách tài khoản hiển thị bên dưới có thể không đầy đủ hoặc bị gián đoạn.
+              </p>
+            </div>
+          </div>
+
+          {onRetry && (
+            <button
+              type="button"
+              onClick={() => {
+                sound?.playClick?.();
+                onRetry();
+              }}
+              disabled={usersLoading}
+              className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-bold transition-all shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 cursor-pointer shrink-0 disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${usersLoading ? 'animate-spin' : ''}`} />
+              <span>{usersLoading ? 'Đang tải lại...' : 'Thử lại'}</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Header & Bộ Lọc */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-white/85 dark:bg-[#151622]/90 border border-slate-200/80 dark:border-white/[0.08] shadow-sm space-y-4">
+      <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900/80 border border-[#E2E8F0] dark:border-white/10 shadow-sm text-[#1E293B] dark:text-slate-100 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Users className="w-5 h-5 text-indigo-500" />
+            <h2 className="text-xl font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
+              <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               <span>Danh Sách & Quản Trị Tài Khoản</span>
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            <p className="text-xs text-[#475569] dark:text-slate-400 mt-0.5">
               Hệ thống cấp tài khoản tập trung: Tổng số {filteredUsers.length} tài khoản phù hợp
             </p>
           </div>
@@ -572,7 +706,7 @@ LƯU Ý: Đây là mật khẩu tạm thời do Quản trị viên cấp. Bạn 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
           {/* Tìm kiếm */}
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-[#64748B] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Tìm theo tên, email, sđt..."
@@ -581,7 +715,7 @@ LƯU Ý: Đây là mật khẩu tạm thời do Quản trị viên cấp. Bạn 
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 dark:bg-[#1c1d2e] border border-slate-200 dark:border-white/10 rounded-2xl text-xs text-slate-900 dark:text-white focus:outline-hidden focus:border-indigo-500 transition-colors"
+              className="w-full pl-10 pr-3.5 py-2.5 bg-[#F8FAFC] dark:bg-[#1c1d2e] border border-[#E2E8F0] dark:border-white/10 rounded-2xl text-xs text-[#1E293B] dark:text-white placeholder:text-[#64748B] focus:outline-hidden focus:border-indigo-500 transition-colors"
             />
           </div>
 
@@ -593,7 +727,7 @@ LƯU Ý: Đây là mật khẩu tạm thời do Quản trị viên cấp. Bạn 
                 setRoleFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#1c1d2e] border border-slate-200 dark:border-white/10 rounded-2xl text-xs text-slate-900 dark:text-white focus:outline-hidden focus:border-indigo-500 transition-colors cursor-pointer"
+              className="w-full px-3.5 py-2.5 bg-[#F8FAFC] dark:bg-[#1c1d2e] border border-[#E2E8F0] dark:border-white/10 rounded-2xl text-xs text-[#1E293B] dark:text-white focus:outline-hidden focus:border-indigo-500 transition-colors cursor-pointer"
             >
               <option value="all">Tất cả vai trò</option>
               <option value={ROLES.PET_OWNER}>Chủ nuôi (Pet Owner)</option>
@@ -610,7 +744,7 @@ LƯU Ý: Đây là mật khẩu tạm thời do Quản trị viên cấp. Bạn 
                 setStatusFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#1c1d2e] border border-slate-200 dark:border-white/10 rounded-2xl text-xs text-slate-900 dark:text-white focus:outline-hidden focus:border-indigo-500 transition-colors cursor-pointer"
+              className="w-full px-3.5 py-2.5 bg-[#F8FAFC] dark:bg-[#1c1d2e] border border-[#E2E8F0] dark:border-white/10 rounded-2xl text-xs text-[#1E293B] dark:text-white focus:outline-hidden focus:border-indigo-500 transition-colors cursor-pointer"
             >
               <option value="all">Tất cả trạng thái</option>
               <option value="active">Đang hoạt động</option>
@@ -621,7 +755,7 @@ LƯU Ý: Đây là mật khẩu tạm thời do Quản trị viên cấp. Bạn 
       </div>
 
       {/* Bảng Dữ Liệu Tài Khoản (Desktop & Tablet) */}
-      <div className="rounded-3xl bg-white/85 dark:bg-[#151622]/90 border border-slate-200/80 dark:border-white/[0.08] shadow-sm overflow-hidden">
+      <div className="rounded-3xl bg-white dark:bg-slate-900/80 border border-[#E2E8F0] dark:border-white/10 shadow-sm text-[#1E293B] dark:text-slate-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
@@ -676,6 +810,19 @@ LƯU Ý: Đây là mật khẩu tạm thời do Quản trị viên cấp. Bạn 
                       {/* Vai trò */}
                       <td className="py-3.5 px-4">
                         {getRoleBadge(user.role)}
+                        {user.role === ROLES.VET_DOCTOR && (
+                          <div className="mt-1">
+                            {user.facilityId ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-indigo-400 font-medium bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20" title={`Cơ sở công tác: ${findFacilityById(user.facilityId)?.name || user.facilityId}`}>
+                                🏥 {findFacilityById(user.facilityId)?.name?.replace('Bệnh viện Thú y ', '').replace('Phòng khám ', '') || user.facilityId}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-amber-400/90 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20" title="Chưa liên kết cơ sở công tác. Bấm nút Sửa để phân công cơ sở.">
+                                ⚠️ Chưa gán cơ sở
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </td>
 
                       {/* Trạng thái khóa & Cờ đổi mật khẩu */}
@@ -734,50 +881,82 @@ LƯU Ý: Đây là mật khẩu tạm thời do Quản trị viên cấp. Bạn 
                             <KeyRound className="w-4 h-4" />
                           </button>
 
-                          {/* Đổi vai trò */}
-                          <button
-                            onClick={() => {
-                              const nextRole = user.role === ROLES.PET_OWNER 
-                                ? ROLES.VET_DOCTOR 
-                                : user.role === ROLES.VET_DOCTOR 
-                                ? ROLES.SYSTEM_ADMIN 
-                                : ROLES.PET_OWNER;
-                              setConfirmRoleModal({ isOpen: true, user, targetRole: nextRole });
-                            }}
-                            title="Đổi vai trò"
-                            className="px-2 py-1 rounded-xl border border-slate-200 dark:border-white/10 hover:border-indigo-400 text-slate-700 dark:text-slate-300 text-[11px] font-semibold transition-colors cursor-pointer"
-                          >
-                            Đổi vai trò
-                          </button>
+                          {/* Đổi vai trò (Chỉ chuyển đổi giữa Chủ nuôi và Bác sĩ thú y, chặn Quản trị viên hệ thống) */}
+                          {(() => {
+                            const isSystemAdmin = user.role === ROLES.SYSTEM_ADMIN || user.role === 'system_admin';
+                            const nextRole = user.role === ROLES.VET_DOCTOR ? ROLES.PET_OWNER : ROLES.VET_DOCTOR;
+                            const roleTooltip = isSystemAdmin
+                              ? 'Không thể thay đổi vai trò của Quản trị viên hệ thống'
+                              : `Đổi vai trò sang ${nextRole === ROLES.VET_DOCTOR ? 'Bác sĩ thú y' : 'Chủ nuôi'}`;
+
+                            return (
+                              <button
+                                onClick={() => {
+                                  if (isSystemAdmin) {
+                                    showNotice(roleTooltip, 'error');
+                                    return;
+                                  }
+                                  setConfirmRoleModal({ isOpen: true, user, targetRole: nextRole });
+                                }}
+                                disabled={isSystemAdmin}
+                                title={roleTooltip}
+                                aria-label={roleTooltip}
+                                className={`px-2 py-1 rounded-xl border text-[11px] font-semibold transition-colors cursor-pointer ${
+                                  isSystemAdmin
+                                    ? 'border-slate-200 dark:border-white/5 text-slate-400 dark:text-slate-600 opacity-40 cursor-not-allowed'
+                                    : 'border-slate-200 dark:border-white/10 hover:border-indigo-400 text-slate-700 dark:text-slate-300'
+                                }`}
+                              >
+                                Đổi vai trò
+                              </button>
+                            );
+                          })()}
 
                           {/* Khóa / Mở khóa */}
-                          <button
-                            onClick={() => {
-                              if (isCurrentSelf) {
-                                showNotice('Không thể tự khóa tài khoản quản trị viên đang đăng nhập!', 'error');
-                                return;
-                              }
-                              setConfirmLockModal({ isOpen: true, user });
-                            }}
-                            disabled={isCurrentSelf}
-                            title={isCurrentSelf ? 'Không thể tự khóa' : user.isLocked ? 'Mở khóa tài khoản' : 'Khóa tài khoản'}
-                            className={`p-1.5 rounded-xl transition-colors cursor-pointer ${
-                              isCurrentSelf 
-                                ? 'opacity-30 cursor-not-allowed text-slate-400'
-                                : user.isLocked 
-                                ? 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10' 
-                                : 'text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-500/10'
-                            }`}
-                          >
-                            {user.isLocked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                          </button>
+                          {(() => {
+                            const isLastAdminToLock = user.role === ROLES.SYSTEM_ADMIN && !user.isLocked && 
+                              (internalUsers || []).filter(u => u.role === ROLES.SYSTEM_ADMIN && !u.isLocked).length <= 1;
+                            const isLockDisabled = isCurrentSelf || isLastAdminToLock;
+                            const lockTitle = isCurrentSelf 
+                              ? 'Không thể tự khóa tài khoản quản trị viên đang đăng nhập' 
+                              : isLastAdminToLock 
+                              ? 'Không thể khóa Quản trị viên hệ thống hoạt động cuối cùng của hệ thống' 
+                              : user.isLocked ? 'Mở khóa tài khoản' : 'Khóa tài khoản';
+
+                            return (
+                              <button
+                                onClick={() => {
+                                  if (isCurrentSelf) {
+                                    showNotice('Không thể tự khóa tài khoản quản trị viên đang đăng nhập!', 'error');
+                                    return;
+                                  }
+                                  if (isLastAdminToLock) {
+                                    showNotice('Không thể khóa Quản trị viên hệ thống hoạt động cuối cùng của hệ thống!', 'error');
+                                    return;
+                                  }
+                                  setConfirmLockModal({ isOpen: true, user });
+                                }}
+                                disabled={isLockDisabled}
+                                title={lockTitle}
+                                className={`p-1.5 rounded-xl transition-colors cursor-pointer ${
+                                  isLockDisabled 
+                                    ? 'opacity-30 cursor-not-allowed text-slate-400'
+                                    : user.isLocked 
+                                    ? 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10' 
+                                    : 'text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-500/10'
+                                }`}
+                              >
+                                {user.isLocked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                              </button>
+                            );
+                          })()}
 
                           {/* Nút XÓA TÀI KHOẢN (Biểu tượng thùng rác màu đỏ) */}
                           {(() => {
                             const isSelf = String(user.id).trim() === String(currentAdmin?.id).trim() || 
                                            (user.email || '').toLowerCase() === (currentAdmin?.email || '').toLowerCase();
                             const isLastAdmin = user.role === ROLES.SYSTEM_ADMIN && 
-                                                users.filter(u => u.role === ROLES.SYSTEM_ADMIN && !u.isLocked).length <= 1;
+                                                (internalUsers || []).filter(u => u.role === ROLES.SYSTEM_ADMIN && !u.isLocked).length <= 1;
                             const isDeleteDisabled = isSelf || isLastAdmin;
                             const deleteTooltip = isSelf 
                               ? 'Không thể xóa tài khoản admin đang đăng nhập' 
@@ -1539,6 +1718,29 @@ LƯU Ý: Đây là mật khẩu tạm thời do Quản trị viên cấp. Bạn 
                 />
               </div>
 
+              {editingUser.role === ROLES.VET_DOCTOR && (
+                <div>
+                  <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">
+                    Cơ sở / Bệnh viện Thú y công tác:
+                  </label>
+                  <select
+                    value={editFormData.facilityId || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, facilityId: e.target.value })}
+                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-[#1c1d2e] border border-slate-200 dark:border-white/10 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:border-indigo-500 font-medium"
+                  >
+                    <option value="">-- Chưa gán cơ sở công tác (Bác sĩ tự do) --</option>
+                    {VET_FACILITIES.map(fac => (
+                      <option key={fac.id} value={fac.id}>
+                        {fac.name} ({fac.id})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Bác sĩ chỉ xuất hiện trong form đặt lịch của đúng cơ sở được liên kết tại đây.
+                  </p>
+                </div>
+              )}
+
               <div className="pt-3 border-t border-slate-100 dark:border-white/10 flex justify-end gap-2">
                 <button
                   type="button"
@@ -1633,8 +1835,10 @@ LƯU Ý: Đây là mật khẩu tạm thời do Quản trị viên cấp. Bạn 
               >
                 <option value={ROLES.PET_OWNER}>Chủ nuôi (Pet Owner)</option>
                 <option value={ROLES.VET_DOCTOR}>Bác sĩ thú y (Vet Doctor)</option>
-                <option value={ROLES.SYSTEM_ADMIN}>Quản trị viên hệ thống (System Admin)</option>
               </select>
+              <p className="text-[11px] text-slate-400 italic">
+                * Chỉ cho phép luân chuyển vai trò giữa Chủ nuôi và Bác sĩ thú y. Vai trò Quản trị viên hệ thống được bảo vệ nghiêm ngặt.
+              </p>
             </div>
 
             <div className="flex items-center justify-center gap-2 pt-2">

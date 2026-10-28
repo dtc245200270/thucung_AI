@@ -1,0 +1,14 @@
+[
+  {
+    "title": "Mua hạt cho mèo",
+    "amount": 180000,
+    "date": "2026-10-27",
+    "category": "food",
+    "petId": "pet-1792142788675",
+    "petName": "Mèo Kiểm Thử",
+    "notes": "Khoản chi nhập tay để kiểm thử",
+    "id": "exp-1793107463925",
+    "ownerId": "user_1791541299976_7ebbe5",
+    "createdAt": "2026-10-27T13:24:23.934Z"
+  }
+]

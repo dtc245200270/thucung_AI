@@ -3,7 +3,7 @@ import fs from 'fs';
 
 const chromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const debugPort = 9444;
-const profileDir = 'C:\\Users\\Dell Precision 5550\\Downloads\\PET_Ai\\scratch\\temp_verify_profile';
+const profileDir = 'C:\\Users\\Dell Precision 5550\\Documents\\PET_Ai\\scratch\\temp_verify_profile';
 
 try {
   fs.rmSync(profileDir, { recursive: true, force: true });

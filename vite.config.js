@@ -12,11 +12,11 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     watch: {
-      ignored: ['**/scratch/**', '**/temp_*/**', '**/.git/**']
+      ignored: ['**/scratch/**', '**/temp_*/**', '**/.git/**', '**/server/**', '**/tests/**']
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://127.0.0.1:5000',
         changeOrigin: true
       }
     }

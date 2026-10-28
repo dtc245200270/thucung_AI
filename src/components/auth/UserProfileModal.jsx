@@ -33,11 +33,11 @@ export function UserProfileModal({ isOpen, onClose, user, currentUser, onUserUpd
     'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300&auto=format&fit=crop&q=80'
   ];
 
-  const handleUpdateProfile = (e) => {
+  const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setMessage({ text: '', type: '' });
     try {
-      const updated = updateProfile({ name, phone, address, avatar });
+      const updated = await updateProfile({ name, phone, address, avatar });
       setMessage({ text: 'Cập nhật thông tin cá nhân thành công!', type: 'success' });
       if (onUserUpdated) onUserUpdated(updated);
     } catch (err) {

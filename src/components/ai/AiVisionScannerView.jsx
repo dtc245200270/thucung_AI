@@ -1,778 +1,1077 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Scan, 
   Upload, 
   Sparkles, 
-  ShieldAlert, 
   CheckCircle2, 
-  Camera, 
   RefreshCw, 
   AlertTriangle, 
-  Crosshair, 
-  Check, 
   Stethoscope, 
-  Activity, 
   Bandage, 
   Microscope, 
-  Info,
-  ShieldCheck
+  Info, 
+  ShieldCheck, 
+  AlertCircle, 
+  FileText, 
+  Trash2, 
+  X, 
+  Clock, 
+  BookmarkPlus, 
+  BookOpen,
+  ArrowRight
 } from 'lucide-react';
 import { sound } from '../../services/soundService';
+import { PageContainer, PageHeader, Card, Tabs, Modal, EmptyState } from '../common/ui';
 
 // =========================================================================
-// 1. TỪ ĐIỂN BỆNH LÝ THÚ CƯNG THƯỜNG GẶP (VETERINARY PATHOLOGY DATASET)
-// Sử dụng ảnh Macro cận cảnh tổn thương thực thể lâm sàng
+// 1. TÀI LIỆU THAM KHẢO BỆNH LÝ DA LIỄU THÚ CƯNG THƯỜNG GẶP
+// Tách biệt hoàn toàn khỏi luồng phân tích của AI. Không dùng ảnh mẫu để phân tích.
 // =========================================================================
 export const PET_PATHOLOGY_DATASET = {
-  // 1. Viêm da dị ứng bọ chét (FAD): Vùng da ửng đỏ, rụng lông, mẩn ngứa
   fad: {
     id: 'fad',
     name: 'Viêm da dị ứng bọ chét / ve rận (Flea Allergy Dermatitis - FAD)',
     category: 'Ngoại ký sinh trùng',
-    confidence: 94.6,
-    riskLevel: 'Trung bình',
-    riskColor: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-    // Ảnh cận cảnh da chó bị mẩn đỏ, rụng lông sát chân
-    image: '/images/pathology/macro_fad_lesion.jpg',
-    fallbackImage: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&w=900&q=80',
-    boxCoordinates: { top: '28%', left: '26%', width: '48%', height: '42%' },
+    riskLevel: 'Cần thăm khám',
+    riskColor: 'text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-300 dark:bg-amber-500/10 dark:border-amber-500/20',
     symptoms: [
-      'Mẩn đỏ li ti dạng hạt cườm, tập trung dày ở vùng sống lưng và háng bẹn.',
+      'Mẩn đỏ li ti dạng hạt, tập trung nhiều ở vùng sống lưng, bẹn và gốc đuôi.',
       'Da sậm màu, dày sừng do cọ xát cắn gãi liên tục.',
-      'Dấu hiệu hạt phân bọ chét đen nhỏ bám sát chân lông.'
+      'Có thể thấy các chấm đen nhỏ li ti (phân bọ chét) bám sát chân lông.'
     ],
-    firstAid: [
-      'Nhỏ thuốc trị ký sinh trùng khẩn cấp (Bravecto, Revolution Plus).',
-      'Đeo loa Elizabeth chống cắn rách da nhiễm trùng huyết.',
-      'Vệ sinh nhẹ nhàng bằng nước muối sinh lý ấm, không bôi thuốc mỡ người.'
+    careTips: [
+      'Đeo vòng cổ chống liếm (loa Elizabeth) để tránh bé cắn rách da gây nhiễm trùng.',
+      'Vệ sinh nhẹ nhàng bằng nước muối sinh lý ấm, không tự ý bôi thuốc mỡ của người.',
+      'Sử dụng thuốc trị ngoại ký sinh trùng theo đúng chỉ định của bác sĩ thú y.'
     ],
-    clinicalAdvice: 'Cần đưa đến phòng khám cạo tế bào biểu bì và kiểm tra phân bọ chét dưới kính hiển vi.'
+    vetAdvice: 'Cần đưa đến phòng khám để bác sĩ kiểm tra lông da và chải phân bọ chét xác định nguyên nhân.'
   },
-
-  // 2. Nấm tròn Ringworm: Tổn thương hình tròn đồng xu, viền gờ đỏ bong vảy
   ringworm: {
     id: 'ringworm',
     name: 'Nấm da tròn đồng xu (Ringworm / Dermatophytosis)',
     category: 'Nhiễm vi nấm biểu bì',
-    confidence: 96.2,
-    riskLevel: 'Trung bình',
-    riskColor: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-    // Ảnh cận cảnh mảng rụng lông vi nấm tròn bong vảy
-    image: '/images/pathology/macro_ringworm_lesion.jpg',
-    fallbackImage: 'https://images.unsplash.com/photo-1548767797-d8c844163c4c?auto=format&fit=crop&w=900&q=80',
-    boxCoordinates: { top: '30%', left: '32%', width: '38%', height: '38%' },
+    riskLevel: 'Cần cách ly & thăm khám',
+    riskColor: 'text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-300 dark:bg-amber-500/10 dark:border-amber-500/20',
     symptoms: [
-      'Vùng rụng lông tròn trịa viền đỏ nổi gờ như đồng xu (Microsporum canis).',
-      'Bề mặt da phủ vảy trắng xám như gàu, sợi lông khô giòn gãy sát chân.',
-      'CẢNH BÁO: Bệnh có khả năng lây lan trực tiếp sang người (Zoonosis).'
+      'Vùng rụng lông hình tròn viền gờ đỏ nổi rõ như đồng xu.',
+      'Bề mặt da phủ vảy trắng xám như gàu, sợi lông khô giòn dễ gãy sát gốc.',
+      'LƯU Ý: Bệnh có khả năng lây lan sang người và các thú cưng khác.'
     ],
-    firstAid: [
-      'Cách ly thú cưng riêng biệt, khử trùng ổ nằm bằng Cloramin B.',
-      'Đeo găng tay y tế khi vệ sinh bôi thuốc cho bé.',
-      'Bôi kem kháng nấm đặc trị (Ketoconazole/Miconazole) theo chỉ dẫn.'
+    careTips: [
+      'Cách ly thú cưng riêng biệt, khử trùng ổ nằm và khu vực sinh hoạt.',
+      'Đeo găng tay khi tiếp xúc, tắm rửa hoặc bôi thuốc cho bé.',
+      'Dùng dung dịch sát khuẩn dịu nhẹ, giữ vùng da tổn thương luôn khô ráo.'
     ],
-    clinicalAdvice: 'Cần soi đèn Wood (Wood’s Lamp) phát quang xanh táo và cấy nấm DTM để định danh chủng vi nấm.'
+    vetAdvice: 'Cần đưa đến bác sĩ để soi đèn Wood (Wood’s Lamp) phát quang và cấy nấm DTM định danh chủng nấm.'
   },
-
-  // 3. Xà mâu Demodex & Men kẽ chân: Viêm đỏ sưng múp kẽ ngón, rụng lông quanh mắt
   demodex: {
     id: 'demodex',
-    name: 'Xà mâu Demodex & Viêm nấm men Malassezia kẽ ngón',
-    category: 'Ký sinh trùng bao lông & Nấm men',
-    confidence: 92.4,
-    riskLevel: 'Khẩn cấp',
-    riskColor: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
-    // Ảnh cận cảnh bàn chân / kẽ móng chó bị sưng đỏ, viêm nhờn rụng lông
-    image: '/images/pathology/macro_demodex_lesion.jpg',
-    fallbackImage: 'https://images.unsplash.com/photo-1576201836106-db1758fd1c97?auto=format&fit=crop&w=900&q=80',
-    boxCoordinates: { top: '35%', left: '30%', width: '44%', height: '40%' },
+    name: 'Xà mâu Demodex & Viêm nấm men Malassezia',
+    category: 'Ký sinh trùng nang lông & Nấm men',
+    riskLevel: 'Cần can thiệp y tế',
+    riskColor: 'text-rose-700 bg-rose-50 border-rose-200 dark:text-rose-300 dark:bg-rose-500/10 dark:border-rose-500/20',
     symptoms: [
       'Kẽ móng và đệm bàn chân sưng đỏ, nhờn rít, rỉ dịch mủ mùi chua nồng.',
-      'Rụng lông quầng mắt (kính râm Demodex) và khóe mép sưng tấy.',
-      'Bé liên tục gặm chân, liếm móng và đi khập khiễng do đau buốt.'
+      'Rụng lông quầng mắt và khóe mép sưng tấy, ngứa ngáy dữ dội.',
+      'Bé thường xuyên cắn móng, liếm chân và đi khập khiễng do đau buốt.'
     ],
-    firstAid: [
-      'Ngâm rửa bàn chân bằng dung dịch Chlorhexidine 2% pha loãng.',
-      'Sấy khô tuyệt đối kẽ móng sau khi rửa (men nấm kỵ khô ráo).',
-      'Không dùng xà phòng giữ ẩm vì kích thích men Malassezia sinh sôi.'
+    careTips: [
+      'Ngâm rửa chân bằng dung dịch sát khuẩn chuyên dụng theo hướng dẫn thú y.',
+      'Sấy khô tuyệt đối kẽ móng sau khi tắm rửa (môi trường ẩm ướt kích thích nấm men phát triển).',
+      'Không dùng xà phòng giữ ẩm vì dễ làm trầm trọng tình trạng nấm men.'
     ],
-    clinicalAdvice: 'Cần cạo sâu tới chân lông (Deep Scraping) đến khi rớm máu để đếm mật độ ký sinh trùng Demodex.'
+    vetAdvice: 'Cần cạo sâu biểu bì (Deep Scraping) đến khi rớm máu nhẹ để đếm mật độ ký sinh trùng dưới kính hiển vi.'
   },
-
-  // 4. Viêm da mủ Pyoderma: Vết loét trợt da, bóng nước và mụn mủ vàng
   pyoderma: {
     id: 'pyoderma',
-    name: 'Viêm da mủ sâu & Viêm loét vi khuẩn (Pyoderma)',
+    name: 'Viêm da mủ & Viêm loét vi khuẩn (Pyoderma)',
     category: 'Nhiễm khuẩn tụ cầu da (Staphylococcus)',
-    confidence: 95.1,
-    riskLevel: 'Khẩn cấp',
-    riskColor: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
-    // Ảnh cận cảnh mảng viêm loét, mụn mủ đóng vảy sừng
-    image: '/images/pathology/macro_pyoderma_lesion.jpg',
-    fallbackImage: 'https://images.unsplash.com/photo-1537151608828-ea2b11777ee8?auto=format&fit=crop&w=900&q=80',
-    boxCoordinates: { top: '22%', left: '25%', width: '52%', height: '50%' },
+    riskLevel: 'Cần can thiệp y tế',
+    riskColor: 'text-rose-700 bg-rose-50 border-rose-200 dark:text-rose-300 dark:bg-rose-500/10 dark:border-rose-500/20',
     symptoms: [
-      'Nổi nhiều bọc mụn mủ nhỏ (Pustules), vảy tiết đóng thành mảng màu mật ong.',
-      'Vùng da trợt loét, sưng phù, chảy dịch huyết thanh và đau đớn khi chạm.',
-      'Rụng lông nham nhở quanh vùng viêm nhiễm.'
+      'Nhiều bọc mụn mủ nhỏ li ti, vảy tiết đóng thành mảng màu mật ong.',
+      'Vùng da trợt loét, sưng phù, chảy dịch và đau đớn khi chạm vào.',
+      'Rụng lông nham nhở xung quanh vùng viêm nhiễm.'
     ],
-    firstAid: [
-      'Tuyệt đối không bóp hoặc nặn các nốt mụn mủ tránh vỡ sâu vào mô tế bào.',
-      'Chấm rửa nhẹ nhàng bằng cồn đỏ Povidine Iodine 10%.',
-      'Đeo vòng cổ chống liếm liên tục 24/24.'
+    careTips: [
+      'Tuyệt đối không bóp hoặc nặn các nốt mụn mủ tránh vi khuẩn ăn sâu vào mô dưới da.',
+      'Chấm rửa nhẹ nhàng bằng cồn đỏ Povidine 10% pha loãng.',
+      'Đeo vòng cổ Elizabeth liên tục để ngăn thú cưng liếm vết thương.'
     ],
-    clinicalAdvice: 'Cần nuôi cấy vi khuẩn làm kháng sinh đồ và điều trị kháng sinh toàn thân tối thiểu 3-4 tuần.'
+    vetAdvice: 'Cần khám trực tiếp để bác sĩ làm kháng sinh đồ và kê đơn thuốc kháng sinh điều trị phù hợp.'
   }
 };
 
-// 4 Ca bệnh mẫu nhanh dùng cho thanh chuyển đổi
-export const SAMPLE_PATHOLOGY_CASES = [
-  {
-    id: 'fad',
-    shortName: 'Dị ứng bọ chét (FAD)',
-    badge: 'Ngoại ký sinh trùng',
-    color: 'rose',
-    summary: 'Mẩn đỏ li ti, rụng lông sống lưng & gốc đuôi'
-  },
-  {
-    id: 'ringworm',
-    shortName: 'Nấm tròn Ringworm',
-    badge: 'Vi nấm biểu bì',
-    color: 'amber',
-    summary: 'Rụng lông hình đồng xu, bong vảy sừng hóa'
-  },
-  {
-    id: 'demodex',
-    shortName: 'Xà mâu Demodex & Men',
-    badge: 'Ký sinh trùng nang lông',
-    color: 'orange',
-    summary: 'Sưng đỏ kẽ móng, rụng lông quanh khóe mắt'
-  },
-  {
-    id: 'pyoderma',
-    shortName: 'Viêm da mủ Pyoderma',
-    badge: 'Nhiễm trùng vi khuẩn',
-    color: 'red',
-    summary: 'Mụn mủ li ti, trợt loét đóng vảy vàng rơm'
-  }
-];
-
 export const AiVisionScannerView = ({
   pets = [],
+  currentUser = null,
   onOpenAddSchedule,
   onOpenVetBooking
 }) => {
-  // THIẾT LẬP LẠI STATE MẶC ĐỊNH (INITIAL EMPTY STATE)
-  // Ngăn chặn việc chưa tải ảnh mà hệ thống đã tự động quét ra bệnh
-  const [selectedImage, setSelectedImage] = useState(null); // Không có ảnh mặc định
-  const [activeCaseKey, setActiveCaseKey] = useState(null);
-  const [isScanning, setIsScanning] = useState(false);
-  const [hasScanned, setHasScanned] = useState(false); // Chưa quét
-  const [scanResult, setScanResult] = useState(null); // Chưa có kết quả
-  const [boxCoords, setBoxCoords] = useState(null);
-  const [imageBase64Info, setImageBase64Info] = useState(null);
-  const [scanError, setScanError] = useState(null);
-  const [selectedPetId, setSelectedPetId] = useState(() => pets?.[0]?.id || 'pet-1');
+  // 1. Quản lý Thú cưng & Thông tin quan sát
+  const [selectedPetId, setSelectedPetId] = useState(() => pets?.[0]?.id || '');
+  const [observationNotes, setObservationNotes] = useState({
+    location: '',
+    symptoms: '',
+    duration: ''
+  });
 
-  // Nén ảnh trên Client để tối ưu kích thước
-  const compressImage = (file) => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      const objUrl = URL.createObjectURL(file);
-      img.src = objUrl;
-      img.onload = () => {
-        URL.revokeObjectURL(objUrl);
-        const canvas = document.createElement('canvas');
-        const maxDim = 640;
-        let { width, height } = img;
-        if (width > height && width > maxDim) {
-          height = Math.round((height * maxDim) / width);
-          width = maxDim;
-        } else if (height > maxDim) {
-          width = Math.round((width * maxDim) / height);
-          height = maxDim;
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        const base64Data = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
-        resolve(base64Data);
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(objUrl);
+  // 2. Quản lý Ảnh (JPG, PNG, WebP tối đa 5 MB)
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imageBase64, setImageBase64] = useState('');
+  const [imageFileError, setImageFileError] = useState(null);
+
+  // 3. Trạng thái phân tích & Hủy
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [scanResult, setScanResult] = useState(null);
+  const [scanError, setScanError] = useState(null);
+  const abortControllerRef = useRef(null);
+  const activeSessionIdRef = useRef(null);
+
+  // 4. Trạng thái mô hình AI cục bộ
+  const [modelStatus, setModelStatus] = useState(null);
+  const [isCheckingModel, setIsCheckingModel] = useState(false);
+  const [activeTab, setActiveTab] = useState('observe'); // 'observe' | 'reference'
+
+  // 5. Lưu kết quả tham khảo & Đặt lịch
+  const [isSavingObservation, setIsSavingObservation] = useState(false);
+  const [saveSuccessMessage, setSaveSuccessMessage] = useState(null);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [isBookingConfirmOpen, setIsBookingConfirmOpen] = useState(false);
+
+  const fileInputRef = useRef(null);
+
+  // Đồng bộ selectedPetId khi danh sách thú cưng thay đổi
+  useEffect(() => {
+    if (pets?.length > 0 && !selectedPetId) {
+      setSelectedPetId(pets[0].id);
+    }
+  }, [pets, selectedPetId]);
+
+  // Kiểm tra trạng thái mô hình cục bộ — gọi backend thật, không suy diễn
+  const fetchModelStatus = async () => {
+    setIsCheckingModel(true);
+    try {
+      const res = await fetch('/api/ai/vision-status');
+      const data = await res.json().catch(() => null);
+      if (res.ok && data) {
+        setModelStatus(data);
+      } else {
+        setModelStatus({
+          isRunning: false,
+          isModelInstalled: false,
+          supportsVision: false,
+          configuredModel: data?.configuredModel || 'moondream:1.8b',
+          statusCode: 'BACKEND_ERROR',
+          message: data?.message || `Không thể kết nối đến backend PetCare (HTTP ${res.status}). Kiểm tra server đang chạy chưa.`
+        });
+      }
+    } catch (err) {
+      console.warn('[AI Vision] Lỗi kết nối backend khi kiểm tra Ollama:', err);
+      setModelStatus({
+        isRunning: false,
+        isModelInstalled: false,
+        supportsVision: false,
+        configuredModel: 'moondream:1.8b',
+        statusCode: 'NETWORK_ERROR',
+        message: 'Không thể kết nối tới backend PetCare. Kiểm tra server đang chạy (npm run server) và thử lại.'
+      });
+    } finally {
+      setIsCheckingModel(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchModelStatus();
+  }, []);
+
+  // Đổi thú cưng: Xóa ảnh, mô tả và kết quả của lần phân tích trước để tránh gắn nhầm
+  const handlePetChange = (newPetId) => {
+    if (newPetId === selectedPetId) return;
+    try { sound?.playPop?.(); } catch (_) {}
+    setSelectedPetId(newPetId);
+    handleClearImage();
+    setObservationNotes({ location: '', symptoms: '', duration: '' });
+    setScanResult(null);
+    setScanError(null);
+    setSaveSuccessMessage(null);
+  };
+
+  // Xóa ảnh đã chọn
+  const handleClearImage = () => {
+    if (selectedImage && selectedImage.startsWith('blob:')) {
+      URL.revokeObjectURL(selectedImage);
+    }
+    setSelectedImage(null);
+    setImageBase64('');
+    setImageFileError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Xử lý đọc và chuẩn hóa dữ liệu ảnh (giữ chất lượng, canvas nén nhẹ nếu quá lớn, fallback FileReader)
+  const processImageFile = (file) => {
+    return new Promise((resolve, reject) => {
+      // Helper đọc trực tiếp bằng FileReader
+      const readDirectly = () => {
         const reader = new FileReader();
-        reader.onloadend = () => {
-          resolve(reader.result.split(',')[1]);
+        reader.onload = () => {
+          const res = reader.result;
+          if (typeof res === 'string') {
+            const b64 = res.includes(',') ? res.split(',')[1] : res;
+            resolve(b64);
+          } else {
+            reject(new Error('Không thể đọc dữ liệu tệp ảnh.'));
+          }
         };
+        reader.onerror = () => reject(new Error('Lỗi khi đọc tệp ảnh.'));
         reader.readAsDataURL(file);
       };
+
+      try {
+        const img = new Image();
+        const objUrl = URL.createObjectURL(file);
+        img.src = objUrl;
+
+        img.onload = () => {
+          URL.revokeObjectURL(objUrl);
+          try {
+            const canvas = document.createElement('canvas');
+            const maxDim = 1200;
+            let { width, height } = img;
+            if (width > height && width > maxDim) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else if (height > maxDim) {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            const mime = file.type === 'image/png' ? 'image/png' : file.type === 'image/webp' ? 'image/webp' : 'image/jpeg';
+            const dataUrl = canvas.toDataURL(mime, 0.9);
+            const b64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+            resolve(b64);
+          } catch {
+            readDirectly();
+          }
+        };
+
+        img.onerror = () => {
+          URL.revokeObjectURL(objUrl);
+          readDirectly();
+        };
+      } catch {
+        readDirectly();
+      }
     });
   };
 
-  // Upload ảnh người dùng chụp cận cảnh tổn thương
+  // Tải ảnh từ máy tính (Kiểm tra định dạng và dung lượng tối đa 5 MB)
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    try { sound?.playPop?.(); } catch (_) {}
-    setActiveCaseKey(null);
-    setHasScanned(false);
-    setScanResult(null);
+    setImageFileError(null);
     setScanError(null);
+    setSaveSuccessMessage(null);
 
-    const previewUrl = URL.createObjectURL(file);
-    setSelectedImage(previewUrl);
-    setBoxCoords({ top: '25%', left: '25%', width: '50%', height: '50%' });
-
-    const base64Data = await compressImage(file);
-    setImageBase64Info({ data: base64Data, mimeType: 'image/jpeg' });
-  };
-
-  // Chọn ca bệnh lý mẫu trong bộ dữ liệu (ĐỔI ẢNH CẬN CẢNH NGAY LẬP TỨC)
-  const handleSelectCase = (caseId) => {
-    const caseData = PET_PATHOLOGY_DATASET[caseId];
-    if (!caseData) return;
-
-    try { sound?.playClick?.(); } catch (_) {}
-    setActiveCaseKey(caseId);
-    setSelectedImage(caseData.image); // LIÊN KẾT ĐỔI ẢNH NGAY LẬP TỨC
-    setBoxCoords(caseData.boxCoordinates);
-    setHasScanned(false);
-    setScanResult(null);
-    setScanError(null);
-  };
-
-  // Quét tổn thương thực thể bằng Laser Scanner (sử dụng Cơ sở dữ liệu Bệnh lý Da liễu Thú y nội tại)
-  const triggerScan = async () => {
-    if (isScanning || !selectedImage) return;
-
-    try { sound?.playPop?.(); } catch (_) {}
-    setIsScanning(true);
-    setScanResult(null);
-    setScanError(null);
-
-    const scanDelayPromise = new Promise(resolve => setTimeout(resolve, 800));
-
-    // Chẩn đoán theo Bộ Dữ Liệu Bệnh Lý Thường Gặp (Mô phỏng y khoa cục bộ)
-    const finalResult = PET_PATHOLOGY_DATASET[activeCaseKey || 'fad'] || PET_PATHOLOGY_DATASET.fad;
-
-    await scanDelayPromise;
-
-    setIsScanning(false);
-    setHasScanned(true);
-    setScanResult(finalResult);
-    if (finalResult.boxCoordinates) {
-      setBoxCoords(finalResult.boxCoordinates);
+    // 1. Kiểm tra dung lượng (Tối đa 5 MB)
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      setImageFileError('Dung lượng tệp vượt quá 5 MB. Vui lòng chọn ảnh có dung lượng nhỏ hơn.');
+      try { sound?.playPop?.(); } catch (_) {}
+      return;
     }
-    try { sound?.playSuccess?.(); } catch (_) {}
+
+    // 2. Kiểm tra loại tệp
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setImageFileError('Định dạng tệp không được hỗ trợ. Vui lòng chọn tệp ảnh JPG, PNG hoặc WebP.');
+      try { sound?.playPop?.(); } catch (_) {}
+      return;
+    }
+
+    try {
+      sound?.playPop?.();
+      const previewUrl = URL.createObjectURL(file);
+      setSelectedImage(previewUrl);
+
+      const b64 = await processImageFile(file);
+      setImageBase64(b64);
+      setScanResult(null);
+    } catch (err) {
+      setImageFileError('Không thể nạp tệp hình ảnh: ' + (err?.message || 'Lỗi xử lý'));
+      handleClearImage();
+    }
   };
 
-  const currentPet = pets?.find(p => p.id === selectedPetId) || pets?.[0] || { name: 'Mochi', species: 'Chó Golden' };
+  // Yêu cầu phân tích ảnh
+  const handleTriggerAnalysis = async () => {
+    if (isAnalyzing) return;
+    if (!selectedPetId) {
+      setScanError('Vui lòng chọn thú cưng để tiếp tục.');
+      return;
+    }
+    if (!imageBase64) {
+      setScanError('Vui lòng tải lên ảnh chụp vùng da/lông cần quan sát.');
+      return;
+    }
+
+    // Kiểm tra tính khả dụng của mô hình
+    if (!modelStatus?.isRunning) {
+      setScanError('Dịch vụ AI cục bộ (Ollama) hiện chưa chạy tại máy chủ. Vui lòng khởi động Ollama trước khi phân tích.');
+      return;
+    }
+    if (!modelStatus?.supportsVision) {
+      setScanError(`Mô hình AI cục bộ đang cấu hình ("${modelStatus?.configuredModel || 'qwen3:1.7b'}") là mô hình văn bản, không hỗ trợ nhận diện hình ảnh. Hệ thống không tạo kết quả giả lập.`);
+      return;
+    }
+
+    try { sound?.playPop?.(); } catch (_) {}
+    setIsAnalyzing(true);
+    setScanResult(null);
+    setScanError(null);
+    setSaveSuccessMessage(null);
+
+    const sessionId = Date.now().toString();
+    activeSessionIdRef.current = sessionId;
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    try {
+      const token = localStorage.getItem('petcare_token') || localStorage.getItem('petcare_auth_token');
+      const response = await fetch('/api/ai/vision-analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || ''}`
+        },
+        body: JSON.stringify({
+          petId: selectedPetId,
+          imageBase64,
+          observationNotes
+        }),
+        signal: controller.signal
+      });
+
+      // Nếu phiên đã bị hủy hoặc chuyển sang phiên mới, bỏ qua kết quả
+      if (activeSessionIdRef.current !== sessionId) return;
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data?.success) {
+        const errorMsg = data?.error || 'Chưa thể phân tích ảnh. Vui lòng thử lại sau.';
+        setScanError(errorMsg);
+        try { sound?.playPop?.(); } catch (_) {}
+      } else {
+        setScanResult(data.data);
+        try { sound?.playSuccess?.(); } catch (_) {}
+      }
+    } catch (err) {
+      if (activeSessionIdRef.current !== sessionId) return;
+      if (err.name === 'AbortError') {
+        setScanError('Đã hủy yêu cầu phân tích theo thao tác của bạn.');
+      } else {
+        setScanError('Chưa thể phân tích ảnh. Vui lòng thử lại sau.');
+      }
+    } finally {
+      if (activeSessionIdRef.current === sessionId) {
+        setIsAnalyzing(false);
+      }
+    }
+  };
+
+  // Nút Hủy phân tích
+  const handleCancelAnalysis = () => {
+    if (abortControllerRef.current) {
+      try {
+        abortControllerRef.current.abort();
+      } catch (_) {}
+    }
+    activeSessionIdRef.current = null;
+    setIsAnalyzing(false);
+    setScanError('Đã hủy phân tích ảnh. Toàn bộ ảnh và mô tả của bạn vẫn được giữ nguyên.');
+    try { sound?.playPop?.(); } catch (_) {}
+  };
+
+  // Lưu kết quả quan sát tham khảo (Chủ động xác nhận)
+  const handleSaveObservationConfirm = async () => {
+    if (!scanResult || !selectedPetId) return;
+    setIsSavingObservation(true);
+    try {
+      const token = localStorage.getItem('petcare_token') || localStorage.getItem('petcare_auth_token');
+      const res = await fetch('/api/ai/save-observation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || ''}`
+        },
+        body: JSON.stringify({
+          petId: selectedPetId,
+          observationNotes,
+          aiFindings: scanResult.analysis,
+          model: scanResult.model
+        })
+      });
+
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
+        setSaveSuccessMessage('Đã lưu kết quả quan sát tham khảo thành công. Kết quả này được lưu riêng, không ảnh hưởng đến bệnh án của bác sĩ.');
+        setIsSaveModalOpen(false);
+        try { sound?.playSuccess?.(); } catch (_) {}
+      } else {
+        alert(data?.error || 'Không thể lưu kết quả quan sát. Vui lòng thử lại.');
+      }
+    } catch (err) {
+      console.error('Lỗi khi lưu kết quả:', err);
+      alert('Lỗi kết nối máy chủ khi lưu kết quả.');
+    } finally {
+      setIsSavingObservation(false);
+    }
+  };
+
+  // Xử lý chuyển sang đặt lịch khám
+  const handleProceedBooking = (includeAiNotes) => {
+    setIsBookingConfirmOpen(false);
+    try { sound?.playClick?.(); } catch (_) {}
+
+    let noteContent = '';
+    if (includeAiNotes) {
+      const parts = [];
+      if (observationNotes.location) parts.push(`Vị trí: ${observationNotes.location}`);
+      if (observationNotes.symptoms) parts.push(`Biểu hiện: ${observationNotes.symptoms}`);
+      if (observationNotes.duration) parts.push(`Thời gian: ${observationNotes.duration}`);
+      parts.push('Chủ nuôi yêu cầu Bác sĩ thăm khám trực tiếp vùng da lông.');
+      noteContent = `[Quan sát ảnh AI tham khảo]: ${parts.join(' - ')}`;
+    }
+
+    if (typeof onOpenVetBooking === 'function') {
+      onOpenVetBooking({
+        petId: currentPet.id,
+        service: 'Khám tổng quát & Da liễu',
+        note: noteContent,
+        isAiVision: Boolean(includeAiNotes),
+        aiVisionPetId: includeAiNotes ? currentPet.id : null
+      });
+    } else if (typeof onOpenAddSchedule === 'function') {
+      onOpenAddSchedule('vet', 'Khám tổng quát & Da liễu');
+    }
+  };
+
+  const currentPet = pets?.find(p => p.id === selectedPetId) || pets?.[0] || {
+    id: '',
+    name: 'Chưa chọn thú cưng',
+    species: '',
+    breed: 'Chưa cập nhật',
+    age: null,
+    weight: null
+  };
 
   return (
-    <div className="space-y-6 pb-12 text-slate-900 dark:text-white">
+    <PageContainer id="ai-vision-page" className="space-y-6 pb-12">
       
-      {/* Laser Scanning Animation Keyframes (Tia laser xanh ngọc quét dọc) */}
-      <style>{`
-        @keyframes greenLaserScanSweep {
-          0% {
-            top: 2%;
-            opacity: 0.95;
-          }
-          50% {
-            top: 94%;
-            opacity: 1;
-          }
-          100% {
-            top: 2%;
-            opacity: 0.95;
-          }
+      {/* 1. Header chính */}
+      <PageHeader
+        title="AI hỗ trợ quan sát ảnh thú cưng"
+        subtitle="Hỗ trợ chủ nuôi ghi nhận hình ảnh và mô tả triệu chứng ban đầu. Xử lý an toàn trên thiết bị, không thay thế khám thú y trực tiếp."
+        badge={
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold">
+            <span className={`w-2 h-2 rounded-full ${
+              modelStatus === null ? 'bg-slate-400 animate-pulse'
+              : modelStatus?.supportsVision && modelStatus?.isRunning ? 'bg-emerald-500'
+              : 'bg-slate-400'
+            }`} />
+            <span className={modelStatus?.supportsVision && modelStatus?.isRunning ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-slate-500 dark:text-slate-400 font-medium'}>
+              {modelStatus === null ? 'Đang kiểm tra...'
+               : modelStatus?.supportsVision && modelStatus?.isRunning ? 'Sẵn sàng'
+               : 'Chưa sẵn sàng'}
+            </span>
+          </span>
         }
-        .animate-green-laser {
-          animation: greenLaserScanSweep 1.2s ease-in-out infinite;
+        actions={
+          <Tabs
+            tabs={[
+              { id: 'observe', label: 'Quan sát ảnh', icon: Scan },
+              { id: 'reference', label: 'Tài liệu tham khảo', icon: BookOpen }
+            ]}
+            activeTab={activeTab}
+            onChange={setActiveTab}
+          />
         }
-      `}</style>
+      />
 
-      {/* Header: Medical Minimalist Porcelain */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-3xl bg-white dark:bg-[#12192A] backdrop-blur-xl border border-slate-200/80 dark:border-white/10 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)] dark:shadow-2xl">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 flex items-center justify-center font-black shadow-md shadow-rose-500/15 shrink-0">
-            <Scan className="w-6 h-6 stroke-[2.5] animate-pulse" />
-          </div>
-          <div>
-            <h1 className="text-xl lg:text-2xl font-bold text-slate-900 dark:text-white tracking-wide flex items-center gap-2.5 flex-wrap">
-              <span>AI Thị Giác & Chẩn Đoán Bệnh Lý Da Liễu Thú Cưng</span>
-              <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-400/30 font-bold normal-case">
-                Veterinary Pathology AI
-              </span>
-            </h1>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-              Phân tích quang học vi tổn thương biểu bì, phát hiện ký sinh trùng, nấm men và ổ viêm mủ thực thể
-            </p>
-          </div>
+      {/* 2. Cảnh báo y khoa bắt buộc */}
+      <div className="p-3.5 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-900 dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-200 flex items-center justify-between gap-3 text-xs shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+          <span className="font-semibold">
+            Kết quả AI chỉ để tham khảo, không thay thế khám thú y trực tiếp.
+          </span>
         </div>
-
-        <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-auto">
-          {pets && pets.length > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 text-xs">
-              <span className="text-slate-500 dark:text-slate-400 text-[11px]">Bệnh nhân:</span>
-              <select
-                value={selectedPetId}
-                onChange={(e) => setSelectedPetId(e.target.value)}
-                className="bg-transparent text-slate-900 dark:text-cyan-300 font-bold focus:outline-hidden cursor-pointer text-xs"
-              >
-                {pets.map(pet => (
-                  <option key={pet.id} value={pet.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white">
-                    {pet.name} ({pet.species || 'Thú cưng'})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-bold shadow-xs">
-            <Microscope className="w-4 h-4 text-rose-600 dark:text-rose-400 animate-pulse" />
-            <span>Chẩn Đoán Tổn Thương Thực Thể</span>
-          </div>
-        </div>
+        <span className="text-[11px] text-amber-700 dark:text-amber-300 hidden sm:inline">
+          Khi có dấu hiệu bất thường, hãy đưa bé đến phòng khám thú y gần nhất.
+        </span>
       </div>
 
-      {/* Thông báo lỗi nếu có */}
-      {scanError && (
-        <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500 dark:text-amber-400" />
-          <span>{scanError}</span>
+
+      {/* 4. Tab 2: Tài liệu tham khảo da liễu thường gặp (Độc lập, không lẫn với AI) */}
+      {activeTab === 'reference' && (
+        <div className="space-y-4">
+          <div className="p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-500/30 text-xs space-y-1">
+            <h3 className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <span>Cẩm nang tham khảo các bệnh lý da liễu chó mèo thường gặp</span>
+            </h3>
+            <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+              Tài liệu được tổng hợp từ cẩm nang lâm sàng da liễu thú y cơ bản nhằm mục đích nâng cao kiến thức nhận biết cho chủ nuôi. 
+              <strong> Tuyệt đối không dùng tài liệu để tự ý chẩn đoán hay mua thuốc điều trị tại nhà khi chưa có ý kiến của Bác sĩ Thú y.</strong>
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {Object.values(PET_PATHOLOGY_DATASET).map((item) => (
+              <Card 
+                key={item.id} 
+                className="p-5 space-y-3 flex flex-col justify-between"
+              >
+                <div className="space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block mb-0.5">
+                        {item.category}
+                      </span>
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
+                        {item.name}
+                      </h4>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border shrink-0 ${item.riskColor}`}>
+                      {item.riskLevel}
+                    </span>
+                  </div>
+
+                  {/* Triệu chứng */}
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block">
+                      Dấu hiệu nhận biết điển hình:
+                    </span>
+                    <ul className="text-xs text-slate-600 dark:text-slate-400 pl-4 list-disc space-y-0.5 leading-relaxed">
+                      {item.symptoms.map((s, idx) => (
+                        <li key={idx}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Sơ cứu an toàn */}
+                  <div className="space-y-1 pt-1">
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block">
+                      Lưu ý chăm sóc & Sơ cứu tại nhà:
+                    </span>
+                    <ul className="text-xs text-slate-600 dark:text-slate-400 pl-4 list-disc space-y-0.5 leading-relaxed">
+                      {item.careTips.map((c, idx) => (
+                        <li key={idx}>{c}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 italic">
+                    <strong>Khuyến nghị chuyên môn:</strong> {item.vetAdvice}
+                  </p>
+                </div>
+              </Card>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Main Grid: Left Laser Scanning Camera / Right Pathology Diagnostic Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* ================================================================= */}
-        {/* CỘT TRÁI: KHUNG CHỨA ẢNH, AI BOUNDING BOX & TIA LASER XANH QUÉT   */}
-        {/* ================================================================= */}
-        <div className="bg-white dark:bg-[#12192A] backdrop-blur-2xl rounded-3xl p-6 border border-slate-200/80 dark:border-white/10 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)] dark:shadow-2xl space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold text-slate-900 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
-              <Camera className="w-4 h-4 text-rose-500" />
-              <span>Ảnh Macro Cận Cảnh Tổn Thương Da</span>
-            </h3>
-            {activeCaseKey && (
-              <span className="text-[11px] font-mono text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-500/15 px-2.5 py-0.5 rounded-lg border border-rose-200 dark:border-rose-500/30 flex items-center gap-1 font-bold">
-                <Check className="w-3 h-3 text-rose-600 dark:text-rose-400" />
-                <span>Bệnh phẩm: {PET_PATHOLOGY_DATASET[activeCaseKey]?.name?.split('(')[0]?.trim()}</span>
-              </span>
-            )}
-          </div>
-
-          {/* 1. KHUNG ẢNH VỚI EMPTY STATE HOẶC AI BOUNDING BOX HUD VÀ TIA LASER QUÉT */}
-          <div className={`relative h-72 sm:h-96 w-full rounded-2xl overflow-hidden flex items-center justify-center group shadow-xs dark:shadow-2xl ${
-            selectedImage 
-              ? 'border border-slate-200 dark:border-white/15 bg-slate-950'
-              : 'bg-slate-50 border-2 border-dashed border-slate-200 text-slate-500 dark:bg-slate-950 dark:border-white/15 dark:text-slate-400'
-          }`}>
-            {selectedImage ? (
-              <>
-                <img
-                  id="preview-pet-image"
-                  key={selectedImage}
-                  src={selectedImage}
-                  alt="Vùng da tổn thương lâm sàng"
-                  className={`w-full h-full object-cover transition-all duration-300 ${
-                    isScanning ? 'scale-105 brightness-90 filter contrast-110' : ''
-                  }`}
-                  onError={(e) => {
-                    const fallback = PET_PATHOLOGY_DATASET[activeCaseKey]?.fallbackImage;
-                    if (fallback && e.target.src !== fallback) {
-                      e.target.src = fallback;
-                    }
-                  }}
-                />
-
-                {/* ----------------------------------------------------------- */}
-                {/* LỚP PHỦ KHUNG QUÉT AI (CHỈ HIỂN THỊ KHI ĐÃ HOÀN TẤT QUÉT)   */}
-                {/* ----------------------------------------------------------- */}
-                {hasScanned && scanResult && (
-                  <div 
-                    className={`absolute rounded-xl border-2 border-dashed transition-all duration-500 pointer-events-none z-10 ${
-                      scanResult.riskLevel === 'Khẩn cấp'
-                        ? 'border-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.6)]'
-                        : 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.55)]'
-                    }`}
-                    style={{
-                      top: boxCoords?.top || '25%',
-                      left: boxCoords?.left || '25%',
-                      width: boxCoords?.width || '50%',
-                      height: boxCoords?.height || '45%'
-                    }}
-                  >
-                    {/* Nhãn gắn kèm khung quét HUD */}
-                    <div className={`absolute -top-3.5 left-2 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold shadow-lg backdrop-blur-md flex items-center gap-1.5 whitespace-nowrap border ${
-                      scanResult.riskLevel === 'Khẩn cấp'
-                        ? 'bg-slate-950/95 text-rose-300 border-rose-500/80'
-                        : 'bg-slate-950/95 text-amber-300 border-amber-500/80'
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full animate-ping ${
-                        scanResult.riskLevel === 'Khẩn cấp' ? 'bg-rose-400' : 'bg-amber-400'
-                      }`} />
-                      <span>[ 🔴 Vi tổn thương: {scanResult.name?.split('(')[0]?.trim()} ({scanResult.confidence}%) ]</span>
-                    </div>
-
-                    {/* 4 góc ngắm mục tiêu y khoa */}
-                    <div className="absolute -top-1 -left-1 w-3.5 h-3.5 border-t-2 border-l-2 border-rose-400 rounded-tl shadow-[0_0_6px_#f43f5e]" />
-                    <div className="absolute -top-1 -right-1 w-3.5 h-3.5 border-t-2 border-r-2 border-rose-400 rounded-tr shadow-[0_0_6px_#f43f5e]" />
-                    <div className="absolute -bottom-1 -left-1 w-3.5 h-3.5 border-b-2 border-l-2 border-rose-400 rounded-bl shadow-[0_0_6px_#f43f5e]" />
-                    <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 border-b-2 border-r-2 border-rose-400 rounded-br shadow-[0_0_6px_#f43f5e]" />
-
-                    {/* Lớp phủ mờ tâm điểm tổn thương */}
-                    <div className={`absolute inset-0 rounded-xl pointer-events-none ${
-                      scanResult.riskLevel === 'Khẩn cấp' ? 'bg-rose-500/15' : 'bg-amber-500/15'
-                    }`} />
-                  </div>
+      {/* 5. Tab 1: Luồng quan sát ảnh (Hai cột trên Desktop 55%/45%, một cột trên Mobile) */}
+      {activeTab === 'observe' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          
+          {/* =============================================================== */}
+          {/* CỘT TRÁI (~55%): CHỌN THÚ CƯNG, TẢI ẢNH & NHẬP THÔNG TIN MÔ TẢ   */}
+          {/* =============================================================== */}
+          <div className="lg:col-span-7 bg-white dark:bg-[#12192A] rounded-2xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xs space-y-5">
+            
+            {/* Bước 1: Chọn thú cưng */}
+            <div className="space-y-2">
+              <label htmlFor="select-pet-observation" className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                1. Chọn thú cưng cần quan sát:
+              </label>
+              
+              <select
+                id="select-pet-observation"
+                value={selectedPetId}
+                onChange={(e) => handlePetChange(e.target.value)}
+                className="w-full h-11 px-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/40 cursor-pointer"
+              >
+                {pets && pets.length > 0 ? (
+                  pets.map(pet => (
+                    <option key={pet.id} value={pet.id}>
+                      {pet.name} ({pet.species === 'cat' ? 'Mèo' : pet.species === 'dog' ? 'Chó' : (pet.species || 'Thú cưng')})
+                    </option>
+                  ))
+                ) : (
+                  <option value="">Chưa có thú cưng trong tài khoản</option>
                 )}
+              </select>
 
-                {/* Badge thông báo ảnh sẵn sàng khi chưa quét */}
-                {!hasScanned && !isScanning && (
-                  <div className="absolute bottom-3 left-3 right-3 px-3.5 py-2.5 rounded-xl bg-slate-950/85 backdrop-blur-md border border-white/10 text-xs text-slate-200 flex items-center justify-between shadow-xl">
-                    <span className="flex items-center gap-2 font-medium">
-                      <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
-                      Ảnh macro vi tổn thương đã nạp vào kính soi
-                    </span>
-                    <span className="text-cyan-300 font-bold bg-cyan-500/15 px-2.5 py-0.5 rounded-lg border border-cyan-500/30 text-[11px]">
-                      Sẵn sàng quét
-                    </span>
-                  </div>
-                )}
-
-                {/* ----------------------------------------------------------- */}
-                {/* HIỆU ỨNG TIA LASER XANH QUÉT DỌC KHI ĐANG BẤM QUÉT          */}
-                {/* ----------------------------------------------------------- */}
-                {isScanning && (
-                  <div className="absolute inset-0 bg-slate-950/45 backdrop-blur-[1px] flex flex-col justify-between p-4 pointer-events-none z-20 overflow-hidden">
-                    
-                    {/* Tia laser xanh quét dọc chạy lặp lại */}
-                    <div className="absolute left-0 right-0 h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_20px_#22d3ee,0_0_40px_#06b6d4] animate-green-laser z-30">
-                      <div className="absolute -top-16 left-0 right-0 h-16 bg-gradient-to-b from-transparent to-cyan-500/25 pointer-events-none" />
-                    </div>
-
-                    {/* Vòng Radar xanh quét giữa ảnh */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-28 h-28 rounded-full border border-cyan-400/40 animate-ping opacity-60" />
-                      <div className="absolute w-20 h-20 rounded-full border-2 border-dashed border-cyan-400/70 animate-spin" />
-                      <Crosshair className="w-8 h-8 text-cyan-400 drop-shadow-[0_0_10px_#22d3ee] animate-pulse" />
-                    </div>
-
-                    {/* Telemetry info */}
-                    <div className="flex items-center justify-between text-[11px] font-mono font-bold text-cyan-300 bg-slate-900/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-cyan-500/30 shadow-md">
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                        AI PATHOLOGY MACRO SCANNER
-                      </span>
-                      <span>CLINICAL LESION MAPPING</span>
-                    </div>
-
-                    {/* Thanh trạng thái đang phân tích trong 1.0s */}
-                    <div className="bg-slate-900/95 backdrop-blur-md p-3 rounded-2xl border border-cyan-500/30 text-white space-y-1.5 shadow-2xl">
-                      <div className="flex items-center justify-between text-[11px] font-bold">
-                        <span className="text-cyan-300 flex items-center gap-2">
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
-                          Đang quét laser vi tổn thương biểu bì & phân tích mô học...
-                        </span>
-                        <span className="text-cyan-400 font-mono">1.0s Optical Scan</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                        <div className="h-full bg-gradient-to-r from-cyan-500 via-teal-400 to-emerald-400 w-full animate-pulse" />
-                      </div>
-                    </div>
-
-                  </div>
-                )}
-              </>
-            ) : (
-              /* EMPTY STATE (PLACEHOLDER): Xám ngọc thanh tao chuẩn Porcelain */
-              <div className="flex flex-col items-center justify-center p-6 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/20 flex items-center justify-center mb-3 text-slate-400 group-hover:text-rose-500 dark:group-hover:text-rose-400 transition-colors shadow-xs">
-                  <Camera className="w-8 h-8 opacity-75" />
+              {/* Thông tin thú cưng tóm tắt */}
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-800 text-xs grid grid-cols-3 gap-2">
+                <div>
+                  <span className="text-[11px] text-slate-400 block">Giống loài:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200 truncate block">
+                    {currentPet.breed || 'Chưa cập nhật'}
+                  </span>
                 </div>
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-1">
-                  Chưa có ảnh vi tổn thương da
-                </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mb-4 leading-relaxed">
-                  Tải lên ảnh chụp cận cảnh vùng da bệnh (mẩn đỏ, rụng lông, mụn mủ) hoặc chọn nhanh 1 trong 4 ca bệnh phẩm mẫu bên dưới để bắt đầu quét AI.
-                </p>
-                <label className="py-2.5 px-5 rounded-xl bg-white dark:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/15 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2 cursor-pointer transition-all active:scale-95 shadow-xs">
-                  <Upload className="w-4 h-4 text-rose-500" />
-                  <span>Tải ảnh từ máy</span>
-                  <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                </label>
+                <div>
+                  <span className="text-[11px] text-slate-400 block">Tuổi:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200 block">
+                    {currentPet.age ? `${currentPet.age} tuổi` : 'Chưa cập nhật'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 block">Cân nặng:</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200 block">
+                    {currentPet.weight ? `${currentPet.weight} kg` : 'Chưa cập nhật'}
+                  </span>
+                </div>
               </div>
-            )}
-          </div>
+            </div>
 
-          {/* Action Buttons: Tải ảnh & Bắt đầu quét */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <label className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.04] hover:bg-slate-100 dark:hover:bg-white/[0.08] text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98">
-                <Upload className="w-4 h-4 text-rose-500" />
-                <span>{selectedImage ? 'Đổi ảnh khác' : 'Tải ảnh tổn thương'}</span>
+            {/* Bước 2: Tải ảnh (Giới hạn chiều cao 220-280px) */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                  2. Tải ảnh chụp cận cảnh (Tối đa 5 MB):
+                </label>
+                {selectedImage && (
+                  <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">
+                    Ảnh đã được nạp sẵn sàng
+                  </span>
+                )}
+              </div>
+
+              {/* Khung xem trước hoặc vùng kéo thả - Capped height */}
+              <div className={`relative h-[220px] sm:h-[260px] w-full rounded-2xl overflow-hidden flex items-center justify-center border transition-all ${
+                selectedImage
+                  ? 'border-slate-300 dark:border-slate-700 bg-slate-950'
+                  : 'bg-slate-50/80 border-2 border-dashed border-slate-200 dark:bg-slate-900/50 dark:border-slate-800'
+              }`}>
+                {selectedImage ? (
+                  <>
+                    <img
+                      src={selectedImage}
+                      alt="Ảnh quan sát thú cưng"
+                      className="w-full h-full object-contain"
+                    />
+
+                    {/* Thanh công cụ khi đã có ảnh: Đổi ảnh / Xóa ảnh */}
+                    <div className="absolute bottom-3 left-3 right-3 p-2 rounded-xl bg-slate-950/80 backdrop-blur-md border border-white/10 flex items-center justify-between text-xs">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="h-9 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+                      >
+                        <Upload className="w-3.5 h-3.5 text-indigo-300" />
+                        <span>Đổi ảnh khác</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleClearImage}
+                        className="h-9 px-3 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                        <span>Xóa ảnh</span>
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-6 text-center space-y-2.5">
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-xs">
+                      <Upload className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        Chưa có ảnh nào được chọn
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Định dạng: JPG, PNG hoặc WebP • Tối đa 5 MB
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      id="btn-upload-pet-photo"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-sm transition-all cursor-pointer flex items-center gap-2 active:scale-98"
+                    >
+                      <Upload className="w-4 h-4" />
+                      <span>Chọn ảnh từ thiết bị</span>
+                    </button>
+                  </div>
+                )}
+
                 <input
+                  ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   onChange={handleImageUpload}
                   className="hidden"
                 />
-              </label>
-
-              <button
-                type="button"
-                onClick={() => triggerScan()}
-                disabled={isScanning || !selectedImage}
-                className="py-2.5 px-6 rounded-xl bg-gradient-to-r from-rose-600 via-pink-600 to-rose-700 hover:from-rose-500 hover:to-pink-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs shadow-lg shadow-rose-600/30 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>
-                  {isScanning 
-                    ? 'Đang Quét Laser...' 
-                    : hasScanned 
-                    ? 'Quét Lại Tổn Thương' 
-                    : 'Bắt Đầu Quét AI'}
-                </span>
-              </button>
-            </div>
-
-            {/* ------------------------------------------------------------- */}
-            {/* BỘ CHỌN 4 CA BỆNH LÝ MẪU (THẺ NỀN TRẮNG BO GÓC, BÓNG MỜ NHẸ) */}
-            {/* ------------------------------------------------------------- */}
-            <div>
-              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
-                Hoặc chọn nhanh 4 ca bệnh lý thực tế trong từ điển bệnh học:
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2">
-                {SAMPLE_PATHOLOGY_CASES.map((item) => {
-                  const isSelected = activeCaseKey === item.id;
-                  const itemData = PET_PATHOLOGY_DATASET[item.id];
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => handleSelectCase(item.id)}
-                      className={`p-2.5 rounded-2xl text-left transition-all group cursor-pointer border flex items-center gap-3 ${
-                        isSelected
-                          ? 'bg-rose-50/80 border-rose-300 dark:bg-rose-500/20 dark:border-rose-500/70 shadow-md ring-2 ring-rose-400/40 dark:shadow-rose-500/20'
-                          : 'bg-white hover:bg-slate-50 border-slate-200/90 shadow-[0_2px_8px_-2px_rgba(15,23,42,0.06)] hover:border-slate-300 dark:bg-white/[0.03] dark:hover:bg-rose-500/10 dark:border-white/10 dark:hover:border-rose-500/40'
-                      }`}
-                    >
-                      {/* Macro Thumbnail Preview */}
-                      <img 
-                        src={itemData.image} 
-                        alt={item.shortName} 
-                        className="w-12 h-12 rounded-xl object-cover border border-slate-200 dark:border-white/15 shrink-0 group-hover:scale-105 transition-transform"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-1 mb-0.5">
-                          <span className="text-xs font-bold text-slate-900 group-hover:text-rose-600 dark:text-white dark:group-hover:text-rose-300 truncate">
-                            {item.shortName}
-                          </span>
-                          <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-md border font-bold shrink-0 ${
-                            itemData.riskLevel === 'Khẩn cấp'
-                              ? 'text-rose-700 bg-rose-50 border-rose-200 dark:text-rose-400 dark:bg-rose-500/10 dark:border-rose-500/20'
-                              : 'text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-500/10 dark:border-amber-500/20'
-                          }`}>
-                            {itemData.riskLevel}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug line-clamp-2">
-                          {item.summary}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        {/* ================================================================= */}
-        {/* CỘT PHẢI: BẢNG KẾT QUẢ CHẨN ĐOÁN BỆNH LÝ & TỔN THƯƠNG THỰC THỂ    */}
-        {/* ================================================================= */}
-        <div className="bg-white dark:bg-[#12192A] backdrop-blur-2xl rounded-3xl p-6 border border-slate-200/80 dark:border-white/10 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)] dark:shadow-2xl text-slate-800 dark:text-slate-100 flex flex-col justify-between">
-          <div className="space-y-4">
-            {/* Header kết quả */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/10">
-              <div className="flex items-center gap-2">
-                <Microscope className="w-5 h-5 text-rose-500" />
-                <div>
-                  <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                    Hồ Sơ Chẩn Đoán Bệnh Lý Lâm Sàng
-                  </h3>
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                    Bệnh nhân: <strong className="text-cyan-700 dark:text-cyan-300">{currentPet.name}</strong>
-                  </span>
-                </div>
               </div>
 
-              {hasScanned && scanResult && (
-                <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-full text-xs font-black bg-rose-50 border border-rose-200 text-rose-700 dark:bg-rose-500/20 dark:border-rose-500/30 dark:text-rose-300 flex items-center gap-1 font-mono shadow-xs">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-rose-500" />
-                    <span>Độ tin cậy: {scanResult.confidence}%</span>
-                  </span>
+              {imageFileError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 dark:bg-rose-500/10 dark:border-rose-500/30 dark:text-rose-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{imageFileError}</span>
                 </div>
               )}
             </div>
 
-            {/* Thẻ khuyến cáo lâm sàng / Lưu ý y khoa bắt buộc */}
-            <div className="p-3.5 rounded-2xl bg-rose-50/80 border border-rose-200/80 text-rose-900 dark:bg-rose-500/10 dark:border-rose-500/30 dark:text-rose-200 flex items-start gap-2.5 shadow-xs">
-              <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-              <p className="text-xs leading-relaxed">
-                <strong className="font-bold text-rose-950 dark:text-rose-300 mr-1">Cảnh báo y khoa:</strong>
-                Chẩn đoán quang học AI giúp sàng lọc nhanh tổn thương thực thể. Cần kết hợp cạo sâu biểu bì soi tươi hoặc đèn Wood tại phòng khám thú y để quyết định phác đồ điều trị chính xác.
-              </p>
+            {/* Bước 3: Nhập thông tin bổ sung */}
+            <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                3. Thông tin mô tả thêm từ chủ nuôi (tùy chọn):
+              </label>
+
+              <div className="space-y-2.5">
+                <div>
+                  <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400 block mb-1">
+                    Vị trí quan sát trên cơ thể:
+                  </span>
+                  <input
+                    type="text"
+                    value={observationNotes.location}
+                    onChange={(e) => setObservationNotes({ ...observationNotes, location: e.target.value })}
+                    placeholder="Ví dụ: Vùng da bụng, vành tai trái, sống lưng, kẽ móng chân sau..."
+                    className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30"
+                  />
+                </div>
+
+                <div>
+                  <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400 block mb-1">
+                    Biểu hiện bất thường quan sát được:
+                  </span>
+                  <input
+                    type="text"
+                    value={observationNotes.symptoms}
+                    onChange={(e) => setObservationNotes({ ...observationNotes, symptoms: e.target.value })}
+                    placeholder="Ví dụ: Mẩn đỏ li ti, rụng lông thành mảng, đóng vảy trắng, ngứa gãi liên tục..."
+                    className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30"
+                  />
+                </div>
+
+                <div>
+                  <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400 block mb-1">
+                    Thời gian xuất hiện (nếu biết):
+                  </span>
+                  <input
+                    type="text"
+                    value={observationNotes.duration}
+                    onChange={(e) => setObservationNotes({ ...observationNotes, duration: e.target.value })}
+                    placeholder="Ví dụ: Vừa thấy hôm nay, khoảng 2-3 ngày nay, hơn 1 tuần..."
+                    className="w-full h-10 px-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30"
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* EMPTY STATE: Chưa quét */}
-            {!hasScanned || !scanResult ? (
-              <div className="py-14 text-center text-slate-500 dark:text-slate-400 space-y-4 my-auto">
-                <div className="w-16 h-16 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 flex items-center justify-center mx-auto text-rose-600 dark:text-rose-400 shadow-sm">
-                  <Microscope className="w-8 h-8 opacity-80" />
-                </div>
-                <div className="space-y-1.5">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Chưa có kết quả chẩn đoán y khoa
-                  </h4>
-                  <p className="text-xs max-w-sm mx-auto text-slate-500 dark:text-slate-400 leading-relaxed">
-                    {selectedImage 
-                      ? 'Ảnh tổn thương đã được nạp vào kính soi quang học. Hãy nhấn nút "Bắt Đầu Quét AI" để phân tích vi tổn thương.'
-                      : 'Vui lòng nạp ảnh chụp cận cảnh vùng da tổn thương (mẩn đỏ, rụng lông, mụn mủ) hoặc chọn 1 ca bệnh mẫu, sau đó bấm "Bắt Đầu Quét AI" để nhận diện bệnh lý, mức độ rủi ro và phác đồ sơ cứu ban đầu.'
-                    }
+            {/* Bước 4: Nút Phân tích ảnh & Nút Hủy */}
+            <div className="pt-2">
+              {isAnalyzing ? (
+                <div className="space-y-2">
+                  <div className="p-3.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-2 font-bold text-indigo-900 dark:text-indigo-300">
+                      <RefreshCw className="w-4 h-4 animate-spin text-indigo-600 dark:text-indigo-400" />
+                      <span>Đang phân tích ảnh thú cưng...</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCancelAnalysis}
+                      className="h-8 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs cursor-pointer transition-colors shadow-xs"
+                    >
+                      Hủy yêu cầu
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 text-center">
+                    Vui lòng chờ trong giây lát.
                   </p>
                 </div>
-
-                {selectedImage && !isScanning && (
+              ) : (
+                <div className="space-y-2">
                   <button
                     type="button"
-                    onClick={triggerScan}
-                    className="py-2.5 px-5 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold text-xs shadow-lg shadow-rose-600/30 active:scale-95 transition-all inline-flex items-center gap-2 cursor-pointer"
+                    id="btn-start-ai-analysis"
+                    onClick={handleTriggerAnalysis}
+                    disabled={!selectedImage || !selectedPetId || !modelStatus?.isRunning || !modelStatus?.supportsVision}
+                    className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm shadow-md shadow-indigo-600/20 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Sparkles className="w-4 h-4" />
-                    <span>Bắt Đầu Quét AI Ngay</span>
+                    <span>Bắt đầu phân tích ảnh</span>
                   </button>
-                )}
+
+                  {/* Chú thích lý do vô hiệu hóa — lấy từ statusCode thực tế */}
+                  {(!modelStatus?.isRunning || !modelStatus?.supportsVision) && (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 text-center font-medium">
+                      {modelStatus === null
+                        ? '⏳ Đang kiểm tra trạng thái dịch vụ...'
+                        : '⚠️ Dịch vụ phân tích ảnh chưa sẵn sàng. Vui lòng thử lại sau.'
+                      }
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+          </div>
+
+          {/* =============================================================== */}
+          {/* CỘT PHẢI (~45%): KẾT QUẢ QUAN SÁT & HÀNH ĐỘNG TIẾP THEO          */}
+          {/* =============================================================== */}
+          <div className="lg:col-span-5 bg-white dark:bg-[#12192A] rounded-2xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 h-auto">
+            
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Microscope className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                  Kết quả quan sát tham khảo
+                </h3>
               </div>
-            ) : (
-              /* ĐÃ CÓ KẾT QUẢ CHẨN ĐOÁN SAU KHI QUÉT */
-              <div className="space-y-3.5 text-xs leading-relaxed animate-in fade-in duration-300">
-                {/* Khối 1: Tên bệnh lý & Phân loại & Mức độ rủi ro */}
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200/80 dark:border-white/10 space-y-2">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Bệnh lý da liễu xác định:
-                    </span>
-                    <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
-                      scanResult.riskLevel === 'Khẩn cấp'
-                        ? 'text-rose-700 bg-rose-50 border-rose-200 dark:text-rose-400 dark:bg-rose-500/10 dark:border-rose-500/20'
-                        : 'text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-500/10 dark:border-amber-500/20'
-                    }`}>
-                      Mức độ rủi ro: {scanResult.riskLevel}
-                    </span>
-                  </div>
-                  <h4 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-snug">
-                    {scanResult.name}
+
+              {scanResult && (
+                <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>{new Date(scanResult.analyzedAt).toLocaleTimeString('vi-VN')}</span>
+                </span>
+              )}
+            </div>
+
+            {/* Thông báo lỗi nếu có */}
+            {scanError && (
+              <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <span className="font-bold block">Thông báo:</span>
+                  <p className="leading-relaxed">{scanError}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Thông báo lưu thành công */}
+            {saveSuccessMessage && (
+              <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-200 text-xs flex items-center gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>{saveSuccessMessage}</span>
+              </div>
+            )}
+
+            {/* TRẠNG THÁI 1: CHƯA PHÂN TÍCH */}
+            {!scanResult && !isAnalyzing && (
+              <div className="py-8 text-center text-slate-500 dark:text-slate-400 space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center mx-auto text-slate-400">
+                  <Info className="w-6 h-6 opacity-75 text-indigo-500" />
+                </div>
+                <div className="space-y-1 max-w-sm mx-auto">
+                  <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    Chưa có kết quả quan sát
                   </h4>
-                  <div className="flex items-center gap-2 text-[11px] text-cyan-700 dark:text-cyan-300 font-semibold">
-                    <Info className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                    <span>Nhóm bệnh học: {scanResult.category}</span>
-                  </div>
-                </div>
-
-                {/* Khối 2: Triệu chứng lâm sàng quan sát được (Symptoms) */}
-                <div className="p-4 rounded-2xl bg-rose-50/50 dark:bg-slate-950/60 border border-rose-100 dark:border-white/5 space-y-2">
-                  <div className="flex items-center gap-2 text-rose-900 dark:text-rose-300 font-bold text-xs">
-                    <Activity className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
-                    <span>Triệu chứng lâm sàng điển hình quan sát được:</span>
-                  </div>
-                  <ul className="space-y-1.5 text-xs text-slate-700 dark:text-slate-300 pl-6 list-disc">
-                    {scanResult.symptoms?.map((symptom, idx) => (
-                      <li key={idx} className="leading-relaxed">
-                        {symptom}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Khối 3: Khuyến cáo sơ cứu ban đầu (First Aid) */}
-                <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-500/25 space-y-2">
-                  <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-300 font-bold text-xs">
-                    <Bandage className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                    <span>Khuyến cáo sơ cứu ban đầu tại nhà:</span>
-                  </div>
-                  <ul className="space-y-1.5 text-xs text-slate-700 dark:text-slate-300 pl-6 list-disc">
-                    {scanResult.firstAid?.map((aid, idx) => (
-                      <li key={idx} className="leading-relaxed">
-                        {aid}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Khối 4: Lời khuyên & Chỉ định Bác sĩ Thú y (Clinical Advice) */}
-                <div className="p-3.5 rounded-2xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-500/25 space-y-1.5">
-                  <div className="flex items-center gap-2 text-amber-900 dark:text-amber-300 font-bold text-xs">
-                    <ShieldCheck className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                    <span>Chỉ định & Lời khuyên Bác sĩ Thú y:</span>
-                  </div>
-                  <p className="text-xs text-amber-950 dark:text-amber-100/90 leading-relaxed pl-6 italic">
-                    "{scanResult.clinicalAdvice}"
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Tải ảnh chụp cận cảnh và nhấn <strong>“Bắt đầu phân tích ảnh”</strong> ở khung bên trái để nhận thông tin quan sát tham khảo.
                   </p>
                 </div>
               </div>
             )}
+
+            {/* TRẠNG THÁI 2: ĐANG PHÂN TÍCH */}
+            {isAnalyzing && (
+              <div className="py-10 text-center text-slate-500 dark:text-slate-400 space-y-3">
+                <RefreshCw className="w-8 h-8 animate-spin text-indigo-600 dark:text-indigo-400 mx-auto" />
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    Đang phân tích ảnh thú cưng...
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
+                    Vui lòng chờ trong giây lát.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* TRẠNG THÁI 3: CÓ KẾT QUẢ THỰC TẾ (TÁCH BIỆT RÕ 4 PHẦN) */}
+            {scanResult && !isAnalyzing && (
+              <div className="space-y-3.5 text-xs">
+                
+                {/* 1. Thông tin người dùng cung cấp */}
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 space-y-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                    1. Thông tin tiếp nhận:
+                  </span>
+                  <div className="text-slate-700 dark:text-slate-300 space-y-0.5 leading-relaxed">
+                    <p>• <strong>Bệnh nhân:</strong> {currentPet.name} ({currentPet.species === 'cat' ? 'Mèo' : currentPet.species === 'dog' ? 'Chó' : currentPet.species})</p>
+                    {observationNotes.location && <p>• <strong>Vị trí quan sát:</strong> {observationNotes.location}</p>}
+                    {observationNotes.symptoms && <p>• <strong>Biểu hiện ghi nhận:</strong> {observationNotes.symptoms}</p>}
+                    {observationNotes.duration && <p>• <strong>Thời gian:</strong> {observationNotes.duration}</p>}
+                  </div>
+                </div>
+
+                {/* 2. Nội dung quan sát AI */}
+                <div className="p-4 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-500/30 space-y-2.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-900 dark:text-indigo-300 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>KẾT QUẢ QUAN SÁT THAM KHẢO</span>
+                  </span>
+                  <div className="text-slate-800 dark:text-slate-200 whitespace-pre-line leading-relaxed text-xs">
+                    {scanResult.analysis}
+                  </div>
+                  {scanResult.originalText && scanResult.originalText !== scanResult.analysis && (
+                    <details className="pt-2 border-t border-indigo-100 dark:border-indigo-900/50 text-[11px] text-slate-500 dark:text-slate-400">
+                      <summary className="cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors select-none font-medium">
+                        Xem bản ghi nhận gốc tiếng Anh
+                      </summary>
+                      <p className="mt-1.5 p-2 rounded-lg bg-white/70 dark:bg-slate-900/60 font-mono text-[10px] leading-relaxed text-slate-600 dark:text-slate-300">
+                        {scanResult.originalText}
+                      </p>
+                    </details>
+                  )}
+                </div>
+
+                {/* 3. Giới hạn quang học & An toàn */}
+                <div className="p-3.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 text-[11px] text-amber-900 dark:text-amber-300/90 space-y-1">
+                  <span className="font-bold text-amber-950 dark:text-amber-200 block">
+                    Giới hạn quang học & Cảnh báo an toàn thú y:
+                  </span>
+                  <p className="leading-relaxed text-slate-600 dark:text-slate-300">
+                    {scanResult.disclaimer || 'Ảnh chụp 2D không thể thay thế thăm khám trực tiếp, không đo đạc vi sinh vật hay vi nấm dưới biểu bì. Không kết luận thú cưng khỏe mạnh hay loại trừ bệnh tật từ hình ảnh. Tuyệt đối không tự ý dùng thuốc hay kê đơn khi chưa có chỉ định từ Bác sĩ Thú y.'}
+                  </p>
+                </div>
+
+                {/* Các nút hành động: Lưu kết quả tham khảo & Đặt lịch khám */}
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsSaveModalOpen(true)}
+                    className="flex-1 h-10 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-white/[0.04] hover:bg-slate-100 dark:hover:bg-white/[0.08] text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                  >
+                    <BookmarkPlus className="w-4 h-4 text-indigo-500" />
+                    <span>Lưu kết quả tham khảo</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsBookingConfirmOpen(true)}
+                    className="flex-1 h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
+                  >
+                    <Stethoscope className="w-4 h-4" />
+                    <span>Đặt lịch khám với Bác sĩ</span>
+                  </button>
+                </div>
+
+              </div>
+            )}
+
           </div>
 
-          {/* Nút hành động nổi bật: [ 🩺 Đặt Lịch Khám Da Liễu Ngay ] */}
-          {hasScanned && scanResult && (
-            <div className="pt-4 border-t border-slate-100 dark:border-white/10 mt-4 flex flex-col gap-2.5">
-              <button
-                type="button"
-                onClick={() => {
-                  try { sound?.playClick?.(); } catch (_) {}
-                  const symptomNote = `[Chẩn đoán AI Bệnh Lý Da Liễu]: ${scanResult.name} (Độ tin cậy: ${scanResult.confidence}%)
-- Bệnh nhân: ${currentPet.name} (${currentPet.species || 'Thú cưng'})
-- Nhóm: ${scanResult.category} - Mức độ: ${scanResult.riskLevel}
-- Triệu chứng: ${scanResult.symptoms?.join('; ')}
-- Sơ cứu đã thực hiện: ${scanResult.firstAid?.join('; ')}
-- Chỉ định: ${scanResult.clinicalAdvice}`;
-
-                  if (typeof onOpenVetBooking === 'function') {
-                    onOpenVetBooking({
-                      petId: currentPet.id,
-                      service: 'Khám Da liễu & Vết nấm/ve rận',
-                      note: symptomNote,
-                      facility: 'Phòng khám PetCare Chi nhánh Cầu Giấy (Phòng khám 02)'
-                    });
-                  } else if (typeof onOpenAddSchedule === 'function') {
-                    onOpenAddSchedule('vet', 'Khám Da liễu & Vết nấm/ve rận');
-                  }
-                }}
-                className="w-full py-3.5 px-5 font-black text-xs sm:text-sm rounded-2xl bg-gradient-to-r from-rose-600 via-rose-500 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white shadow-xl shadow-rose-600/30 active:scale-95 transition-all flex items-center justify-center gap-2.5 cursor-pointer"
-              >
-                <Stethoscope className="w-5 h-5 text-white animate-pulse" />
-                <span>🩺 Đặt Lịch Khám Thú Y & Chuyển Kết Quả AI</span>
-              </button>
-
-              <p className="text-[11px] text-center text-slate-400">
-                Tự động gửi kèm triệu chứng, phác đồ sơ cứu và ảnh tổn thương của <strong>{currentPet.name}</strong> sang hồ sơ tiếp nhận Bác sĩ.
-              </p>
-            </div>
-          )}
         </div>
+      )}
 
-      </div>
+      {/* =================================================================== */}
+      {/* MODAL 1: XÁC NHẬN LƯU KẾT QUẢ THAM KHẢO                             */}
+      {/* =================================================================== */}
+      <Modal
+        isOpen={isSaveModalOpen}
+        onClose={() => setIsSaveModalOpen(false)}
+        size="sm"
+        title="Lưu kết quả quan sát tham khảo"
+        subtitle={`Theo dõi riêng cho bé ${currentPet.name}`}
+        footer={
+          <div className="flex items-center justify-end gap-2.5 w-full">
+            <button
+              type="button"
+              onClick={() => setIsSaveModalOpen(false)}
+              disabled={isSavingObservation}
+              className="h-10 px-4 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+            >
+              Hủy bỏ
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveObservationConfirm}
+              disabled={isSavingObservation}
+              className="h-10 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-sm flex items-center gap-2 cursor-pointer"
+            >
+              {isSavingObservation ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Đang lưu...</span>
+                </>
+              ) : (
+                <span>Xác nhận lưu</span>
+              )}
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-900/60 p-3.5 rounded-xl border border-slate-200/70 dark:border-slate-800">
+            Kết quả này được lưu với nhãn <strong>“Quan sát AI tham khảo”</strong> trong hồ sơ của bạn. 
+            <strong> Tuyệt đối không xuất hiện dưới dạng bệnh án của Bác sĩ Thú y.</strong>
+          </p>
+        </div>
+      </Modal>
 
-    </div>
+      {/* =================================================================== */}
+      {/* MODAL 2: XÁC NHẬN CHUYỂN THÔNG TIN SANG ĐẶT LỊCH KHÁM                */}
+      {/* =================================================================== */}
+      <Modal
+        isOpen={isBookingConfirmOpen}
+        onClose={() => setIsBookingConfirmOpen(false)}
+        size="sm"
+        title="Chuyển sang Đặt lịch khám thú y"
+        subtitle={`Thú cưng: ${currentPet.name}`}
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            Bạn có muốn chuyển thông tin quan sát ban đầu này vào mục <strong>Ghi chú / Lý do khám</strong> khi mở form đặt lịch để Bác sĩ nắm được tình trạng không?
+          </p>
+
+          <div className="flex flex-col gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => handleProceedBooking(true)}
+              className="w-full h-11 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
+            >
+              <span>Chuyển kèm nội dung quan sát</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleProceedBooking(false)}
+              className="w-full h-11 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs cursor-pointer"
+            >
+              <span>Đặt lịch (Không chuyển nội dung AI)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsBookingConfirmOpen(false)}
+              className="w-full py-2 text-center text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+            >
+              Hủy
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+    </PageContainer>
   );
 };
 
